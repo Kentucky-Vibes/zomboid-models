@@ -1,14 +1,19 @@
-import type { AnimationClip } from 'three';
+import { Color, type AnimationClip } from 'three';
 
 import type { AssetCache } from '../assets/AssetCache.js';
 import type { Manifest } from '../format/manifest.js';
-import type { CharacterDescription } from '../format/types.js';
+import type { CharacterDescription, RgbColor } from '../format/types.js';
 import { CharacterRig, type RigWarning } from './CharacterRig.js';
+import { resolveBeard, resolveHair, resolveOutfit } from './outfit.js';
 
 export interface BuiltCharacter {
   rig: CharacterRig;
   warnings: RigWarning[];
 }
+
+export const HAIR_KEY = 'hair';
+export const BEARD_KEY = 'beard';
+export const BODY_KEY = 'body';
 
 /** Picks the texture key for the body skin from the description. */
 export function bodyTextureKey(
@@ -22,7 +27,8 @@ export function bodyTextureKey(
   const index = description.body.skin ?? 0;
   const skin = body.skins[Math.min(Math.max(index, 0), body.skins.length - 1)];
   if (!skin) return undefined;
-  return description.body.bodyHair && body.bodyHair ? `${skin}a` : skin;
+  const hairy = `${skin}a`;
+  return description.body.bodyHair && body.bodyHair && manifest.textures[hairy] ? hairy : skin;
 }
 
 async function applyTexture(
@@ -43,9 +49,30 @@ async function applyTexture(
   rig.setTexture(key, await cache.loadTexture(file));
 }
 
+function toColor(color: RgbColor | undefined): Color | undefined {
+  return color === undefined ? undefined : new Color(color.r, color.g, color.b);
+}
+
+async function addHairPart(
+  cache: AssetCache,
+  manifest: Manifest,
+  rig: CharacterRig,
+  key: string,
+  model: string | undefined,
+  texture: string | undefined,
+  color: RgbColor | undefined,
+): Promise<void> {
+  if (model === undefined) return;
+  await rig.addWornModel(cache, manifest, key, model);
+  await applyTexture(cache, manifest, rig, key, texture);
+  const tint = toColor(color);
+  if (tint) rig.setTint(key, tint);
+}
+
 /**
- * Builds a rig from a character description: the body with its skin, then every worn item
- * that has a mesh for the body's sex, with the texture its description selects.
+ * Builds a rig from a character description: the body with its skin, hair and beard, and
+ * every worn item that the game's slot rules keep, each with the texture its description
+ * selects. Skinned items bind to the body skeleton; static ones sit on their bone.
  */
 export async function buildCharacter(
   cache: AssetCache,
@@ -53,28 +80,55 @@ export async function buildCharacter(
   description: CharacterDescription,
 ): Promise<BuiltCharacter> {
   const rig = await CharacterRig.load(cache, manifest, description);
-  await applyTexture(cache, manifest, rig, 'body', bodyTextureKey(manifest, description));
+  const sex = description.body.sex;
+  await applyTexture(cache, manifest, rig, BODY_KEY, bodyTextureKey(manifest, description));
 
-  for (const worn of description.worn ?? []) {
-    const wearable = manifest.wearables[worn.item];
-    const clothingItemName = worn.clothingItem ?? wearable?.clothingItem;
-    const clothingItem =
-      clothingItemName === undefined ? undefined : manifest.clothingItems[clothingItemName];
-    if (!clothingItem) {
-      rig.warnings.push({
-        code: 'missing-item',
-        message: `worn item "${worn.item}" is not in the manifest`,
-      });
-      continue;
+  const outfit = resolveOutfit(manifest, description);
+  for (const warning of outfit.warnings)
+    rig.warnings.push({ code: 'missing-item', message: warning });
+
+  for (const worn of outfit.worn) {
+    if (worn.hidden || worn.model === undefined) continue;
+    const key = worn.description.item;
+    if (worn.clothingItem.static) {
+      await rig.addStaticModel(cache, manifest, key, worn.model, worn.clothingItem.attachBone);
+    } else {
+      await rig.addWornModel(cache, manifest, key, worn.model);
     }
-    const modelKey = clothingItem.model?.[description.body.sex];
-    if (modelKey === undefined) continue;
-    await rig.addWornModel(cache, manifest, worn.item, modelKey);
     const choices =
-      clothingItem.textures.length > 0 ? clothingItem.textures : clothingItem.baseTextures;
-    const choice = choices[Math.min(Math.max(worn.textureChoice ?? 0, 0), choices.length - 1)];
-    await applyTexture(cache, manifest, rig, worn.item, choice);
+      worn.clothingItem.textures.length > 0
+        ? worn.clothingItem.textures
+        : worn.clothingItem.baseTextures;
+    const choice =
+      choices[Math.min(Math.max(worn.description.textureChoice ?? 0, 0), choices.length - 1)];
+    await applyTexture(cache, manifest, rig, key, choice);
+    const tint = toColor(worn.description.tint);
+    if (tint) rig.setTint(key, tint);
   }
+
+  const hair = resolveHair(manifest, sex, description.body.hair, outfit.hatCategory);
+  const beard = resolveBeard(manifest, description.body.beard, outfit.hatCategory);
+  for (const warning of [...hair.warnings, ...beard.warnings]) {
+    rig.warnings.push({ code: 'missing-item', message: warning });
+  }
+  await addHairPart(
+    cache,
+    manifest,
+    rig,
+    HAIR_KEY,
+    hair.model,
+    hair.texture,
+    description.body.hairColor,
+  );
+  await addHairPart(
+    cache,
+    manifest,
+    rig,
+    BEARD_KEY,
+    beard.model,
+    beard.texture,
+    description.body.beardColor ?? description.body.hairColor,
+  );
 
   return { rig, warnings: rig.warnings };
 }

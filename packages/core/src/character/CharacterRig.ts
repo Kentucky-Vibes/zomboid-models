@@ -10,7 +10,9 @@ import {
   Skeleton,
   Vector3,
   type AnimationAction,
+  type Color,
   type Material,
+  type Mesh,
   type Object3D,
   type SkinnedMesh,
   type Texture,
@@ -27,9 +29,9 @@ export interface RigWarning {
 }
 
 export interface RigPart {
-  /** Full item type for worn items, `body` for the body. */
+  /** Full item type for worn items, `body`, `hair`, or `beard`. */
   key: string;
-  mesh: SkinnedMesh;
+  mesh: Mesh;
   material: MeshLambertMaterial;
 }
 
@@ -115,12 +117,61 @@ export class CharacterRig extends Group {
     }
   }
 
+  /**
+   * Adds every mesh of a static model as a child of a bone, keeping the transform the mesh has
+   * inside its own file. Without a bone name the meshes sit at the skeleton root.
+   */
+  async addStaticModel(
+    cache: AssetCache,
+    manifest: Manifest,
+    key: string,
+    modelKey: string,
+    boneName: string | undefined,
+  ): Promise<void> {
+    const model = manifest.models[modelKey];
+    if (!model) {
+      this.warnings.push({
+        code: 'missing-model',
+        message: `manifest has no model "${modelKey}" for ${key}`,
+      });
+      return;
+    }
+    const parent = boneName === undefined ? undefined : this.bones.get(boneName);
+    if (boneName !== undefined && !parent) {
+      this.warnings.push({
+        code: 'missing-bone',
+        message: `${key}: bone "${boneName}" is not in the body skeleton`,
+      });
+    }
+    const gltf = await cache.loadGltf(model.file);
+    const scene = cloneSkeleton(gltf.scene);
+    scene.updateMatrixWorld(true);
+    const meshes: Mesh[] = [];
+    scene.traverse((object) => {
+      if (isMesh(object) && !isSkinnedMesh(object)) meshes.push(object);
+    });
+    for (const mesh of meshes) {
+      const local = mesh.matrixWorld.clone();
+      mesh.removeFromParent();
+      (parent ?? this.skeletonRoot).add(mesh);
+      local.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      this.attachMesh(key, mesh);
+    }
+  }
+
   /** Applies a texture to every part with the given key. */
   setTexture(key: string, texture: Texture | null): void {
     for (const part of this.parts) {
       if (part.key !== key) continue;
       part.material.map = texture;
       part.material.needsUpdate = true;
+    }
+  }
+
+  /** Multiplies the texture of every part with the given key by a colour, like the game's tint. */
+  setTint(key: string, color: Color): void {
+    for (const part of this.parts) {
+      if (part.key === key) part.material.color.copy(color);
     }
   }
 
@@ -200,11 +251,18 @@ export class CharacterRig extends Group {
   }
 
   private attachSkinned(key: string, mesh: SkinnedMesh, replaceMaterial = true): void {
-    const material = new MeshLambertMaterial({ alphaTest: 0.5, side: DoubleSide });
     if (replaceMaterial || !(mesh.material instanceof MeshLambertMaterial)) {
-      disposeMaterial(mesh.material);
-      mesh.material = material;
+      this.attachMesh(key, mesh);
+      return;
     }
+    mesh.frustumCulled = false;
+    this.parts.push({ key, mesh, material: mesh.material });
+  }
+
+  private attachMesh(key: string, mesh: Mesh): void {
+    const material = new MeshLambertMaterial({ alphaTest: 0.5, side: DoubleSide });
+    disposeMaterial(mesh.material);
+    mesh.material = material;
     mesh.frustumCulled = false;
     this.parts.push({ key, mesh, material });
   }
@@ -236,6 +294,10 @@ export class CharacterRig extends Group {
 
 function isBone(object: Object3D): object is Bone {
   return (object as Partial<Bone>).isBone === true;
+}
+
+function isMesh(object: Object3D): object is Mesh {
+  return (object as Partial<Mesh>).isMesh === true;
 }
 
 function isSkinnedMesh(object: Object3D): object is SkinnedMesh {

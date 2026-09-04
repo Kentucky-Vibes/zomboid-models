@@ -22,7 +22,7 @@ export class AssetCache {
   }
 
   loadManifest(): Promise<Manifest> {
-    this.manifest ??= fetch(this.url('manifest.json'))
+    this.manifest ??= fetch(this.url('manifest.json'), { cache: 'no-cache' })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`could not load manifest from ${response.url}: ${response.status}`);
