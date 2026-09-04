@@ -219,6 +219,32 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           </label>
         </div>
       </Field>
+      <Field label="Damage">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {(
+            [
+              ['bite on chest', 'Torso_Upper', { bitten: true }],
+              ['dirty bandage on left hand', 'Hand_L', { bandage: 'dirty' }],
+              ['scratch on neck', 'Neck', { scratched: true }],
+              ['bandage on head', 'Head', { bandage: 'clean' }],
+            ] as const
+          ).map(([label, part, state]) => (
+            <label key={label}>
+              <input
+                type="checkbox"
+                checked={character.damage?.[part] !== undefined}
+                onChange={(e) => {
+                  const damage = { ...character.damage };
+                  if (e.target.checked) damage[part] = state;
+                  else delete damage[part];
+                  update({ damage });
+                }}
+              />{' '}
+              {label}
+            </label>
+          ))}
+        </div>
+      </Field>
       {(['primary', 'secondary'] as const).map((hand) => (
         <Field key={hand} label={`${hand} hand`}>
           <HeldItemPicker

@@ -17,6 +17,7 @@ import {
 import { planTextureKeys, type CompositePlan } from '../texture/plan.js';
 import type { TextureComposer } from '../texture/TextureComposer.js';
 import { CharacterRig, type RigWarning } from './CharacterRig.js';
+import { damageWornItems } from './damage.js';
 import { resolveBeard, resolveHair, resolveOutfit, type ResolvedWornItem } from './outfit.js';
 
 export interface BuiltCharacter {
@@ -172,11 +173,21 @@ export async function buildCharacter(
   const rig = await CharacterRig.load(cache, manifest, description);
   const sex = description.body.sex;
 
-  const outfit = resolveOutfit(manifest, description);
-  for (const warning of outfit.warnings) {
+  const damageWarnings: string[] = [];
+  const damageItems = damageWornItems(manifest, sex, description.damage, damageWarnings);
+  const outfit = resolveOutfit(manifest, {
+    ...description,
+    worn: [...damageItems, ...(description.worn ?? [])],
+  });
+  for (const warning of [...damageWarnings, ...outfit.warnings]) {
     rig.warnings.push({ code: 'missing-item', message: warning });
   }
-  const visible = outfit.worn.filter((worn) => !worn.hidden && worn.model !== undefined);
+  const shown = outfit.worn.filter((worn) => !worn.hidden);
+  const visible = shown.filter((worn) => worn.model !== undefined);
+  const overlays = shown
+    .filter((worn) => worn.model === undefined)
+    .map((worn) => textureChoice(worn))
+    .filter((key): key is string => key !== undefined);
 
   const skin = bodyTextureKey(manifest, description);
   if (skin === undefined) {
@@ -193,6 +204,7 @@ export async function buildCharacter(
       blood: description.body.blood,
       dirt: description.body.dirt,
       layers,
+      overlays,
     });
     await applyPlan(context, rig, BODY_KEY, plan);
   }

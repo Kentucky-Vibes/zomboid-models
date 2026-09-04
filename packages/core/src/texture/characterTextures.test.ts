@@ -109,6 +109,43 @@ describe('planBodyTexture', () => {
     expect(planTextureKeys(plan)).not.toContain('body/masks/chest');
   });
 
+  it('draws mesh-less layers through the visible masks after the skin', () => {
+    const plan = planBodyTexture(manifest(), {
+      skinTexture: 'body/malebody01',
+      blood: undefined,
+      dirt: undefined,
+      layers: [
+        {
+          masks: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+          masksFolder: undefined,
+          underlayMasksFolder: undefined,
+          holes: [],
+        },
+      ],
+      overlays: ['bodydmg/malebody01_bandages_head'],
+    });
+    const summary = plan.passes.map(
+      (p) =>
+        `${p.shader}:${'key' in p.diffuse ? p.diffuse.key : 'result'}:${p.mask && 'key' in p.mask ? p.mask.key : ''}`,
+    );
+    expect(summary).toEqual([
+      'blit:body/malebody01:',
+      'bodyMask:result:body/masks/head',
+      'bodyMask:bodydmg/malebody01_bandages_head:body/masks/head',
+    ]);
+  });
+
+  it('blits mesh-less layers directly when nothing is hidden', () => {
+    const plan = planBodyTexture(manifest(), {
+      skinTexture: 'body/malebody01',
+      blood: undefined,
+      dirt: undefined,
+      layers: [],
+      overlays: ['body/stubble/m_hair_stubble'],
+    });
+    expect(plan.passes.map((p) => p.shader)).toEqual(['blit', 'blit']);
+  });
+
   it('skips masking when nothing is hidden', () => {
     const plan = planBodyTexture(manifest(), {
       skinTexture: 'body/malebody01',

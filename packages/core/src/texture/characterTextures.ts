@@ -43,6 +43,11 @@ export interface BodyTextureInput {
   dirt: PartAmounts | undefined;
   /** Visible worn items with meshes, innermost first. */
   layers: readonly BodyLayerInput[];
+  /**
+   * Texture keys of worn items without a mesh (stubble, wounds, bandages), innermost first.
+   * They are drawn onto the skin through the same masks as the skin itself.
+   */
+  overlays?: readonly string[];
 }
 
 /** Which body regions the worn items hide and which mask folder applies to the body. */
@@ -107,17 +112,26 @@ export function planBodyTexture(manifest: Manifest, input: BodyTextureInput): Co
   }
 
   const { hidden, folder } = bodyMaskState(input.layers);
+  const overlays = input.overlays ?? [];
   if (hidden.size === 0) {
+    for (const key of overlays) passes.push({ shader: 'blit', diffuse: { key } });
     return { passes };
   }
-  MASK_LEAVES.filter((leaf) => !hidden.has(leaf)).forEach((leaf, index) => {
+  const visible = MASK_LEAVES.filter((leaf) => !hidden.has(leaf));
+  const maskKey = (leaf: MaskPart): string => `${folder}/${leaf.toLowerCase()}`;
+  visible.forEach((leaf, index) => {
     passes.push({
       shader: 'bodyMask',
       resolve: index === 0,
       diffuse: { result: true },
-      mask: { key: `${folder}/${leaf.toLowerCase()}` },
+      mask: { key: maskKey(leaf) },
     });
   });
+  for (const key of overlays) {
+    for (const leaf of visible) {
+      passes.push({ shader: 'bodyMask', diffuse: { key }, mask: { key: maskKey(leaf) } });
+    }
+  }
   const holes = new Set<BodyPart>();
   for (const layer of input.layers) for (const part of layer.holes) holes.add(part);
   for (const part of BODY_PARTS) {
