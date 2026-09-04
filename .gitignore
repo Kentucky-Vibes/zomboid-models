@@ -1,24 +1,131 @@
-# dependencies and build output
+# dependencies, package manager state, and build output
 node_modules/
 dist/
 coverage/
+.nyc_output/
 *.tsbuildinfo
 .eslintcache
+.stylelintcache
+.vite/
+.turbo/
+.cache/
+.parcel-cache/
+vite.config.*.timestamp-*
+vitest.config.*.timestamp-*
+stats.html
+*.tgz
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/install-state.gz
+.pnp.*
+
+# logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.node_repl_history
+
+# environment files with secrets or machine-specific values
+.env
+.env.*
+!.env.example
 
 # local pipeline configuration and output (contains machine-specific paths and game assets)
 zomboid-models.config.json
 /assets-out/
 **/.zomboid-models-cache/
 
-# environment and editor files
-.env
-.env.*
-.DS_Store
-Thumbs.db
-*.log
-.idea/
-.vscode/*
-!.vscode/extensions.json
-
 # hand-made development assets (converted game files)
 apps/playground/public/dev-assets/
+
+# test and report output
+test-results/
+playwright-report/
+playwright/.cache/
+
+# operating system leftovers
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.stackdump
+.directory
+.Trash-*
+.fuse_hidden*
+
+# editors and IDEs
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.vs/
+*.code-workspace
+.fleet/
+.zed/
+*.sublime-project
+*.sublime-workspace
+.history/
+*.swp
+*.swo
+*~
+.netrwhist
+.project
+.classpath
+.settings/
+*.suo
+*.user
+.ionide/
+
+# state, caches, and per-machine config of AI coding tools
+.claude/
+CLAUDE.local.md
+.cursor/
+.windsurf/
+.aider*
+.codex/
+.gemini/
+.continue/
+.roo/
+.cline/
+.kiro/
+.trae/
+.augment/
+.kilocode/
+.amazonq/
+.junie/
+.serena/
+.specstory/
+.crush/
+
+# temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+*.pid
+*.seed
+.tmp/
+/tmp/
+
+# Python tooling, in case helper scripts appear
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
