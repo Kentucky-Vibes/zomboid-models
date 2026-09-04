@@ -254,6 +254,36 @@ export async function buildCharacter(
     if (held.texture) await applyPlainTexture(context, rig, key, held.texture);
   }
 
+  for (const [index, attached] of (description.attached ?? []).entries()) {
+    const attachmentName = manifest.attachedLocations[attached.location];
+    const held = manifest.heldItems[attached.item];
+    if (attachmentName === undefined) {
+      rig.warnings.push({
+        code: 'missing-item',
+        message: `attached location "${attached.location}" is not in the manifest`,
+      });
+      continue;
+    }
+    if (!held) {
+      rig.warnings.push({
+        code: 'missing-item',
+        message: `attached item "${attached.item}" is not in the manifest`,
+      });
+      continue;
+    }
+    const bodyAttachment = manifest.bodyAttachments[attachmentName];
+    if (!bodyAttachment?.bone) {
+      rig.warnings.push({
+        code: 'missing-bone',
+        message: `attachment "${attachmentName}" has no bone on the body model`,
+      });
+      continue;
+    }
+    const key = `attached:${index}`;
+    await rig.addAttachedModel(cache, manifest, key, held, attachmentName, bodyAttachment.bone);
+    if (held.texture) await applyPlainTexture(context, rig, key, held.texture);
+  }
+
   const hair = resolveHair(manifest, sex, description.body.hair, outfit.hatCategory);
   const beard = resolveBeard(manifest, description.body.beard, outfit.hatCategory);
   for (const warning of [...hair.warnings, ...beard.warnings]) {

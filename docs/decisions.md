@@ -62,12 +62,14 @@ The game's Java classes are decompiled locally to understand model loading, text
 
 ## Milestones
 
-1. Scaffold, continuous integration, decompilation for research.
-2. Pipeline for vanilla assets; body, clothing, and hair from a hand-written JSON document; a looped idle animation; viewer and showcase modes; the playground.
-3. Held items and attached items.
-4. Blood, wounds, bandages, dirt, holes, and patches.
-5. Mod scanning.
-6. The reference exporter mod.
+1. Scaffold, continuous integration, decompilation for research. Done.
+2. Pipeline for vanilla assets; body, clothing, and hair from a hand-written JSON document; a looped idle animation; viewer and showcase modes; the playground. Done.
+3. Held items and attached items. Done for `.x` meshes; props stored as FBX are skipped by the pipeline until it learns to read FBX.
+4. Blood, wounds, bandages, dirt, holes, patches, tint, hue, and decals. Done.
+5. Mod scanning. Done; the outfit-by-name feature from the character format is still open.
+6. The reference exporter mod. Open.
+
+Later additions to the list: the Web Component and React packages exist (decided in the first session, delivered with milestone 4), and GitHub Pages for the playground waits for the organization to allow Pages.
 
 ## Credits
 

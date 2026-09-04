@@ -168,12 +168,28 @@ export class CharacterRig extends Group {
    * Adds a held item under a prop bone the way the game does: the body's attachment for that
    * prop, then the item's own attachment of the same name, then the mesh scaled by its script.
    */
-  async addHeldModel(
+  addHeldModel(
     cache: AssetCache,
     manifest: Manifest,
     key: string,
     held: ManifestHeldItem,
     propName: string,
+  ): Promise<void> {
+    return this.addAttachedModel(cache, manifest, key, held, propName, propName);
+  }
+
+  /**
+   * Adds an item's mesh under a bone through a named attachment: the body model's attachment of
+   * that name gives the placement on the bone, the item's own attachment of the same name (when
+   * it has one) adjusts it, and the mesh is scaled by its script.
+   */
+  async addAttachedModel(
+    cache: AssetCache,
+    manifest: Manifest,
+    key: string,
+    held: ManifestHeldItem,
+    attachmentName: string,
+    boneName: string,
   ): Promise<void> {
     const model = manifest.models[held.model];
     if (!model) {
@@ -183,19 +199,22 @@ export class CharacterRig extends Group {
       });
       return;
     }
-    const bone = this.bones.get(propName);
+    const bone = this.bones.get(boneName);
     if (!bone) {
       this.warnings.push({
         code: 'missing-bone',
-        message: `${key}: bone "${propName}" is not in the body skeleton`,
+        message: `${key}: bone "${boneName}" is not in the body skeleton`,
       });
       return;
     }
     const gltf = await cache.loadGltf(model.file);
     const scene = cloneSkeleton(gltf.scene);
     scene.updateMatrixWorld(true);
-    const parentNode = attachmentNode(manifest.bodyAttachments[propName], `${key}:${propName}`);
-    const selfNode = attachmentNode(held.attachments[propName], `${key}:self`);
+    const parentNode = attachmentNode(
+      manifest.bodyAttachments[attachmentName],
+      `${key}:${attachmentName}`,
+    );
+    const selfNode = attachmentNode(held.attachments[attachmentName], `${key}:self`);
     bone.add(parentNode);
     parentNode.add(selfNode);
     this.attachmentNodes.set(key, [...(this.attachmentNodes.get(key) ?? []), parentNode]);

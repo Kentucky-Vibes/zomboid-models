@@ -245,6 +245,24 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           ))}
         </div>
       </Field>
+      <Field label="Attached items">
+        <label>
+          <input
+            type="checkbox"
+            checked={(character.attached ?? []).some((a) => a.location === 'Rifle On Back')}
+            onChange={(e) => {
+              const attached = (character.attached ?? []).filter(
+                (a) => a.location !== 'Rifle On Back',
+              );
+              if (e.target.checked) {
+                attached.push({ location: 'Rifle On Back', item: 'Base.VarmintRifle' });
+              }
+              update({ attached });
+            }}
+          />{' '}
+          rifle on back
+        </label>
+      </Field>
       {(['primary', 'secondary'] as const).map((hand) => (
         <Field key={hand} label={`${hand} hand`}>
           <HeldItemPicker
