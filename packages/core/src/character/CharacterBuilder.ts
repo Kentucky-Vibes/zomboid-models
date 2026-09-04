@@ -14,6 +14,17 @@ export interface BuiltCharacter {
 export const HAIR_KEY = 'hair';
 export const BEARD_KEY = 'beard';
 export const BODY_KEY = 'body';
+/** Prop bones the game uses for the primary (right) and secondary (left) hand. */
+export const PRIMARY_PROP = 'Bip01_Prop1';
+export const SECONDARY_PROP = 'Bip01_Prop2';
+
+/** The idle clip the game would play: by the primary item's weapon type, else the default. */
+export function autoIdleClip(manifest: Manifest, description: CharacterDescription): string {
+  const primary = description.held?.primary?.item;
+  const weaponType = primary === undefined ? undefined : manifest.heldItems[primary]?.weaponType;
+  const byType = weaponType === undefined ? undefined : manifest.idle.byWeaponType[weaponType];
+  return byType ?? manifest.idle.default;
+}
 
 /** Picks the texture key for the body skin from the description. */
 export function bodyTextureKey(
@@ -104,6 +115,25 @@ export async function buildCharacter(
     await applyTexture(cache, manifest, rig, key, choice);
     const tint = toColor(worn.description.tint);
     if (tint) rig.setTint(key, tint);
+  }
+
+  const hands = [
+    ['primary', description.held?.primary, PRIMARY_PROP],
+    ['secondary', description.held?.secondary, SECONDARY_PROP],
+  ] as const;
+  for (const [hand, item, prop] of hands) {
+    if (!item) continue;
+    const held = manifest.heldItems[item.item];
+    if (!held) {
+      rig.warnings.push({
+        code: 'missing-item',
+        message: `held item "${item.item}" is not in the manifest`,
+      });
+      continue;
+    }
+    const key = `held:${hand}`;
+    await rig.addHeldModel(cache, manifest, key, held, prop);
+    if (held.texture) await applyTexture(cache, manifest, rig, key, held.texture);
   }
 
   const hair = resolveHair(manifest, sex, description.body.hair, outfit.hatCategory);

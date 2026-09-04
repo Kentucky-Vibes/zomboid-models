@@ -143,10 +143,16 @@ export function readMod(dir: string, gameVersion: GameVersion): DiscoveredMod | 
   };
 }
 
+/** Folders that hold mods rather than being mods: `mods` and Workshop's `Contents/mods`. */
+function containerFolders(dir: string): string[] {
+  return [join(dir, 'mods'), join(dir, 'Contents', 'mods')].filter(isDirectory);
+}
+
 /**
  * Finds mods under the given folders. A folder can be a mod itself, a folder of mods (the user's
- * `Zomboid/mods`), a Workshop content folder (`<id>/mods/<mod>`), or a Workshop staging folder
- * (`<name>/Contents/mods/<mod>`). When two mods share an id, the first one found wins.
+ * `Zomboid/mods`), a Workshop item (`<id>/mods/<mod>`) or a whole Workshop content folder of
+ * them, or a Workshop staging folder (`<name>/Contents/mods/<mod>`). When two mods share an id,
+ * the first one found wins.
  */
 export function discoverMods(roots: readonly string[], gameVersion: GameVersion): DiscoveredMod[] {
   const found: DiscoveredMod[] = [];
@@ -157,21 +163,23 @@ export function discoverMods(roots: readonly string[], gameVersion: GameVersion)
       found.push(mod);
     }
   };
+  const scanContainer = (container: string): void => {
+    for (const candidate of subdirectories(container)) add(readMod(candidate, gameVersion));
+  };
   for (const root of roots) {
     const self = readMod(root, gameVersion);
     if (self) {
       add(self);
       continue;
     }
+    for (const container of containerFolders(root)) scanContainer(container);
     for (const candidate of subdirectories(root)) {
       const mod = readMod(candidate, gameVersion);
       if (mod) {
         add(mod);
         continue;
       }
-      for (const nested of [join(candidate, 'mods'), join(candidate, 'Contents', 'mods')]) {
-        for (const inner of subdirectories(nested)) add(readMod(inner, gameVersion));
-      }
+      for (const container of containerFolders(candidate)) scanContainer(container);
     }
   }
   return found;

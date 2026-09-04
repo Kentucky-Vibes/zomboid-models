@@ -161,6 +161,20 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           })}
         </div>
       </Field>
+      {(['primary', 'secondary'] as const).map((hand) => (
+        <Field key={hand} label={`${hand} hand`}>
+          <HeldItemPicker
+            manifest={manifest}
+            value={character.held?.[hand]?.item}
+            onChange={(item) => {
+              const held = { ...character.held };
+              if (item === undefined) delete held[hand];
+              else held[hand] = { item };
+              update({ held });
+            }}
+          />
+        </Field>
+      ))}
       <Field label="Add item (filter by type or location)">
         <input
           value={filter}
@@ -183,6 +197,59 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function HeldItemPicker({
+  manifest,
+  value,
+  onChange,
+}: {
+  manifest: Manifest;
+  value: string | undefined;
+  onChange: (item: string | undefined) => void;
+}) {
+  const [filter, setFilter] = useState('');
+  const needle = filter.trim().toLowerCase();
+  const matches = useMemo(
+    () =>
+      Object.entries(manifest.heldItems)
+        .filter(([type]) => needle.length > 0 && type.toLowerCase().includes(needle))
+        .sort(([a], [b]) => a.localeCompare(b))
+        .slice(0, 12),
+    [manifest, needle],
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <span style={{ flex: 1 }}>{value ?? 'nothing'}</span>
+        {value !== undefined && (
+          <button type="button" onClick={() => onChange(undefined)}>
+            ×
+          </button>
+        )}
+      </div>
+      <input
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        placeholder="type to search, e.g. axe"
+      />
+      {matches.map(([type, held]) => (
+        <div key={type} style={{ display: 'flex', gap: 4 }}>
+          <button
+            type="button"
+            onClick={() => {
+              onChange(type);
+              setFilter('');
+            }}
+          >
+            +
+          </button>
+          <span>{type}</span>
+          <span style={{ opacity: 0.6 }}>{held.weaponType}</span>
+        </div>
+      ))}
     </div>
   );
 }

@@ -20,8 +20,9 @@ import {
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 
 import type { AssetCache } from '../assets/AssetCache.js';
-import type { Manifest } from '../format/manifest.js';
+import type { Manifest, ManifestHeldItem } from '../format/manifest.js';
 import type { CharacterDescription, Sex } from '../format/types.js';
+import { attachmentNode } from './attachments.js';
 
 export interface RigWarning {
   code: 'missing-item' | 'missing-model' | 'missing-texture' | 'missing-bone' | 'missing-animation';
@@ -44,6 +45,7 @@ export class CharacterRig extends Group {
   readonly bones = new Map<string, Bone>();
   readonly mixer: AnimationMixer;
   readonly warnings: RigWarning[] = [];
+  private readonly attachmentNodes = new Map<string, Object3D[]>();
   private action: AnimationAction | undefined;
 
   private constructor(readonly skeletonRoot: Object3D) {
@@ -157,6 +159,55 @@ export class CharacterRig extends Group {
     }
   }
 
+  /**
+   * Adds a held item under a prop bone the way the game does: the body's attachment for that
+   * prop, then the item's own attachment of the same name, then the mesh scaled by its script.
+   */
+  async addHeldModel(
+    cache: AssetCache,
+    manifest: Manifest,
+    key: string,
+    held: ManifestHeldItem,
+    propName: string,
+  ): Promise<void> {
+    const model = manifest.models[held.model];
+    if (!model) {
+      this.warnings.push({
+        code: 'missing-model',
+        message: `manifest has no model "${held.model}" for ${key}`,
+      });
+      return;
+    }
+    const bone = this.bones.get(propName);
+    if (!bone) {
+      this.warnings.push({
+        code: 'missing-bone',
+        message: `${key}: bone "${propName}" is not in the body skeleton`,
+      });
+      return;
+    }
+    const gltf = await cache.loadGltf(model.file);
+    const scene = cloneSkeleton(gltf.scene);
+    scene.updateMatrixWorld(true);
+    const parentNode = attachmentNode(manifest.bodyAttachments[propName], `${key}:${propName}`);
+    const selfNode = attachmentNode(held.attachments[propName], `${key}:self`);
+    bone.add(parentNode);
+    parentNode.add(selfNode);
+    this.attachmentNodes.set(key, [...(this.attachmentNodes.get(key) ?? []), parentNode]);
+    const meshes: Mesh[] = [];
+    scene.traverse((object) => {
+      if (isMesh(object) && !isSkinnedMesh(object)) meshes.push(object);
+    });
+    for (const mesh of meshes) {
+      const local = mesh.matrixWorld.clone();
+      mesh.removeFromParent();
+      selfNode.add(mesh);
+      local.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      mesh.scale.multiplyScalar(held.scale);
+      this.attachMesh(key, mesh);
+    }
+  }
+
   /** Applies a texture to every part with the given key. */
   setTexture(key: string, texture: Texture | null): void {
     for (const part of this.parts) {
@@ -182,6 +233,8 @@ export class CharacterRig extends Group {
       part.material.dispose();
       this.parts.splice(this.parts.indexOf(part), 1);
     }
+    for (const node of this.attachmentNodes.get(key) ?? []) node.removeFromParent();
+    this.attachmentNodes.delete(key);
   }
 
   /** Plays a clip, ignoring tracks that target bones this rig does not have. */

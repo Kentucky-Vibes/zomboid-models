@@ -17,6 +17,7 @@ const INITIAL_CHARACTER: CharacterDescription = {
     { item: 'Base.Jacket_Police' },
     { item: 'Base.Hat_BaseballCap_Police' },
   ],
+  held: { primary: { item: 'Base.Axe' } },
 };
 
 const CAMERA_PRESETS: Record<string, CameraOptions> = {
@@ -29,7 +30,7 @@ const CAMERA_PRESETS: Record<string, CameraOptions> = {
 export function App() {
   const { manifest, error } = useManifest(ASSET_BASE_URL);
   const [character, setCharacter] = useState<CharacterDescription>(INITIAL_CHARACTER);
-  const [animation, setAnimation] = useState<string | null>('Bob_Idle');
+  const [animation, setAnimation] = useState<string | null | undefined>(undefined);
   const [preset, setPreset] = useState('full');
 
   return (
@@ -49,10 +50,19 @@ export function App() {
           <label style={{ fontSize: 12 }}>
             Animation:{' '}
             <select
-              value={animation ?? ''}
-              onChange={(e) => setAnimation(e.target.value === '' ? null : e.target.value)}
+              value={animation === undefined ? 'auto' : (animation ?? 'none')}
+              onChange={(e) =>
+                setAnimation(
+                  e.target.value === 'auto'
+                    ? undefined
+                    : e.target.value === 'none'
+                      ? null
+                      : e.target.value,
+                )
+              }
             >
-              <option value="">bind pose</option>
+              <option value="auto">auto (by held item)</option>
+              <option value="none">bind pose</option>
               {Object.keys(manifest?.animations ?? { Bob_Idle: null }).map((name) => (
                 <option key={name} value={name}>
                   {name}

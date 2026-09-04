@@ -128,6 +128,15 @@ describe('discoverMods and load order', () => {
     expect(mods.map((m) => m.id)).toEqual(['Alpha']);
   });
 
+  it('accepts a single Workshop item or staging folder as a root', () => {
+    expect(
+      discoverMods([join(root, 'workshop', '3745718141')], GAME_VERSION).map((m) => m.id),
+    ).toEqual(['Beta']);
+    expect(discoverMods([join(root, 'staging', 'KCHAT')], GAME_VERSION).map((m) => m.id)).toEqual([
+      'Gamma',
+    ]);
+  });
+
   it('checks availability against the game version', () => {
     const mods = discoverMods([join(root, 'mods'), join(root, 'workshop')], GAME_VERSION);
     const beta = mods.find((m) => m.id === 'Beta');

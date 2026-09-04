@@ -11,7 +11,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { getAssetCache, type AssetCache } from '../assets/AssetCache.js';
 import { ATTRIBUTION_TEXT } from '../attribution.js';
-import { buildCharacter, loadClip } from '../character/CharacterBuilder.js';
+import { autoIdleClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
 import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
 import type { Manifest } from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
@@ -38,7 +38,10 @@ export interface ViewerOptions {
   assetBaseUrl: string;
   mode?: ViewerMode;
   character?: CharacterDescription;
-  /** Clip name from the manifest, or null for the bind pose. */
+  /**
+   * Clip name from the manifest, or null for the bind pose. When omitted, the idle clip the game
+   * would play for the held item is used.
+   */
   animation?: string | null;
   /** Freezes the animation at this time in seconds instead of playing it. */
   poseTime?: number;
@@ -244,7 +247,11 @@ export class Viewer implements FrameListener {
     rig: CharacterRig,
     generation: number,
   ): Promise<void> {
-    const name = this.options.animation;
+    const character = this.options.character;
+    const name =
+      this.options.animation === undefined && character
+        ? autoIdleClip(manifest, character)
+        : this.options.animation;
     const clip =
       name === null || name === undefined
         ? null

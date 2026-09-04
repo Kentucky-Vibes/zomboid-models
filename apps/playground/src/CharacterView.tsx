@@ -10,7 +10,8 @@ export interface CharacterViewProps {
   assetBaseUrl: string;
   mode: ViewerMode;
   character: CharacterDescription;
-  animation: string | null;
+  /** A clip name, null for the bind pose, or undefined to let the viewer pick the idle. */
+  animation: string | null | undefined;
   camera?: CameraOptions;
   width: number;
   height: number;
@@ -36,7 +37,7 @@ export function CharacterView({
       assetBaseUrl,
       mode,
       character,
-      animation,
+      ...(animation === undefined ? {} : { animation }),
       ...(camera ? { camera } : {}),
       background: mode === 'viewer' ? '#1d1d1f' : 'transparent',
       onWarning: (warning) => setMessages((m) => [...m, `${warning.code}: ${warning.message}`]),
