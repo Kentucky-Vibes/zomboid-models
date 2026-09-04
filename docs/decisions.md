@@ -69,7 +69,7 @@ The game's Java classes are decompiled locally to understand model loading, text
 5. Mod scanning. Done; the outfit-by-name feature from the character format is still open.
 6. The reference exporter mod. Done as `mods/zomboid-models-exporter`, tested under a Lua interpreter in Node.js against mock game objects; a run inside the game is still owed.
 
-Later additions to the list: the Web Component and React packages exist (decided in the first session, delivered with milestone 4), and GitHub Pages for the playground waits for the organization to allow Pages.
+Later additions to the list: the Web Component and React packages exist (decided in the first session, delivered with milestone 4), and the playground deploys to GitHub Pages from every push to main.
 
 ## Credits
 

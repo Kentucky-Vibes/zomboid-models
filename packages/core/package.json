@@ -1,6 +1,6 @@
 {
   "name": "zomboid-models",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Render Project Zomboid (Build 42) characters in the browser with three.js",
   "license": "MIT",
   "type": "module",
@@ -20,7 +20,8 @@
   },
   "files": [
     "dist",
-    "schema"
+    "schema",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",

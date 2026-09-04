@@ -12,8 +12,8 @@
   "dependencies": {
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "zomboid-models": "0.0.0",
-    "zomboid-models-react": "0.0.0"
+    "zomboid-models": "0.1.0",
+    "zomboid-models-react": "0.1.0"
   },
   "devDependencies": {
     "@types/react": "19.2.18",
