@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdirSync } from 'node:fs';
+import { accessSync, constants, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { resolveGameVersion, resolveMods } from '../build/build.js';
@@ -18,6 +18,31 @@ const REQUIRED_MEDIA = [
   'lua/shared/NPCs/BodyLocations.lua',
   'AnimSets/player/idle',
 ];
+
+/**
+ * Whether `relPath` exists under `root` when path components are compared without regard to
+ * case, the way the game's own file map resolves media paths. Matters on case-sensitive file
+ * systems, where `existsSync` alone would reject a folder named `models_x`.
+ */
+export function existsIgnoringCase(root: string, relPath: string): boolean {
+  let current = root;
+  for (const component of relPath.split('/')) {
+    if (component === '') continue;
+    let entries: string[];
+    try {
+      entries = readdirSync(current);
+    } catch {
+      return false;
+    }
+    const wanted = component.toLowerCase();
+    const match =
+      entries.find((entry) => entry === component) ??
+      entries.find((entry) => entry.toLowerCase() === wanted);
+    if (match === undefined) return false;
+    current = join(current, match);
+  }
+  return true;
+}
 
 /** Checks the configuration, the install, and the mod folders, and reports what it finds. */
 export function runDoctor(configPath: string, io: CliIo): number {
@@ -41,9 +66,9 @@ export function runDoctor(configPath: string, io: CliIo): number {
     fail(`gameDir ${config.gameDir} has no "media" folder`);
   } else {
     ok(`gameDir ${config.gameDir}`);
+    const media = join(config.gameDir, 'media');
     for (const relPath of REQUIRED_MEDIA) {
-      const path = join(config.gameDir, 'media', relPath);
-      if (existsSync(path)) ok(`media/${relPath}`);
+      if (existsIgnoringCase(media, relPath)) ok(`media/${relPath}`);
       else fail(`media/${relPath} is missing`);
     }
   }
