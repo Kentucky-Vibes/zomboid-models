@@ -6,6 +6,8 @@ The project has three parts. A three.js library draws the character from a JSON 
 
 Status: working, not yet published to npm. The renderer draws bodies, clothing, hats, hair, held items, blood, dirt, holes, patches, decals, wounds, and bandages the way the game composes them. Attached items and the reference exporter mod are still to come; see [docs/decisions.md](docs/decisions.md) for the milestones.
 
+A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It ships without game assets, so paste the URL of a folder you built with the pipeline into its asset field.
+
 ## How it fits together
 
 1. Run `zomboid-models build` against a Project Zomboid install and any mod folders. It writes a folder of meshes, textures, animations, and a catalog.
