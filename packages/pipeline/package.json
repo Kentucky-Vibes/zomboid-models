@@ -43,5 +43,8 @@
     "directory": "packages/pipeline"
   },
   "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
-  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues",
+  "devDependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  }
 }
