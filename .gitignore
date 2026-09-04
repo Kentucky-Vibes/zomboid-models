@@ -1,0 +1,21 @@
+# dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# local pipeline configuration and output (contains machine-specific paths and game assets)
+zomboid-models.config.json
+/assets-out/
+**/.zomboid-models-cache/
+
+# environment and editor files
+.env
+.env.*
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json

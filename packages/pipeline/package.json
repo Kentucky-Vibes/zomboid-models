@@ -1,0 +1,47 @@
+{
+  "name": "zomboid-models-pipeline",
+  "version": "0.0.0",
+  "description": "Converts Project Zomboid (Build 42) character assets from a game or dedicated server install into web-ready files for zomboid-models",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "zomboid-models": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "fast-xml-parser": "5.11.1",
+    "zomboid-models": "0.0.0"
+  },
+  "keywords": [
+    "project-zomboid",
+    "zomboid",
+    "gltf",
+    "directx-x",
+    "asset-pipeline"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kentucky-vibes/zomboid-models.git",
+    "directory": "packages/pipeline"
+  },
+  "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+}

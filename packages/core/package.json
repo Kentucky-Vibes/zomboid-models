@@ -1,0 +1,52 @@
+{
+  "name": "zomboid-models",
+  "version": "0.0.0",
+  "description": "Render Project Zomboid (Build 42) characters in the browser with three.js",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./format": {
+      "types": "./dist/format/index.d.ts",
+      "import": "./dist/format/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "three": ">=0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.185.4",
+    "three": "0.185.1"
+  },
+  "keywords": [
+    "project-zomboid",
+    "zomboid",
+    "three",
+    "threejs",
+    "webgl",
+    "character",
+    "3d"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kentucky-vibes/zomboid-models.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+}

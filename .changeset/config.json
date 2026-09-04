@@ -1,0 +1,10 @@
+{
+  "changelog": ["@changesets/changelog-github", { "repo": "kentucky-vibes/zomboid-models" }],
+  "commit": false,
+  "fixed": [],
+  "linked": [["zomboid-models", "zomboid-models-pipeline"]],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["playground"]
+}
