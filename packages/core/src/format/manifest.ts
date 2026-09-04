@@ -34,7 +34,7 @@ export interface ManifestBody {
   bodyHair: boolean;
 }
 
-/** One clothing item definition from the game's clothing XML, keyed by its name. */
+/** One clothing item definition from the game's clothing XML, keyed by its lowercased name. */
 export interface ManifestClothingItem {
   /** Model keys per sex; absent when the item has no mesh (texture-only layers). */
   model?: Partial<Record<Sex, string>>;
@@ -59,13 +59,48 @@ export interface ManifestClothingItem {
 
 /** One inventory item that can be worn, keyed by its full type such as `Base.Trousers_Denim`. */
 export interface ManifestWearable {
+  /** Lowercased clothing item name, a key of `clothingItems`. */
   clothingItem: string;
+  /** Body location id such as `base:pants`. */
   bodyLocation: string;
   /** Names from the item script's `BloodLocation`, mapped by the renderer to body parts. */
   bloodLocation: string[];
-  fabric?: 'cotton' | 'denim' | 'leather';
+  fabric?: string;
   displayName?: string;
-  icon?: string;
+}
+
+export type ManifestWeaponType =
+  | 'unarmed'
+  | '1handed'
+  | '2handed'
+  | 'heavy'
+  | 'knife'
+  | 'spear'
+  | 'handgun'
+  | 'firearm'
+  | 'throwing'
+  | 'chainsaw';
+
+export interface ManifestAttachment {
+  bone?: string;
+  offset: [number, number, number];
+  /** Degrees, applied as X then Y then Z. */
+  rotate: [number, number, number];
+  scale: number;
+}
+
+/** One item that can be held or attached, keyed by its full type. */
+export interface ManifestHeldItem {
+  /** Model key of the item's mesh. */
+  model: string;
+  /** Texture key of the item's texture. */
+  texture?: string;
+  weaponType: ManifestWeaponType;
+  /** Uniform scale from the model script. */
+  scale: number;
+  /** Attachment points declared on the item's model, keyed by name. */
+  attachments: Record<string, ManifestAttachment>;
+  displayName?: string;
 }
 
 export interface ManifestBodyLocation {
@@ -79,15 +114,21 @@ export interface ManifestBodyLocation {
 }
 
 export interface ManifestHairStyle {
-  model: string;
+  /** Model key, or absent for a bald style. */
+  model?: string;
   texture: string;
-  /** Replacement style per hat category, `default` for any hat. */
+  /** Replacement style per lowercased hat category, `default` for any hat. */
   alternates: Record<string, string>;
 }
 
 export interface ManifestBeardStyle {
-  model: string;
+  model?: string;
   texture: string;
+}
+
+export interface ManifestIdleClips {
+  default: string;
+  byWeaponType: Partial<Record<ManifestWeaponType, string>>;
 }
 
 export interface Manifest {
@@ -99,15 +140,21 @@ export interface Manifest {
   /** Mod ids that contributed assets, in load order. */
   mods: string[];
   bodies: Record<Sex, ManifestBody>;
+  /** Attachment points of the body models, keyed by name, for held and attached items. */
+  bodyAttachments: Record<string, ManifestAttachment>;
   models: Record<string, ManifestModel>;
   /** Texture files keyed by the game's texture path, lowercased, without extension. */
   textures: Record<string, string>;
   animations: Record<string, ManifestAnimation>;
+  idle: ManifestIdleClips;
   clothingItems: Record<string, ManifestClothingItem>;
   wearables: Record<string, ManifestWearable>;
+  heldItems: Record<string, ManifestHeldItem>;
   bodyLocations: Record<string, ManifestBodyLocation>;
+  /** Attached location display names to attachment names, for example `Rifle On Back`. */
+  attachedLocations: Record<string, string>;
   hair: Record<Sex, Record<string, ManifestHairStyle>>;
   beards: Record<string, ManifestBeardStyle>;
-  /** Mask texture keys per body part for blood and holes, in the game's order. */
-  bloodMasks: Record<BodyPart, string>;
+  /** Mask texture keys per body part for blood and holes. */
+  bloodMasks: Partial<Record<BodyPart, string>>;
 }

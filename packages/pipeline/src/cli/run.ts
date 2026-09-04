@@ -1,5 +1,10 @@
 import { parseArgs } from 'node:util';
 
+import { DEFAULT_CONFIG_FILE } from '../config.js';
+import { runBuildCommand } from './build.js';
+import { runDoctor } from './doctor.js';
+import { runInit } from './init.js';
+
 export const CLI_NAME = 'zomboid-models';
 
 const COMMANDS = ['init', 'build', 'doctor'] as const;
@@ -13,7 +18,8 @@ Commands:
   doctor    Check the configuration, the install, and the mod folders
 
 Options:
-  -c, --config <path>   Configuration file (default: zomboid-models.config.json)
+  -c, --config <path>   Configuration file (default: ${DEFAULT_CONFIG_FILE})
+  -f, --force           init: overwrite an existing configuration file
   -h, --help            Show this help
 `;
 
@@ -39,7 +45,8 @@ export function runCli(argv: readonly string[], io: CliIo = defaultIo): number {
       args: [...argv],
       allowPositionals: true,
       options: {
-        config: { type: 'string', short: 'c', default: 'zomboid-models.config.json' },
+        config: { type: 'string', short: 'c', default: DEFAULT_CONFIG_FILE },
+        force: { type: 'boolean', short: 'f', default: false },
         help: { type: 'boolean', short: 'h', default: false },
       },
     });
@@ -60,6 +67,13 @@ export function runCli(argv: readonly string[], io: CliIo = defaultIo): number {
     return 2;
   }
 
-  io.err(`The "${command}" command is not available in this version yet.`);
-  return 1;
+  const configPath = String(parsed.values.config);
+  switch (command) {
+    case 'init':
+      return runInit({ configPath, force: Boolean(parsed.values.force) }, io);
+    case 'doctor':
+      return runDoctor(configPath, io);
+    case 'build':
+      return runBuildCommand(configPath, io);
+  }
 }
