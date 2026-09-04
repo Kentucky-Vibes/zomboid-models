@@ -9,6 +9,7 @@ import {
 } from '../gltf/glb.js';
 import { decompose } from '../math/matrix.js';
 import { buildMeshData, type MeshData } from '../x/mesh.js';
+import { mirrorMeshDataZ, mirrorSkeletonZ } from '../x/mirror.js';
 import { collectMeshes, collectSkeleton, type XSkeleton } from '../x/skeleton.js';
 import type { XFile } from '../x/types.js';
 
@@ -16,6 +17,11 @@ export interface MeshConversionOptions {
   /** Maps a texture file name from the .x file to the URI written into the GLB. */
   textureUri?: (fileName: string) => string | undefined;
   generator?: string;
+  /**
+   * Mirrors the left-handed game space into glTF's right-handed space (Z negated). Defaults to
+   * true; turn it off only to inspect the raw file coordinates.
+   */
+  mirror?: boolean;
 }
 
 export interface MeshConversionResult {
@@ -136,7 +142,9 @@ export function convertMeshFile(
   options: MeshConversionOptions = {},
 ): MeshConversionResult {
   const builder = new GltfBuilder(options.generator);
+  const mirror = options.mirror ?? true;
   const skeleton = collectSkeleton(file.frames);
+  if (mirror) mirrorSkeletonZ(skeleton);
   const nodeIds = addSkeletonNodes(builder, skeleton);
   const textures = new Map<string, number>();
   const warnings: string[] = [];
@@ -146,6 +154,7 @@ export function convertMeshFile(
 
   for (const placed of collectMeshes(file.frames, file.meshes)) {
     const data = buildMeshData(placed.mesh, file.materials);
+    if (mirror) mirrorMeshDataZ(data);
     warnings.push(...data.warnings.map((w) => `${data.name}: ${w}`));
     const materialIds = addMaterials(builder, data, options, textures);
     const meshId = builder.addMesh(addPrimitives(builder, data, materialIds), data.name);

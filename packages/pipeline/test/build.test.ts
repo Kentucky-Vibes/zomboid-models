@@ -167,9 +167,8 @@ describe('runBuild on a synthetic game folder', () => {
       scale: 1,
     });
     expect(manifest.bodyAttachments['Bip01_Prop2']).toEqual({
-      bone: undefined,
       offset: [0, 0, 0],
-      rotate: [180, -86, 180],
+      rotate: [-180, 86, 180],
       scale: 1,
     });
     expect(manifest.bodyLocations).toEqual({

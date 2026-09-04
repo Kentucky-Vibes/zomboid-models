@@ -1,76 +1,105 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  ATTRIBUTION_TEXT,
-  createViewer,
-  type CharacterDescription,
-  type RigWarning,
-  type ViewerMode,
-} from 'zomboid-models';
+import { useState } from 'react';
+import { ATTRIBUTION_TEXT, type CameraOptions, type CharacterDescription } from 'zomboid-models';
+
+import { CharacterView } from './CharacterView.js';
+import { OutfitEditor } from './OutfitEditor.js';
+import { useManifest } from './useManifest.js';
 
 const ASSET_BASE_URL = `${import.meta.env.BASE_URL}dev-assets/`;
 
-const DEMO_CHARACTER: CharacterDescription = {
+const INITIAL_CHARACTER: CharacterDescription = {
   format: 'zomboid-models/character',
   version: 1,
-  body: { sex: 'male', skin: 0 },
-  worn: [{ item: 'Base.Trousers_Denim', textureChoice: 0 }],
+  body: { sex: 'male', skin: 0, hair: 'CrewCut', hairColor: { r: 0.29, g: 0.18, b: 0.1 } },
+  worn: [
+    { item: 'Base.Trousers_Denim', textureChoice: 0 },
+    { item: 'Base.Tshirt_WhiteTINT' },
+    { item: 'Base.Jacket_Police' },
+    { item: 'Base.Hat_BaseballCap_Police' },
+  ],
 };
 
-function CharacterView({ mode, animation }: { mode: ViewerMode; animation: string | null }) {
-  const host = useRef<HTMLDivElement>(null);
-  const [messages, setMessages] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!host.current) return;
-    setMessages([]);
-    const viewer = createViewer(host.current, {
-      assetBaseUrl: ASSET_BASE_URL,
-      mode,
-      character: DEMO_CHARACTER,
-      animation,
-      background: mode === 'viewer' ? '#1d1d1f' : 'transparent',
-      autoRotate: false,
-      onWarning: (warning: RigWarning) =>
-        setMessages((m) => [...m, `${warning.code}: ${warning.message}`]),
-      onError: (error) => setMessages((m) => [...m, `error: ${error.message}`]),
-    });
-    return () => viewer.dispose();
-  }, [mode, animation]);
-
-  return (
-    <div>
-      <div ref={host} style={{ width: 420, height: 560, background: '#333' }} />
-      <ul style={{ fontFamily: 'monospace', fontSize: 12 }}>
-        {messages.map((message, i) => (
-          <li key={i}>{message}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+const CAMERA_PRESETS: Record<string, CameraOptions> = {
+  full: {},
+  head: { distance: 0.8, targetHeight: 0.86, fov: 22, yaw: 0, pitch: 4 },
+  back: { yaw: 180 },
+  headBack: { distance: 0.8, targetHeight: 0.86, fov: 22, yaw: 180, pitch: 4 },
+};
 
 export function App() {
+  const { manifest, error } = useManifest(ASSET_BASE_URL);
+  const [character, setCharacter] = useState<CharacterDescription>(INITIAL_CHARACTER);
   const [animation, setAnimation] = useState<string | null>('Bob_Idle');
+  const [preset, setPreset] = useState('full');
+
   return (
-    <main style={{ padding: 16, fontFamily: 'sans-serif' }}>
-      <h1>zomboid-models playground</h1>
-      <label>
-        Animation:{' '}
-        <select
-          value={animation ?? ''}
-          onChange={(e) => setAnimation(e.target.value === '' ? null : e.target.value)}
-        >
-          <option value="">bind pose</option>
-          <option value="Bob_Idle">Bob_Idle</option>
-        </select>
-      </label>
-      <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
-        <CharacterView mode="viewer" animation={animation} />
-        <CharacterView mode="showcase" animation={animation} />
+    <main
+      style={{
+        padding: 16,
+        fontFamily: 'sans-serif',
+        color: '#eee',
+        background: '#151517',
+        minHeight: '100vh',
+      }}
+    >
+      <h1 style={{ fontSize: 18, margin: '0 0 8px' }}>zomboid-models playground</h1>
+      {error && <p style={{ color: '#f66' }}>manifest: {error}</p>}
+      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+        <div>
+          <label style={{ fontSize: 12 }}>
+            Animation:{' '}
+            <select
+              value={animation ?? ''}
+              onChange={(e) => setAnimation(e.target.value === '' ? null : e.target.value)}
+            >
+              <option value="">bind pose</option>
+              {Object.keys(manifest?.animations ?? { Bob_Idle: null }).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>{' '}
+          <label style={{ fontSize: 12 }}>
+            Camera:{' '}
+            <select value={preset} onChange={(e) => setPreset(e.target.value)}>
+              {Object.keys(CAMERA_PRESETS).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+            <CharacterView
+              assetBaseUrl={ASSET_BASE_URL}
+              mode="viewer"
+              character={character}
+              animation={animation}
+              camera={CAMERA_PRESETS[preset] ?? {}}
+              width={420}
+              height={600}
+            />
+            <CharacterView
+              assetBaseUrl={ASSET_BASE_URL}
+              mode="showcase"
+              character={character}
+              animation={animation}
+              camera={CAMERA_PRESETS[preset] ?? {}}
+              width={260}
+              height={360}
+            />
+          </div>
+        </div>
+        {manifest && (
+          <OutfitEditor manifest={manifest} character={character} onChange={setCharacter} />
+        )}
       </div>
-      <footer>
-        <small>{ATTRIBUTION_TEXT}</small>
-      </footer>
+      <details style={{ marginTop: 12, fontSize: 12 }}>
+        <summary>character JSON</summary>
+        <pre style={{ fontSize: 11 }}>{JSON.stringify(character, null, 2)}</pre>
+      </details>
+      <footer style={{ marginTop: 12, fontSize: 11, opacity: 0.7 }}>{ATTRIBUTION_TEXT}</footer>
     </main>
   );
 }

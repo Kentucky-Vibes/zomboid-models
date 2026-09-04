@@ -3,7 +3,7 @@ import {
   AnimationMixer,
   Bone,
   Box3,
-  DoubleSide,
+  FrontSide,
   Group,
   Matrix4,
   MeshLambertMaterial,
@@ -49,8 +49,6 @@ export class CharacterRig extends Group {
   private constructor(readonly skeletonRoot: Object3D) {
     super();
     this.name = 'character';
-    // The game's meshes face -Z; turn them to face +Z, which is where the camera sits.
-    this.rotation.y = Math.PI;
     this.add(skeletonRoot);
     this.mixer = new AnimationMixer(this);
     skeletonRoot.traverse((object) => {
@@ -260,7 +258,7 @@ export class CharacterRig extends Group {
   }
 
   private attachMesh(key: string, mesh: Mesh): void {
-    const material = new MeshLambertMaterial({ alphaTest: 0.5, side: DoubleSide });
+    const material = new MeshLambertMaterial({ alphaTest: 0.5, side: FrontSide });
     disposeMaterial(mesh.material);
     mesh.material = material;
     mesh.frustumCulled = false;

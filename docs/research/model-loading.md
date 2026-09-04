@@ -12,9 +12,9 @@ After import the game flips V manually (`v = 1 - v`) because it renders with Ope
 
 Consequences for the converter:
 
-- Positions, normals, and matrices go into glTF unchanged. A row-major row-vector matrix has the same 16 numbers as a column-major column-vector one.
-- UVs go into glTF unchanged as well, because glTF's texture origin is the top-left corner like DirectX's.
-- Whether the geometry has to be mirrored to look like the game is decided visually (a shirt decal with text has to read correctly) and is a converter option.
+- A row-major row-vector matrix has the same 16 numbers as a column-major column-vector one, so matrices need no reordering.
+- UVs go into glTF unchanged, because glTF's texture origin is the top-left corner like DirectX's.
+- The file coordinates are left-handed. Rendered as they are in a right-handed viewer, the character faces -Z and the lettering on a police cap reads mirrored. The converter therefore negates Z everywhere: positions, normals, bone matrices, inverse bind matrices, animation translations (Z) and rotations (X and Y components of the quaternion), and the attachment offsets and X and Y angles from the model scripts. It also swaps two indices of every triangle; after that the triangles are counter-clockwise with respect to the file's vertex normals for the body and clothing meshes that were checked, so front-face culling works.
 
 ## Model scripts and paths
 

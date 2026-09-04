@@ -47,11 +47,13 @@ describe('convertMeshFile', () => {
     expect(json.nodes[1]?.children).toEqual([2]);
     const s = Math.SQRT1_2;
     expect(json.nodes[0]?.rotation?.map((v) => Math.round(v * 1e6) / 1e6)).toEqual([
-      -Math.round(s * 1e6) / 1e6,
+      Math.round(s * 1e6) / 1e6,
       0,
       0,
       Math.round(s * 1e6) / 1e6,
     ]);
+    const raw = jsonOf(convertMeshFile(parseX(SKINNED_QUAD), { mirror: false }).glb);
+    expect(raw.nodes[0]?.rotation?.[0]).toBeLessThan(0);
     expect(json.nodes[3]).toMatchObject({ name: 'Quad', mesh: 0, skin: 0 });
     expect(json.skins[0]).toMatchObject({ joints: [1, 2], skeleton: 0, name: 'Quad' });
     expect(typeof json.skins[0]?.inverseBindMatrices).toBe('number');

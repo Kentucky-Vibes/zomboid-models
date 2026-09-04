@@ -173,10 +173,11 @@ export function quaternionFromRows(rows: [Vec3, Vec3, Vec3]): Quat {
   return normalizeQuat([x, y, z, w]);
 }
 
+/** Scales a quaternion to unit length; zero components come out as +0, never -0. */
 export function normalizeQuat(q: Quat): Quat {
   const length = Math.hypot(q[0], q[1], q[2], q[3]);
   if (length === 0) return [0, 0, 0, 1];
-  return [q[0] / length, q[1] / length, q[2] / length, q[3] / length];
+  return [q[0] / length || 0, q[1] / length || 0, q[2] / length || 0, q[3] / length || 0];
 }
 
 /** Builds a row-vector matrix from glTF-style translation, rotation, and scale. */

@@ -1,5 +1,6 @@
 import { GltfBuilder, type GltfAnimationChannel, type GltfAnimationSampler } from '../gltf/glb.js';
 import { buildAnimationClips, type AnimationClipData } from '../x/anim.js';
+import { mirrorClipsZ, mirrorSkeletonZ } from '../x/mirror.js';
 import { collectSkeleton } from '../x/skeleton.js';
 import type { XFile } from '../x/types.js';
 import { addSkeletonNodes } from './meshToGltf.js';
@@ -8,6 +9,8 @@ export interface AnimationConversionOptions {
   generator?: string;
   /** Renames the clips; by default the animation set names from the file are kept. */
   clipName?: (setName: string, index: number) => string;
+  /** Mirrors into glTF's right-handed space like the mesh conversion. Defaults to true. */
+  mirror?: boolean;
 }
 
 export interface AnimationConversionResult {
@@ -64,14 +67,18 @@ export function convertAnimationFile(
   options: AnimationConversionOptions = {},
 ): AnimationConversionResult {
   const builder = new GltfBuilder(options.generator);
+  const mirror = options.mirror ?? true;
   const skeleton = collectSkeleton(file.frames);
+  if (mirror) mirrorSkeletonZ(skeleton);
   const nodeIds = addSkeletonNodes(builder, skeleton);
   const nodeOf = (bone: string): number | undefined => {
     const index = skeleton.index.get(bone);
     return index === undefined ? undefined : nodeIds[index];
   };
   const warnings: string[] = [];
-  const clips = buildAnimationClips(file).map((clip, index) => {
+  const clipData = buildAnimationClips(file);
+  if (mirror) mirrorClipsZ(clipData);
+  const clips = clipData.map((clip, index) => {
     const name = options.clipName?.(clip.name, index) ?? clip.name;
     const { samplers, channels, tracks } = buildClipChannels(builder, clip, name, nodeOf, warnings);
     if (tracks === 0) {

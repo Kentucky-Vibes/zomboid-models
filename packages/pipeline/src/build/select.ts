@@ -11,6 +11,7 @@ import type { ClothingItemXml } from '../game/clothingXml.js';
 import { textureKeyFromReference } from '../game/clothingXml.js';
 import type { ActiveFileMap } from '../game/fileMap.js';
 import { entryValue, entryValues } from '../game/scripts.js';
+import { mirrorAttachmentZ } from '../x/mirror.js';
 
 export const BODY_MODELS = { male: 'skinned/malebody', female: 'skinned/femalebody' } as const;
 export const SKIN_TEXTURES = {
@@ -94,14 +95,16 @@ function modelTextureKey(model: ModelDefinition): string | undefined {
   return texture === undefined ? undefined : textureKeyFromReference(texture);
 }
 
+/** Attachments in the mirrored space of the converted meshes, without undefined fields. */
 function manifestAttachments(model: ModelDefinition): Record<string, ManifestAttachment> {
   const out: Record<string, ManifestAttachment> = {};
   for (const [name, attachment] of Object.entries(model.attachments)) {
+    const mirrored = mirrorAttachmentZ(attachment);
     out[name] = {
-      ...(attachment.bone === undefined ? {} : { bone: attachment.bone }),
-      offset: attachment.offset,
-      rotate: attachment.rotate,
-      scale: attachment.scale,
+      ...(mirrored.bone === undefined ? {} : { bone: mirrored.bone }),
+      offset: mirrored.offset,
+      rotate: mirrored.rotate,
+      scale: mirrored.scale,
     };
   }
   return out;
