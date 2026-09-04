@@ -155,9 +155,14 @@ export class Viewer implements FrameListener {
     await this.load();
   }
 
-  /** Switches the animation; null shows the bind pose. */
-  async setAnimation(animation: string | null): Promise<void> {
-    this.options = { ...this.options, animation };
+  /**
+   * Switches the animation: a clip name, null for the bind pose, or undefined for the idle the
+   * game would play for the held item.
+   */
+  async setAnimation(animation: string | null | undefined): Promise<void> {
+    const options = { ...this.options };
+    delete options.animation;
+    this.options = animation === undefined ? options : { ...options, animation };
     if (!this.manifest || !this.rig) return;
     await this.applyAnimation(this.manifest, this.rig, this.generation);
   }

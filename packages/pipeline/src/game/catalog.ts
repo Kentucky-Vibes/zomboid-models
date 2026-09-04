@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { buildIdleClipTable, parseAnimNode, type IdleClipTable } from './animSets.js';
 import { parseClothingItemXml, type ClothingItemXml } from './clothingXml.js';
+import { parseDecalGroupsXml, parseDecalXml, type DecalXml } from './decalsXml.js';
 import type { ActiveFileMap } from './fileMap.js';
 import {
   parseBeardStylesXml,
@@ -55,6 +56,8 @@ export interface GameCatalog {
   bodyLocations: BodyLocationsData;
   attachedLocations: Record<string, string>;
   idle: IdleClipTable;
+  decals: Record<string, DecalXml>;
+  decalGroups: Record<string, string[]>;
   warnings: string[];
 }
 
@@ -247,6 +250,25 @@ function readText(files: ActiveFileMap, relPath: string): string | undefined {
   return file ? readFileSync(file.path, 'utf8') : undefined;
 }
 
+function loadDecals(
+  files: ActiveFileMap,
+  warnings: string[],
+): { decals: Record<string, DecalXml>; decalGroups: Record<string, string[]> } {
+  const groupsXml = readText(files, 'media/clothing/clothingDecals.xml');
+  const decalGroups = groupsXml ? parseDecalGroupsXml(groupsXml) : {};
+  const decals: Record<string, DecalXml> = {};
+  for (const { relPath, file } of files.under('media/clothing/clothingdecals/')) {
+    if (!relPath.endsWith('.xml')) continue;
+    const name = relPath.slice('media/clothing/clothingdecals/'.length, -'.xml'.length);
+    try {
+      decals[name] = parseDecalXml(readFileSync(file.path, 'utf8'));
+    } catch (error) {
+      warnings.push(`${relPath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return { decals, decalGroups };
+}
+
 function loadIdleTable(files: ActiveFileMap): IdleClipTable {
   const nodes = files
     .under('media/animsets/player/idle/')
@@ -268,8 +290,11 @@ export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): 
   const attachedLua = readText(files, 'media/lua/shared/NPCs/AttachedLocations.lua');
   if (!hairXml) warnings.push('hairStyles.xml not found');
   if (!bodyLua) warnings.push('BodyLocations.lua not found');
+  const { decals, decalGroups } = loadDecals(files, warnings);
 
   return {
+    decals,
+    decalGroups,
     items,
     models,
     clothingItems,

@@ -38,6 +38,8 @@ function manifest(): Manifest {
       Torso_Upper: 'bloodtextures/bloodmaskchest',
       UpperLeg_L: 'bloodtextures/bloodmaskulegl',
     },
+    decals: { Spiffo1: { texture: 'shirtdecals/spiffo7', x: 102, y: 118, width: 52, height: 52 } },
+    decalGroups: { TShirtSpiffo: ['Spiffo1'] },
   };
 }
 
@@ -217,6 +219,27 @@ describe('planItemTexture', () => {
       cutoffMax: 0.55,
       mask: { key: 'holetextures/bloodmaskulegl' },
     });
+  });
+
+  it('draws a known decal into its rectangle and ignores unknown ones', () => {
+    const plan = planItemTexture(manifest(), {
+      baseTexture: 't',
+      tint: undefined,
+      hue: undefined,
+      description: { item: 'x', decal: 'Spiffo1' },
+    });
+    expect(plan.passes[1]).toEqual({
+      shader: 'blit',
+      diffuse: { key: 'shirtdecals/spiffo7' },
+      rect: { x: 102, y: 118, width: 52, height: 52 },
+    });
+    const unknown = planItemTexture(manifest(), {
+      baseTexture: 't',
+      tint: undefined,
+      hue: undefined,
+      description: { item: 'x', decal: 'Nope' },
+    });
+    expect(unknown.passes).toHaveLength(1);
   });
 
   it('uses the hue shift when there is no tint', () => {

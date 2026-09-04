@@ -1,0 +1,44 @@
+{
+  "name": "zomboid-models-element",
+  "version": "0.0.0",
+  "description": "The <zomboid-character> Web Component: a Project Zomboid character viewer for any page or framework",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zomboid-models": "0.0.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.185.4",
+    "three": "0.185.1"
+  },
+  "keywords": [
+    "project-zomboid",
+    "zomboid",
+    "web-component",
+    "custom-element",
+    "three"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kentucky-vibes/zomboid-models.git",
+    "directory": "packages/element"
+  },
+  "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+}

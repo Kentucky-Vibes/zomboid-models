@@ -131,6 +131,15 @@ export interface ManifestIdleClips {
   byWeaponType: Partial<Record<ManifestWeaponType, string>>;
 }
 
+/** A shirt decal: a texture drawn into a rectangle of the item texture's 256-unit space. */
+export interface ManifestDecal {
+  texture: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface Manifest {
   format: typeof MANIFEST_FORMAT;
   version: typeof MANIFEST_VERSION;
@@ -157,4 +166,8 @@ export interface Manifest {
   beards: Record<string, ManifestBeardStyle>;
   /** Mask texture keys per body part for blood and holes. */
   bloodMasks: Partial<Record<BodyPart, string>>;
+  /** Shirt decals by name. */
+  decals: Record<string, ManifestDecal>;
+  /** Decal names per decal group, as clothing items reference them. */
+  decalGroups: Record<string, string[]>;
 }

@@ -294,6 +294,10 @@ function assembleManifest(
     hair,
     beards,
     bloodMasks,
+    decals: Object.fromEntries(
+      Object.entries(catalog.decals).filter(([, decal]) => writer.textures.has(decal.texture)),
+    ),
+    decalGroups: catalog.decalGroups,
   };
 }
 

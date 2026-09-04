@@ -217,6 +217,7 @@ export function planAssets(
     if (style.model) plan.models.add(style.model);
     plan.textures.add(style.texture);
   }
+  for (const decal of Object.values(catalog.decals)) plan.textures.add(decal.texture);
 
   return plan;
 }

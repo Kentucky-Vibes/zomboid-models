@@ -119,6 +119,8 @@ function manifest(): Manifest {
     },
     beards: { Full: { model: 'm/beard_full', texture: 'f_hair_white' } },
     bloodMasks: {},
+    decals: {},
+    decalGroups: {},
   };
 }
 

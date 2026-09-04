@@ -197,6 +197,14 @@ export function planItemTexture(manifest: Manifest, input: ItemTextureInput): Co
     base.hue = input.hue;
   }
   const passes: CompositePass[] = [base];
+  const decal = d.decal === undefined ? undefined : manifest.decals[d.decal];
+  if (decal) {
+    passes.push({
+      shader: 'blit',
+      diffuse: { key: decal.texture },
+      rect: { x: decal.x, y: decal.y, width: decal.width, height: decal.height },
+    });
+  }
   for (const part of BODY_PARTS) {
     const mask = manifest.bloodMasks[part];
     if (mask !== undefined) {

@@ -1,10 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import {
-  createViewer,
-  type CameraOptions,
-  type CharacterDescription,
-  type ViewerMode,
-} from 'zomboid-models';
+import { useState } from 'react';
+import type { CameraOptions, CharacterDescription, ViewerMode } from 'zomboid-models';
+import { ZomboidCharacter } from 'zomboid-models-react';
 
 export interface CharacterViewProps {
   assetBaseUrl: string;
@@ -17,7 +13,7 @@ export interface CharacterViewProps {
   height: number;
 }
 
-/** Mounts one viewer and lists the warnings and errors it reports. */
+/** Mounts one viewer through the React package and lists the warnings and errors it reports. */
 export function CharacterView({
   assetBaseUrl,
   mode,
@@ -27,28 +23,21 @@ export function CharacterView({
   width,
   height,
 }: CharacterViewProps) {
-  const host = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!host.current) return;
-    setMessages([]);
-    const viewer = createViewer(host.current, {
-      assetBaseUrl,
-      mode,
-      character,
-      ...(animation === undefined ? {} : { animation }),
-      ...(camera ? { camera } : {}),
-      background: mode === 'viewer' ? '#1d1d1f' : 'transparent',
-      onWarning: (warning) => setMessages((m) => [...m, `${warning.code}: ${warning.message}`]),
-      onError: (error) => setMessages((m) => [...m, `error: ${error.message}`]),
-    });
-    return () => viewer.dispose();
-  }, [assetBaseUrl, mode, character, animation, camera]);
 
   return (
     <div>
-      <div ref={host} style={{ width, height, background: '#2a2a2e' }} />
+      <ZomboidCharacter
+        assetBaseUrl={assetBaseUrl}
+        mode={mode}
+        character={character}
+        {...(animation === undefined ? {} : { animation })}
+        {...(camera ? { camera } : {})}
+        background={mode === 'viewer' ? '#1d1d1f' : 'transparent'}
+        style={{ width, height, background: '#2a2a2e' }}
+        onWarning={(warning) => setMessages((m) => [...m, `${warning.code}: ${warning.message}`])}
+        onError={(error) => setMessages((m) => [...m, `error: ${error.message}`])}
+      />
       {messages.length > 0 && (
         <ul
           style={{
