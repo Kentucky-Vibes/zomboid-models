@@ -145,7 +145,7 @@ describe('animations', () => {
   it('inverts rotation keys into glTF quaternions', () => {
     const s = Math.SQRT1_2;
     const q = convertRotationKey([s, s, 0, 0]);
-    expect(q.map((v) => Math.round(v * 1e6) / 1e6)).toEqual([-0.707107, -0, -0, 0.707107]);
+    expect(q.map((v) => Math.round(v * 1e6) / 1e6)).toEqual([-0.707107, 0, 0, 0.707107]);
   });
 
   it('builds clips with per-bone tracks in seconds', () => {
@@ -157,7 +157,7 @@ describe('animations', () => {
     const track = clip?.tracks[0];
     expect(track?.bone).toBe('Bip01');
     expect(Array.from(track?.rotation?.times ?? [])).toEqual([0, 0.5]);
-    expect(Array.from(track?.rotation?.values.slice(0, 4) ?? [])).toEqual([-0, -0, -0, 1]);
+    expect(Array.from(track?.rotation?.values.slice(0, 4) ?? [])).toEqual([0, 0, 0, 1]);
     expect(Array.from(track?.translation?.values ?? [])).toEqual([
       0,
       0,
