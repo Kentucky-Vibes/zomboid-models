@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
+import { stripBom } from './scripts.js';
 import {
   formatGameVersion,
   MIN_REQUIRED_VERSION,
@@ -46,7 +47,7 @@ export function parseModInfo(text: string): ModInfo | undefined {
     author: undefined,
   };
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/^﻿/, '');
+    const line = stripBom(rawLine);
     const eq = line.indexOf('=');
     if (eq < 0) continue;
     const key = line.slice(0, eq).trim();

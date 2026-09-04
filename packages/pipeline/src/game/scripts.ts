@@ -129,9 +129,16 @@ function parseBody(reader: Reader, block: ScriptBlock): void {
   }
 }
 
+const BYTE_ORDER_MARK = String.fromCharCode(0xfeff);
+
+/** Removes a leading UTF-8 byte order mark, which some game and mod files carry. */
+export function stripBom(text: string): string {
+  return text.startsWith(BYTE_ORDER_MARK) ? text.slice(1) : text;
+}
+
 /** Parses one script file into its top-level blocks (normally a single `module`). */
 export function parseScript(text: string): ScriptBlock[] {
-  const reader = new Reader(text.replace(/^﻿/, ''));
+  const reader = new Reader(stripBom(text));
   const root: ScriptBlock = { type: '', name: '', entries: [], blocks: [], line: 1 };
   for (;;) {
     reader.skipSpaceAndComments();
