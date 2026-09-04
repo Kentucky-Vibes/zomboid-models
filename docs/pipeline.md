@@ -1,0 +1,60 @@
+# Asset pipeline
+
+`zomboid-models-pipeline` converts the character assets of a Project Zomboid (Build 42) install into files a browser can load: one glTF binary per mesh and per animation, the PNG textures, and a `manifest.json` that describes bodies, clothing, held items, hair, animations, and the rules the game applies to them.
+
+The tool reads the game's own files. Both the Steam client and the dedicated server ship the `media` folder it needs, so it can run on a development machine or on the server host. The output contains copies of The Indie Stone's assets and of any mod's assets you include; hosting it is subject to their terms (see the repository README).
+
+## Install and configure
+
+```bash
+npm install --save-dev zomboid-models-pipeline
+npx zomboid-models init
+```
+
+`init` looks for the game in the Steam libraries of the machine, reads the game version from the user's `Zomboid/version.txt`, finds the Workshop content and user mod folders, and writes `zomboid-models.config.json`:
+
+```json
+{
+  "gameDir": "C:/Program Files (x86)/Steam/steamapps/common/ProjectZomboid",
+  "gameVersion": "42.20.3",
+  "modDirs": ["C:/Program Files (x86)/Steam/steamapps/workshop/content/108600"],
+  "outDir": "assets-out"
+}
+```
+
+Fields:
+
+- `gameDir`: the folder that holds `media`.
+- `gameVersion`: used to choose each mod's version folder the way the game does. Read from `version.txt` when omitted.
+- `modDirs`: folders to scan. Each can be a mod, a folder of mods, a Workshop item, or a whole Workshop content folder.
+- `mods`: ordered ids to enable; every discovered mod when omitted. `serverIni` reads the order from a server's `Mods=` line instead.
+- `outDir`: where the assets go. It is recreated on every build.
+- `animations`: extra clip names from `anims_X/Bob` to convert on top of the idle set.
+
+`zomboid-models doctor` checks the configuration, the install, the mod folders, and the output folder, and lists the mods it found with the version folder it picked for each.
+
+## Build
+
+```bash
+npx zomboid-models build
+```
+
+The build discovers mods, orders them with their `require` entries like the game, and overlays their files on the game's `media` (a later mod replaces an earlier file at the same relative path). It then reads the scripts, clothing XML, hair styles, body locations, attachment points, animation sets, and decals, converts every mesh and animation it needs, copies the textures, and writes the manifest. A vanilla build takes under a minute; the output for the vanilla game is about 60 MB.
+
+Warnings list what could not be converted. Meshes stored as FBX (some props and held items) are skipped in this version.
+
+## Output layout
+
+```
+assets-out/
+  manifest.json
+  models/<key>-<hash>.glb
+  textures/<key>-<hash>.png
+  anims/<clip>-<hash>.glb
+```
+
+Keys are the game's own paths, lowercased. Every file name carries a content hash, so a web server can cache them for a long time; only `manifest.json` changes in place.
+
+## Coordinates
+
+The game's meshes are left-handed. The converter mirrors them into glTF's right-handed space (Z negated, winding reversed, bone matrices and animations adjusted) so that any glTF viewer shows what the game shows, including readable lettering on textures. Attachment offsets and angles in the manifest are already in that space.

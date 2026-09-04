@@ -4,7 +4,7 @@ Renders Project Zomboid (Build 42) characters in the browser: the body, clothing
 
 The project has three parts. A three.js library draws the character from a JSON description. A command line pipeline converts the assets from your own copy of the game or of the dedicated server into files a browser can load. A playground lets you assemble a character and look at the result.
 
-Status: early development. Nothing is published to npm yet, and the renderer does not draw anything yet. The milestones are listed in [docs/decisions.md](docs/decisions.md).
+Status: working, not yet published to npm. The renderer draws bodies, clothing, hats, hair, held items, blood, dirt, holes, patches, decals, wounds, and bandages the way the game composes them. Attached items and the reference exporter mod are still to come; see [docs/decisions.md](docs/decisions.md) for the milestones.
 
 ## How it fits together
 
@@ -14,13 +14,21 @@ Status: early development. Nothing is published to npm yet, and the renderer doe
 
 ## Packages
 
-| Package                   | Folder              | What it is                                               |
-| ------------------------- | ------------------- | -------------------------------------------------------- |
-| `zomboid-models`          | `packages/core`     | The renderer and the character JSON format               |
-| `zomboid-models-pipeline` | `packages/pipeline` | The `zomboid-models` command line tool                   |
-| playground                | `apps/playground`   | A Vite app for building and viewing characters (private) |
+| Package                   | Folder              | What it is                                                     |
+| ------------------------- | ------------------- | -------------------------------------------------------------- |
+| `zomboid-models`          | `packages/core`     | The renderer, the character JSON format, and its schema        |
+| `zomboid-models-pipeline` | `packages/pipeline` | The `zomboid-models` command line tool                         |
+| `zomboid-models-element`  | `packages/element`  | The `<zomboid-character>` Web Component, three.js bundled      |
+| `zomboid-models-react`    | `packages/react`    | A React component around the renderer                          |
+| playground                | `apps/playground`   | A Vite app for building and viewing characters (not published) |
 
-A Web Component and a React wrapper are planned once the renderer has a stable API.
+## Documentation
+
+- [docs/integration.md](docs/integration.md): using the viewer from plain JavaScript, the Web Component, React, and Next.js; hosting the assets.
+- [docs/format.md](docs/format.md): the character JSON document.
+- [docs/pipeline.md](docs/pipeline.md): configuring and running the asset conversion.
+- [docs/decisions.md](docs/decisions.md): why things are the way they are.
+- [docs/research](docs/research): how the game loads models, composes textures, and merges mods.
 
 ## Assets and licensing
 
@@ -35,10 +43,17 @@ Requires Node.js 20.19 or newer.
 ```bash
 npm install
 npm run check
-npm run build
 ```
 
-`npm run check` runs type checking, linting, formatting checks, and the tests. Tests that need a real game install run only when the `PZ_DIR` environment variable points at one.
+`npm run check` builds the packages and runs type checking, linting, formatting checks, and the tests. Tests that need a real game install run only when the `PZ_DIR` environment variable points at one; `PZ_SWEEP=1` also parses every model and animation file in it.
+
+To try the playground against your own install, build the assets into its public folder and start the dev server:
+
+```bash
+node packages/pipeline/dist/cli.js init
+node packages/pipeline/dist/cli.js build   # with outDir set to apps/playground/public/dev-assets
+npm run dev -w playground
+```
 
 ## Credits
 

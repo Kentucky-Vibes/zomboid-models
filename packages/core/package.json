@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@types/three": "0.185.4",
+    "ajv": "8.20.0",
     "three": "0.185.1"
   },
   "keywords": [

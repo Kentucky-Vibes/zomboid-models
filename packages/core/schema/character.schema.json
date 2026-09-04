@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kentucky-vibes/zomboid-models/schema/character.schema.json",
+  "title": "zomboid-models character",
+  "description": "A Project Zomboid character as the zomboid-models renderer draws it. Mirrors the game's HumanVisual, ItemVisual, held and attached items, and BodyDamage.",
+  "type": "object",
+  "required": ["format", "version", "body"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "zomboid-models/character" },
+    "version": { "const": 1 },
+    "body": { "$ref": "#/$defs/body" },
+    "worn": { "type": "array", "items": { "$ref": "#/$defs/wornItem" } },
+    "outfit": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "seed": { "type": "integer" }
+      }
+    },
+    "held": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary": { "$ref": "#/$defs/heldItem" },
+        "secondary": { "$ref": "#/$defs/heldItem" }
+      }
+    },
+    "attached": { "type": "array", "items": { "$ref": "#/$defs/attachedItem" } },
+    "damage": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": { "$ref": "#/$defs/bodyPart" },
+      "patternProperties": { "": { "$ref": "#/$defs/bodyPartDamage" } }
+    },
+    "meta": { "type": "object" }
+  },
+  "$defs": {
+    "bodyPart": {
+      "enum": [
+        "Hand_L",
+        "Hand_R",
+        "ForeArm_L",
+        "ForeArm_R",
+        "UpperArm_L",
+        "UpperArm_R",
+        "Torso_Upper",
+        "Torso_Lower",
+        "Head",
+        "Neck",
+        "Groin",
+        "UpperLeg_L",
+        "UpperLeg_R",
+        "LowerLeg_L",
+        "LowerLeg_R",
+        "Foot_L",
+        "Foot_R",
+        "Back"
+      ]
+    },
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 },
+    "partAmounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": { "$ref": "#/$defs/bodyPart" },
+      "patternProperties": { "": { "$ref": "#/$defs/unit" } }
+    },
+    "partFlags": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": { "$ref": "#/$defs/bodyPart" },
+      "patternProperties": { "": { "type": "boolean" } }
+    },
+    "partPatches": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": { "$ref": "#/$defs/bodyPart" },
+      "patternProperties": { "": { "enum": ["basic", "denim", "leather"] } }
+    },
+    "color": {
+      "type": "object",
+      "required": ["r", "g", "b"],
+      "additionalProperties": false,
+      "properties": {
+        "r": { "$ref": "#/$defs/unit" },
+        "g": { "$ref": "#/$defs/unit" },
+        "b": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "body": {
+      "type": "object",
+      "required": ["sex"],
+      "additionalProperties": false,
+      "properties": {
+        "sex": { "enum": ["male", "female"] },
+        "skin": { "type": "integer", "minimum": 0 },
+        "skinTexture": { "type": "string", "minLength": 1 },
+        "bodyHair": { "type": "boolean" },
+        "hair": { "type": "string", "minLength": 1 },
+        "beard": { "type": "string", "minLength": 1 },
+        "hairColor": { "$ref": "#/$defs/color" },
+        "beardColor": { "$ref": "#/$defs/color" },
+        "blood": { "$ref": "#/$defs/partAmounts" },
+        "dirt": { "$ref": "#/$defs/partAmounts" }
+      }
+    },
+    "wornItem": {
+      "type": "object",
+      "required": ["item"],
+      "additionalProperties": false,
+      "properties": {
+        "item": { "type": "string", "minLength": 1 },
+        "clothingItem": { "type": "string", "minLength": 1 },
+        "alternateModel": { "type": "string", "minLength": 1 },
+        "textureChoice": { "type": "integer", "minimum": 0 },
+        "baseTexture": { "type": "integer", "minimum": 0 },
+        "tint": { "$ref": "#/$defs/color" },
+        "hue": { "type": "number", "minimum": -1, "maximum": 1 },
+        "decal": { "type": "string", "minLength": 1 },
+        "blood": { "$ref": "#/$defs/partAmounts" },
+        "dirt": { "$ref": "#/$defs/partAmounts" },
+        "holes": { "$ref": "#/$defs/partFlags" },
+        "patches": { "$ref": "#/$defs/partPatches" }
+      }
+    },
+    "heldItem": {
+      "type": "object",
+      "required": ["item"],
+      "additionalProperties": false,
+      "properties": {
+        "item": { "type": "string", "minLength": 1 },
+        "blood": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "attachedItem": {
+      "type": "object",
+      "required": ["location", "item"],
+      "additionalProperties": false,
+      "properties": {
+        "location": { "type": "string", "minLength": 1 },
+        "item": { "type": "string", "minLength": 1 }
+      }
+    },
+    "bodyPartDamage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bandage": { "enum": ["clean", "dirty"] },
+        "bitten": { "type": "boolean" },
+        "scratched": { "type": "boolean" },
+        "cut": { "type": "boolean" },
+        "deepWound": { "type": "boolean" },
+        "bulletWound": { "type": "boolean" },
+        "burnt": { "type": "boolean" },
+        "stitched": { "type": "boolean" },
+        "splint": { "type": "boolean" },
+        "bleeding": { "type": "boolean" }
+      }
+    }
+  }
+}
