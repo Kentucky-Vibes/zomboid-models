@@ -42,7 +42,11 @@ export interface RigPart {
  */
 export class CharacterRig extends Group {
   readonly parts: RigPart[] = [];
-  readonly bones = new Map<string, Bone>();
+  /**
+   * Every named node of the body skeleton. Nodes that no vertex is weighted to (the prop bones,
+   * for example) load as plain objects rather than bones, but items still attach to them.
+   */
+  readonly bones = new Map<string, Object3D>();
   readonly mixer: AnimationMixer;
   readonly warnings: RigWarning[] = [];
   private readonly attachmentNodes = new Map<string, Object3D[]>();
@@ -54,7 +58,7 @@ export class CharacterRig extends Group {
     this.add(skeletonRoot);
     this.mixer = new AnimationMixer(this);
     skeletonRoot.traverse((object) => {
-      if (isBone(object)) this.bones.set(object.name, object);
+      if (object.name.length > 0 && !isMesh(object)) this.bones.set(object.name, object);
     });
   }
 
@@ -242,10 +246,9 @@ export class CharacterRig extends Group {
     this.action?.stop();
     this.action = undefined;
     if (!clip) return;
-    const tracks = clip.tracks.filter((track) => {
-      const boneName = track.name.slice(0, track.name.lastIndexOf('.'));
-      return this.bones.has(boneName) || this.skeletonRoot.getObjectByName(boneName) !== undefined;
-    });
+    const tracks = clip.tracks.filter((track) =>
+      this.bones.has(track.name.slice(0, track.name.lastIndexOf('.'))),
+    );
     const usable =
       tracks.length === clip.tracks.length
         ? clip
@@ -318,11 +321,14 @@ export class CharacterRig extends Group {
     this.parts.push({ key, mesh, material });
   }
 
-  /** Builds a skeleton made of the body's bones in the order the mesh's own skeleton uses. */
+  /**
+   * Builds a skeleton made of the body's nodes in the order the mesh's own skeleton uses. A
+   * skeleton only reads world matrices, so plain nodes serve as bones too.
+   */
   private rebind(source: Skeleton, key: string): Skeleton {
     const bones = source.bones.map((bone) => {
       const existing = this.bones.get(bone.name);
-      if (existing) return existing;
+      if (existing) return existing as Bone;
       this.warnings.push({
         code: 'missing-bone',
         message: `${key}: bone "${bone.name}" is not in the body skeleton; it was added under its parent`,
@@ -332,8 +338,7 @@ export class CharacterRig extends Group {
       added.position.copy(bone.position);
       added.quaternion.copy(bone.quaternion);
       added.scale.copy(bone.scale);
-      const parent =
-        bone.parent && isBone(bone.parent) ? this.bones.get(bone.parent.name) : undefined;
+      const parent = bone.parent ? this.bones.get(bone.parent.name) : undefined;
       (parent ?? this.skeletonRoot).add(added);
       this.bones.set(bone.name, added);
       return added;
@@ -341,10 +346,6 @@ export class CharacterRig extends Group {
     const inverses = source.boneInverses.map((m) => new Matrix4().copy(m));
     return new Skeleton(bones, inverses);
   }
-}
-
-function isBone(object: Object3D): object is Bone {
-  return (object as Partial<Bone>).isBone === true;
 }
 
 function isMesh(object: Object3D): object is Mesh {
