@@ -224,7 +224,10 @@ export class Viewer implements FrameListener {
       this.manifest = manifest;
       const character = this.options.character;
       if (!character) return;
-      const built = await buildCharacter(this.cache, manifest, character);
+      const built = await buildCharacter(
+        { cache: this.cache, manifest, composer: this.shared.composer },
+        character,
+      );
       if (generation !== this.generation) {
         built.rig.dispose();
         return;

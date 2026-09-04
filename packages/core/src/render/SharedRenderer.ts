@@ -1,5 +1,7 @@
 import { WebGLRenderer, type Camera, type Scene } from 'three';
 
+import { TextureComposer } from '../texture/TextureComposer.js';
+
 /**
  * One WebGL renderer per page. Each viewer owns an ordinary 2D canvas; the shared renderer
  * draws the viewer's scene into its own hidden canvas and copies the pixels over. Browsers cap
@@ -9,6 +11,13 @@ import { WebGLRenderer, type Camera, type Scene } from 'three';
 export class SharedRenderer {
   readonly renderer: WebGLRenderer;
   private users = 0;
+  private textureComposer: TextureComposer | undefined;
+
+  /** The texture compositor bound to this renderer, created on first use. */
+  get composer(): TextureComposer {
+    this.textureComposer ??= new TextureComposer(this.renderer);
+    return this.textureComposer;
+  }
 
   constructor() {
     this.renderer = new WebGLRenderer({
@@ -58,6 +67,7 @@ export class SharedRenderer {
     this.users = Math.max(0, this.users - 1);
     if (this.users === 0 && shared === this) {
       shared = undefined;
+      this.textureComposer?.dispose();
       this.renderer.dispose();
     }
   }

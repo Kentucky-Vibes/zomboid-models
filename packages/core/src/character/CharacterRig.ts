@@ -50,6 +50,7 @@ export class CharacterRig extends Group {
   readonly mixer: AnimationMixer;
   readonly warnings: RigWarning[] = [];
   private readonly attachmentNodes = new Map<string, Object3D[]>();
+  private readonly ownedTextures: Texture[] = [];
   private action: AnimationAction | undefined;
 
   private constructor(readonly skeletonRoot: Object3D) {
@@ -212,6 +213,11 @@ export class CharacterRig extends Group {
     }
   }
 
+  /** Registers a texture the rig created, to be freed with the rig. */
+  ownTexture(texture: Texture): void {
+    this.ownedTextures.push(texture);
+  }
+
   /** Applies a texture to every part with the given key. */
   setTexture(key: string, texture: Texture | null): void {
     for (const part of this.parts) {
@@ -295,6 +301,8 @@ export class CharacterRig extends Group {
       part.material.dispose();
     }
     this.parts.length = 0;
+    for (const texture of this.ownedTextures) texture.dispose();
+    this.ownedTextures.length = 0;
     this.skeletonRoot.traverse((object) => {
       if (isSkinnedMesh(object)) {
         object.geometry.dispose();

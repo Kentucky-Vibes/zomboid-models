@@ -1,4 +1,4 @@
-import { LinearFilter, SRGBColorSpace, TextureLoader, type Texture } from 'three';
+import { LinearFilter, NoColorSpace, SRGBColorSpace, TextureLoader, type Texture } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import { MANIFEST_FORMAT, type Manifest } from '../format/manifest.js';
@@ -52,13 +52,18 @@ export class AssetCache {
     return promise;
   }
 
-  loadTexture(relativePath: string): Promise<Texture> {
-    let promise = this.textures.get(relativePath);
+  /**
+   * Loads a texture for direct use on a material (sampled as sRGB), or, with `raw`, for the
+   * texture compositor, which works on the stored 8-bit values like the game does.
+   */
+  loadTexture(relativePath: string, raw = false): Promise<Texture> {
+    const cacheKey = raw ? `raw:${relativePath}` : relativePath;
+    let promise = this.textures.get(cacheKey);
     if (!promise) {
       promise = this.textureLoader
         .loadAsync(this.url(relativePath))
         .then((texture) => {
-          texture.colorSpace = SRGBColorSpace;
+          texture.colorSpace = raw ? NoColorSpace : SRGBColorSpace;
           texture.magFilter = LinearFilter;
           texture.minFilter = LinearFilter;
           texture.generateMipmaps = false;
@@ -66,10 +71,10 @@ export class AssetCache {
           return texture;
         })
         .catch((error: unknown) => {
-          this.textures.delete(relativePath);
+          this.textures.delete(cacheKey);
           throw error;
         });
-      this.textures.set(relativePath, promise);
+      this.textures.set(cacheKey, promise);
     }
     return promise;
   }

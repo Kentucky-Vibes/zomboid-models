@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import type { CharacterDescription, Manifest, Sex, WornItemDescription } from 'zomboid-models';
+import {
+  BODY_PARTS,
+  type BodyPart,
+  type CharacterDescription,
+  type Manifest,
+  type Sex,
+  type WornItemDescription,
+} from 'zomboid-models';
 
 export interface OutfitEditorProps {
   manifest: Manifest;
@@ -161,6 +168,57 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           })}
         </div>
       </Field>
+      <Field label="Blood on the body (all parts)">
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={character.body.blood?.Head ?? 0}
+          onChange={(e) => {
+            const amount = Number(e.target.value);
+            const rest = without(character.body, 'blood');
+            update({
+              body: amount === 0 ? rest : { ...rest, blood: allParts(amount) },
+            });
+          }}
+        />
+      </Field>
+      <Field label="Blood on worn items (all parts) and a hole in the chest">
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={worn[0]?.blood?.Head ?? 0}
+            onChange={(e) => {
+              const amount = Number(e.target.value);
+              setWorn(
+                worn.map((w) => {
+                  const rest = without(w, 'blood');
+                  return amount === 0 ? rest : { ...rest, blood: allParts(amount) };
+                }),
+              );
+            }}
+          />
+          <label>
+            <input
+              type="checkbox"
+              checked={worn.some((w) => w.holes?.Torso_Upper === true)}
+              onChange={(e) =>
+                setWorn(
+                  worn.map((w) => {
+                    const rest = without(w, 'holes');
+                    return e.target.checked ? { ...rest, holes: { Torso_Upper: true } } : rest;
+                  }),
+                )
+              }
+            />{' '}
+            hole
+          </label>
+        </div>
+      </Field>
       {(['primary', 'secondary'] as const).map((hand) => (
         <Field key={hand} label={`${hand} hand`}>
           <HeldItemPicker
@@ -252,6 +310,12 @@ function HeldItemPicker({
       ))}
     </div>
   );
+}
+
+function allParts(amount: number): Partial<Record<BodyPart, number>> {
+  const amounts: Partial<Record<BodyPart, number>> = {};
+  for (const part of BODY_PARTS) amounts[part] = amount;
+  return amounts;
 }
 
 function without<T extends object, K extends keyof T>(value: T, key: K): Omit<T, K> {
