@@ -1,0 +1,7 @@
+name=zomboid-models exporter
+id=ZomboidModelsExporter
+description=Writes each player's appearance as a zomboid-models character JSON document into Zomboid/Lua/zomboid-models/. Server: one file per online player, refreshed every ten in-game minutes and on request. Client: the local player, on start and whenever clothing changes.
+author=Kentucky Vibes and contributors
+modversion=0.1.0
+versionMin=42.0
+url=https://github.com/kentucky-vibes/zomboid-models

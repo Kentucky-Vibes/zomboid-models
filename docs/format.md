@@ -83,4 +83,6 @@ Instead of listing `worn`, `outfit` names one of the game's outfits with an opti
 
 ## Where the values come from in the game
 
+The reference mod in `mods/zomboid-models-exporter` does exactly this and writes one file per player; read it for the method names.
+
 An exporter running inside the game can fill the document from `IsoPlayer`: `getHumanVisual()` for the body (skin texture index, hair and beard models and colours, blood and dirt per `BloodBodyPartType`), `getWornItems()` and each item's `getVisual()` for the worn list (texture choice, base texture, tint, hue, decal, blood, dirt, holes, patches), `getPrimaryHandItem()` and `getSecondaryHandItem()`, `getAttachedItems()`, and `getBodyDamage()` for the parts' bandage and wound state.

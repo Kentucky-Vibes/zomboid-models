@@ -14,13 +14,14 @@ Status: working, not yet published to npm. The renderer draws bodies, clothing, 
 
 ## Packages
 
-| Package                   | Folder              | What it is                                                     |
-| ------------------------- | ------------------- | -------------------------------------------------------------- |
-| `zomboid-models`          | `packages/core`     | The renderer, the character JSON format, and its schema        |
-| `zomboid-models-pipeline` | `packages/pipeline` | The `zomboid-models` command line tool                         |
-| `zomboid-models-element`  | `packages/element`  | The `<zomboid-character>` Web Component, three.js bundled      |
-| `zomboid-models-react`    | `packages/react`    | A React component around the renderer                          |
-| playground                | `apps/playground`   | A Vite app for building and viewing characters (not published) |
+| Package                   | Folder                         | What it is                                                       |
+| ------------------------- | ------------------------------ | ---------------------------------------------------------------- |
+| `zomboid-models`          | `packages/core`                | The renderer, the character JSON format, and its schema          |
+| `zomboid-models-pipeline` | `packages/pipeline`            | The `zomboid-models` command line tool                           |
+| `zomboid-models-element`  | `packages/element`             | The `<zomboid-character>` Web Component, three.js bundled        |
+| `zomboid-models-react`    | `packages/react`               | A React component around the renderer                            |
+| playground                | `apps/playground`              | A Vite app for building and viewing characters (not published)   |
+| exporter mod              | `mods/zomboid-models-exporter` | A Project Zomboid mod that writes players as character documents |
 
 ## Documentation
 

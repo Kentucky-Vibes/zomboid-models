@@ -14,7 +14,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/*",
+    "mods/*"
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",

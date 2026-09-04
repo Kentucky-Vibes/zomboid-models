@@ -8,5 +8,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["playground"]
+  "ignore": ["playground", "zomboid-models-exporter-mod"]
 }

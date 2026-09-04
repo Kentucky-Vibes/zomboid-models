@@ -67,7 +67,7 @@ The game's Java classes are decompiled locally to understand model loading, text
 3. Held items and attached items. Done for `.x` meshes; props stored as FBX are skipped by the pipeline until it learns to read FBX.
 4. Blood, wounds, bandages, dirt, holes, patches, tint, hue, and decals. Done.
 5. Mod scanning. Done; the outfit-by-name feature from the character format is still open.
-6. The reference exporter mod. Open.
+6. The reference exporter mod. Done as `mods/zomboid-models-exporter`, tested under a Lua interpreter in Node.js against mock game objects; a run inside the game is still owed.
 
 Later additions to the list: the Web Component and React packages exist (decided in the first session, delivered with milestone 4), and GitHub Pages for the playground waits for the organization to allow Pages.
 

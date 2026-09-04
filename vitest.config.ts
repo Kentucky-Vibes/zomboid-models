@@ -6,6 +6,7 @@ export default defineConfig({
       'packages/*/src/**/*.test.ts',
       'packages/*/test/**/*.test.ts',
       'apps/*/src/**/*.test.{ts,tsx}',
+      'mods/*/test/**/*.test.ts',
     ],
     environment: 'node',
     passWithNoTests: true,

@@ -1,0 +1,14 @@
+{
+  "name": "zomboid-models-exporter-mod",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Project Zomboid mod that exports player appearance as zomboid-models character documents (tests only; the mod itself is Lua)",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "fengari": "0.1.4",
+    "zomboid-models": "0.0.0"
+  }
+}
