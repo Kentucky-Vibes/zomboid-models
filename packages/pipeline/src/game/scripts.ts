@@ -131,7 +131,7 @@ function parseBody(reader: Reader, block: ScriptBlock): void {
 
 /** Parses one script file into its top-level blocks (normally a single `module`). */
 export function parseScript(text: string): ScriptBlock[] {
-  const reader = new Reader(text.replace(/^FEFF/, ''));
+  const reader = new Reader(text.replace(/^﻿/, ''));
   const root: ScriptBlock = { type: '', name: '', entries: [], blocks: [], line: 1 };
   for (;;) {
     reader.skipSpaceAndComments();

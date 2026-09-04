@@ -80,7 +80,7 @@ describe('parseScript', () => {
   });
 
   it('tolerates a byte order mark and missing trailing commas', () => {
-    const blocks = parseScript('FEFFmodule M { item A { X = 1 } }');
+    const blocks = parseScript('﻿module M { item A { X = 1 } }');
     expect(blocks[0]?.blocks[0]?.entries).toEqual([{ key: 'X', value: '1' }]);
   });
 

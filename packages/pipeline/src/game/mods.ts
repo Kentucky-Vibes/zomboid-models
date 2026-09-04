@@ -46,7 +46,7 @@ export function parseModInfo(text: string): ModInfo | undefined {
     author: undefined,
   };
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/^FEFF/, '');
+    const line = rawLine.replace(/^﻿/, '');
     const eq = line.indexOf('=');
     if (eq < 0) continue;
     const key = line.slice(0, eq).trim();
