@@ -19,3 +19,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# hand-made development assets (converted game files)
+apps/playground/public/dev-assets/

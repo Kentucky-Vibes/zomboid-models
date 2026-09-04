@@ -1,0 +1,113 @@
+/**
+ * The manifest that the pipeline writes next to the converted assets. The renderer loads it
+ * from `assetBaseUrl` and resolves every model, texture, and animation through it.
+ */
+
+import type { BodyPart, Sex } from './types.js';
+
+export const MANIFEST_FORMAT = 'zomboid-models/manifest';
+export const MANIFEST_VERSION = 1;
+
+/** A converted mesh file; keyed by the game's model path, lowercased with forward slashes. */
+export interface ManifestModel {
+  /** Path of the GLB relative to the manifest. */
+  file: string;
+  skinned: boolean;
+  /** Names of the meshes inside the file, in file order. */
+  meshes: string[];
+}
+
+/** A converted animation file; keyed by the clip name. */
+export interface ManifestAnimation {
+  /** Path of the GLB relative to the manifest. */
+  file: string;
+  /** Length in seconds. */
+  duration: number;
+}
+
+export interface ManifestBody {
+  /** Model key of the body mesh. */
+  model: string;
+  /** Texture keys of the skin choices, in the game's order. */
+  skins: string[];
+  /** Whether a body-hair variant (`a` suffix) exists for each skin. */
+  bodyHair: boolean;
+}
+
+/** One clothing item definition from the game's clothing XML, keyed by its name. */
+export interface ManifestClothingItem {
+  /** Model keys per sex; absent when the item has no mesh (texture-only layers). */
+  model?: Partial<Record<Sex, string>>;
+  altModel?: Partial<Record<Sex, string>>;
+  /** True for meshes that are placed on a bone instead of skinned. */
+  static: boolean;
+  attachBone?: string;
+  /** Texture keys of `textureChoices` and `m_BaseTextures`. */
+  textures: string[];
+  baseTextures: string[];
+  /** Mask part indices as in the XML (`m_Masks`). */
+  masks: number[];
+  /** Texture key prefix of the mask folder, when it is not the default body mask folder. */
+  masksFolder?: string;
+  underlayMasksFolder?: string;
+  allowRandomTint: boolean;
+  allowRandomHue: boolean;
+  hatCategory?: string;
+  decalGroup?: string;
+  spawnWith?: string;
+}
+
+/** One inventory item that can be worn, keyed by its full type such as `Base.Trousers_Denim`. */
+export interface ManifestWearable {
+  clothingItem: string;
+  bodyLocation: string;
+  /** Names from the item script's `BloodLocation`, mapped by the renderer to body parts. */
+  bloodLocation: string[];
+  fabric?: 'cotton' | 'denim' | 'leather';
+  displayName?: string;
+  icon?: string;
+}
+
+export interface ManifestBodyLocation {
+  /** Render order as declared in the game data; lower draws first. */
+  order: number;
+  /** Locations that cannot be worn together with this one. */
+  exclusive: string[];
+  /** Locations hidden while this one is worn. */
+  hides: string[];
+  multiItem: boolean;
+}
+
+export interface ManifestHairStyle {
+  model: string;
+  texture: string;
+  /** Replacement style per hat category, `default` for any hat. */
+  alternates: Record<string, string>;
+}
+
+export interface ManifestBeardStyle {
+  model: string;
+  texture: string;
+}
+
+export interface Manifest {
+  format: typeof MANIFEST_FORMAT;
+  version: typeof MANIFEST_VERSION;
+  /** Game version the assets were converted from, for example `42.20.3`. */
+  gameVersion: string;
+  generatedAt: string;
+  /** Mod ids that contributed assets, in load order. */
+  mods: string[];
+  bodies: Record<Sex, ManifestBody>;
+  models: Record<string, ManifestModel>;
+  /** Texture files keyed by the game's texture path, lowercased, without extension. */
+  textures: Record<string, string>;
+  animations: Record<string, ManifestAnimation>;
+  clothingItems: Record<string, ManifestClothingItem>;
+  wearables: Record<string, ManifestWearable>;
+  bodyLocations: Record<string, ManifestBodyLocation>;
+  hair: Record<Sex, Record<string, ManifestHairStyle>>;
+  beards: Record<string, ManifestBeardStyle>;
+  /** Mask texture keys per body part for blood and holes, in the game's order. */
+  bloodMasks: Record<BodyPart, string>;
+}
