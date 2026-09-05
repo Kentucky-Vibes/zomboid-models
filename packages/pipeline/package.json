@@ -1,6 +1,6 @@
 {
   "name": "zomboid-models-pipeline",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Converts Project Zomboid (Build 42) character assets from a game or dedicated server install into web-ready files for zomboid-models",
   "license": "MIT",
   "type": "module",
@@ -30,7 +30,7 @@
   "dependencies": {
     "fast-xml-parser": "5.11.1",
     "fengari": "0.1.4",
-    "zomboid-models": "0.1.0"
+    "zomboid-models": "0.2.0"
   },
   "keywords": [
     "project-zomboid",

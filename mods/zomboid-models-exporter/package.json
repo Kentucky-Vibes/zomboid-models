@@ -9,6 +9,6 @@
   },
   "devDependencies": {
     "fengari": "0.1.4",
-    "zomboid-models": "0.1.0"
+    "zomboid-models": "0.2.0"
   }
 }
