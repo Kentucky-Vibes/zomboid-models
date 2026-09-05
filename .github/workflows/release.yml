@@ -22,10 +22,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: https://registry.npmjs.org
-      # npm publishes through the trusted publisher set up on npmjs.com for each package; that
-      # needs npm 11.5.1 or later, newer than the one Node ships with.
-      - run: npm install -g npm@latest
+      # npm publishes through the trusted publisher set up on npmjs.com for each package. That
+      # needs npm 11.5.1 or later, newer than the one Node ships with, and no auth token in the
+      # environment: setup-node's registry-url would write a placeholder one that npm would send.
+      - run: npm install -g npm@latest && npm --version
       - run: npm ci
       - run: npm run build
       - name: Create version pull request or publish
