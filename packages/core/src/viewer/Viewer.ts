@@ -104,6 +104,7 @@ export class Viewer implements FrameListener {
   private generation = 0;
   private disposed = false;
   private characterHeight = 1;
+  private characterExtent = 1;
 
   constructor(host: HTMLElement, options: ViewerOptions) {
     this.options = options;
@@ -300,6 +301,10 @@ export class Viewer implements FrameListener {
     this.clip = clip;
     rig.playClip(clip, { timeScale, startFraction });
     if (this.options.poseTime !== undefined) rig.freezeAt(this.options.poseTime);
+    // Pose the skeleton once so the framing sees a lying or sitting body as it is, not the bind pose.
+    rig.mixer.update(0);
+    rig.updateMatrixWorld(true);
+    this.frameCharacter();
     this.needsRender = true;
     this.syncLoop();
   }
@@ -310,6 +315,8 @@ export class Viewer implements FrameListener {
     if (box.isEmpty()) return;
     const size = box.getSize(new Vector3());
     this.characterHeight = Math.max(size.y, 0.001);
+    // A lying or crawling character is wider than tall; the camera backs off for the larger side.
+    this.characterExtent = Math.max(size.x, size.y, size.z, 0.001);
     const center = box.getCenter(new Vector3());
     // Put the character's feet on the origin so the camera framing is stable across outfits.
     this.rig.position.set(-center.x, -box.min.y, -center.z);
@@ -319,7 +326,7 @@ export class Viewer implements FrameListener {
   private placeCamera(): void {
     const camera = { ...DEFAULT_CAMERA, ...this.options.camera };
     const target = new Vector3(0, this.characterHeight * camera.targetHeight, 0);
-    const distance = this.characterHeight * camera.distance;
+    const distance = this.characterExtent * camera.distance;
     const yaw = (camera.yaw * Math.PI) / 180;
     const pitch = (camera.pitch * Math.PI) / 180;
     this.camera.fov = camera.fov;
