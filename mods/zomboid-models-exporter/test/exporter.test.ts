@@ -46,7 +46,7 @@ local function visual(fields)
     getTextureChoice = function() return fields.textureChoice or -1 end,
     getBaseTexture = function() return fields.baseTexture or -1 end,
     getTint = function() return fields.tint end,
-    getHue = function() return fields.hue or math.huge end,
+    getHue = function() return fields.hue or (1 / 0) end,
     getDecal = function(self, clothingItem) return fields.decal end,
     getBlood = function(self, part) return (fields.blood or {})[part.name] or 0 end,
     getDirt = function(self, part) return (fields.dirt or {})[part.name] or 0 end,
@@ -137,10 +137,26 @@ function run(L: LuaState, code: string): void {
   }
 }
 
+/**
+ * Standard functions the game's Kahlua runtime does not provide (checked against the
+ * decompiled `se.krka.kahlua.stdlib` classes of Build 42.20.3). Removing them here makes the
+ * tests fail the way the game would.
+ */
+const KAHLUA_MISSING = `
+next = nil
+assert = nil
+table.sort = nil
+string.format = nil
+string.gsub = nil
+string.rep = nil
+math.huge = nil
+`;
+
 function newState(): LuaState {
   const L = lauxlib.luaL_newstate();
   lualib.luaL_openlibs(L);
   run(L, GAME_MOCK);
+  run(L, KAHLUA_MISSING);
   // `require 'ZomboidModels/JSON'` in the mod resolves through the game's loader; here the
   // files are loaded by hand in dependency order and `require` becomes a no-op.
   run(L, 'function require(name) end');
@@ -162,7 +178,7 @@ describe('ZomboidModelsJSON', () => {
     const L = newState();
     const json = evalString(
       L,
-      `ZomboidModelsJSON.encode({ b = 'q"\\n', a = ZomboidModelsJSON.array({ 1, 2.5, true }), c = { n = 0 }, d = 0.123456789, e = math.huge })`,
+      `ZomboidModelsJSON.encode({ b = 'q"\\n', a = ZomboidModelsJSON.array({ 1, 2.5, true }), c = { n = 0 }, d = 0.123456789, e = 1 / 0 })`,
     );
     expect(JSON.parse(json)).toEqual({ a: [1, 2.5, true], b: 'q"\n', c: [], d: 0.1235, e: null });
   });

@@ -1,41 +1,55 @@
---- Minimal JSON encoder for the game's Kahlua runtime: no string.format, no metatables.
---- Tables are encoded as arrays when they carry `n` (see `ZomboidModelsJSON.array`) and as
---- objects otherwise; object keys are sorted so that output is stable.
+--- Minimal JSON encoder for the game's Kahlua runtime, which lacks `next`, `table.sort`,
+--- `string.format`, and the function form of `string.gsub`. Only `pairs`, `ipairs`,
+--- `table.insert`, `table.concat`, `string.byte`, `string.sub`, `math.floor`, and `tostring`
+--- are used. Tables are encoded as arrays when they carry `n` (see `ZomboidModelsJSON.array`)
+--- and as objects otherwise; object keys are sorted so that output is stable.
 
 ZomboidModelsJSON = ZomboidModelsJSON or {}
 local JSON = ZomboidModelsJSON
 
 local ESCAPES = {
-    ['"'] = '\\"',
-    ['\\'] = '\\\\',
-    ['\b'] = '\\b',
-    ['\f'] = '\\f',
-    ['\n'] = '\\n',
-    ['\r'] = '\\r',
-    ['\t'] = '\\t',
+    [34] = '\\"',
+    [92] = '\\\\',
+    [8] = '\\b',
+    [12] = '\\f',
+    [10] = '\\n',
+    [13] = '\\r',
+    [9] = '\\t',
 }
 
-local function escapeChar(c)
-    local known = ESCAPES[c]
-    if known then return known end
-    local byte = string.byte(c)
-    local hex = ''
-    local digits = '0123456789abcdef'
-    local value = byte
+local HEX = '0123456789abcdef'
+
+local function hex4(value)
+    local out = ''
     for _ = 1, 4 do
-        local d = value % 16
-        hex = string.sub(digits, d + 1, d + 1) .. hex
+        local d = value - math.floor(value / 16) * 16
+        out = string.sub(HEX, d + 1, d + 1) .. out
         value = math.floor(value / 16)
     end
-    return '\\u' .. hex
+    return out
 end
 
 local function encodeString(s)
-    return '"' .. string.gsub(s, '[%c"\\]', escapeChar) .. '"'
+    local parts = { '"' }
+    for i = 1, #s do
+        local byte = string.byte(s, i)
+        local known = ESCAPES[byte]
+        if known then
+            table.insert(parts, known)
+        elseif byte < 32 then
+            table.insert(parts, '\\u' .. hex4(byte))
+        else
+            table.insert(parts, string.sub(s, i, i))
+        end
+    end
+    table.insert(parts, '"')
+    return table.concat(parts)
 end
 
+local INFINITY = 1 / 0
+
 local function encodeNumber(n)
-    if n ~= n or n == math.huge or n == -math.huge then return 'null' end
+    if n ~= n or n == INFINITY or n == -INFINITY then return 'null' end
     local rounded = math.floor(n * 10000 + 0.5) / 10000
     if rounded == math.floor(rounded) then
         return tostring(math.floor(rounded))
@@ -50,12 +64,27 @@ function JSON.array(t)
     return t
 end
 
+local function isEmpty(t)
+    for _ in pairs(t) do
+        return false
+    end
+    return true
+end
+JSON.isEmpty = isEmpty
+
+--- String keys of a table in ascending order (insertion sort; the tables are small).
 local function sortedKeys(t)
     local keys = {}
     for key in pairs(t) do
-        if type(key) == 'string' then table.insert(keys, key) end
+        if type(key) == 'string' then
+            local pos = #keys + 1
+            while pos > 1 and keys[pos - 1] > key do
+                keys[pos] = keys[pos - 1]
+                pos = pos - 1
+            end
+            keys[pos] = key
+        end
     end
-    table.sort(keys)
     return keys
 end
 

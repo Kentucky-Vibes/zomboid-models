@@ -30,9 +30,7 @@ local function try(object, method, ...)
     return nil
 end
 
-local function isEmpty(t)
-    return next(t) == nil
-end
+local isEmpty = JSON.isEmpty
 
 local function color(immutable)
     if immutable == nil then return nil end
@@ -137,7 +135,7 @@ function M.describeWornItem(item)
     local tint = color(try(visual, 'getTint'))
     if not isWhite(tint) then entry.tint = tint end
     local hue = try(visual, 'getHue')
-    if hue ~= nil and hue == hue and hue > -1000 and hue < 1000 and math.abs(hue) > 0.0001 then
+    if hue ~= nil and hue == hue and hue > -1000 and hue < 1000 and (hue > 0.0001 or hue < -0.0001) then
         entry.hue = hue
     end
     if clothingItem ~= nil then
@@ -176,7 +174,9 @@ local function describeHeldItem(item)
     if fullType == nil then return nil end
     local held = { item = fullType }
     local blood = try(item, 'getBloodLevel')
-    if blood ~= nil and blood > 0 then held.blood = math.min(blood, 1) end
+    if blood ~= nil and blood > 0 then
+        held.blood = blood > 1 and 1 or blood
+    end
     return held
 end
 
@@ -256,12 +256,20 @@ function M.describe(character)
     }
 end
 
---- A file-system safe name for a player.
+--- A file-system safe name for a player: letters, digits, '-', '_', and '.' are kept, everything
+--- else becomes '_'. Written byte by byte because Kahlua's `string.gsub` has no character classes.
 function M.fileName(character)
-    local name = try(character, 'getUsername') or try(character, 'getDisplayName') or 'player'
-    name = string.gsub(tostring(name), '[^%w%-_.]', '_')
-    if name == '' then name = 'player' end
-    return name
+    local name = tostring(try(character, 'getUsername') or try(character, 'getDisplayName') or '')
+    local parts = {}
+    for i = 1, #name do
+        local byte = string.byte(name, i)
+        local keep = (byte >= 48 and byte <= 57) or (byte >= 65 and byte <= 90)
+            or (byte >= 97 and byte <= 122) or byte == 45 or byte == 95 or byte == 46
+        table.insert(parts, keep and string.sub(name, i, i) or '_')
+    end
+    local safe = table.concat(parts)
+    if safe == '' then safe = 'player' end
+    return safe
 end
 
 --- Writes the document for a character and returns the relative path, or nil on failure.
