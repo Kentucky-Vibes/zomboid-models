@@ -12,6 +12,9 @@ updates:
       # three.js releases change the API every month; it moves on purpose, with a changeset.
       - dependency-name: three
       - dependency-name: '@types/three'
+      # A new TypeScript major lands only once the toolchain (TypeDoc, typescript-eslint) supports it.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
