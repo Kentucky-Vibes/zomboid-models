@@ -126,3 +126,17 @@ Build 42 animals have their own document, `zomboid-models/animal`:
 - `seed`: for the texture choice.
 
 The pipeline writes the animal catalog when `subjects` includes `animals`; the viewer loads it for animal documents. The JSON Schema is `schema/animal.schema.json`, and `validateAnimalDescription()` checks a document at runtime.
+
+## Items
+
+One inventory item on its own has the document `zomboid-models/item`:
+
+```json
+{ "format": "zomboid-models/item", "version": 1, "item": "Base.Axe", "model": "held" }
+```
+
+- `item`: the full item type.
+- `model`: `world` for the model the item shows lying on the ground (`WorldStaticModel` in the item script), `held` for the model it shows in a hand (`WeaponSprite` or `StaticModel`). The ground model is the default; an item that lacks the requested model shows the other one with a warning.
+- `blood`: reserved for blood on weapons; not drawn yet.
+
+The pipeline writes the item catalog when `subjects` includes `items`. Ground models are FBX files in the game, which the pipeline converts through the three.js FBX loader; the model's script scale applies, so a hammer on the ground is hammer-sized next to a character. The JSON Schema is `schema/item.schema.json`, and `validateItemDescription()` checks a document at runtime.

@@ -15,8 +15,10 @@ import { ATTRIBUTION_TEXT } from '../attribution.js';
 import { autoClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
 import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
 import { ANIMAL_FORMAT, type AnimalDescription } from '../format/animal.js';
-import type { AnimalCatalog, CharacterCatalog } from '../format/manifest.js';
+import { ITEM_FORMAT, type ItemDescription } from '../format/item.js';
+import type { AnimalCatalog, CharacterCatalog, ItemCatalog } from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
+import { buildItem } from '../item/ItemBuilder.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
 
@@ -36,10 +38,14 @@ export interface CameraOptions {
 }
 
 /** Any document the viewer can show. */
-export type ViewerDocument = CharacterDescription | AnimalDescription;
+export type ViewerDocument = CharacterDescription | AnimalDescription | ItemDescription;
 
 function isAnimal(document: ViewerDocument): document is AnimalDescription {
   return document.format === ANIMAL_FORMAT;
+}
+
+function isItem(document: ViewerDocument): document is ItemDescription {
+  return document.format === ITEM_FORMAT;
 }
 
 export interface ViewerOptions {
@@ -113,8 +119,8 @@ export class Viewer implements FrameListener {
   private readonly reducedMotion: MediaQueryList;
   private readonly attribution: HTMLElement | undefined;
   private options: ViewerOptions;
-  /** The catalog of the document being shown; characters and animals have their own. */
-  private catalog: CharacterCatalog | AnimalCatalog | undefined;
+  /** The catalog of the document being shown; each kind of subject has its own. */
+  private catalog: CharacterCatalog | AnimalCatalog | ItemCatalog | undefined;
   private rig: CharacterRig | undefined;
   private clip: AnimationClip | null = null;
   private visible = false;
@@ -274,7 +280,9 @@ export class Viewer implements FrameListener {
       const catalog =
         document && isAnimal(document)
           ? await this.cache.loadAnimalCatalog()
-          : await this.cache.loadCharacterCatalog();
+          : document && isItem(document)
+            ? await this.cache.loadItemCatalog()
+            : await this.cache.loadCharacterCatalog();
       if (generation !== this.generation) return;
       this.catalog = catalog;
       if (!document) return;
@@ -287,14 +295,16 @@ export class Viewer implements FrameListener {
             },
             document,
           )
-        : await buildCharacter(
-            {
-              cache: this.cache,
-              manifest: catalog as CharacterCatalog,
-              composer: this.shared.composer,
-            },
-            document,
-          );
+        : isItem(document)
+          ? await buildItem({ cache: this.cache, catalog: catalog as ItemCatalog }, document)
+          : await buildCharacter(
+              {
+                cache: this.cache,
+                manifest: catalog as CharacterCatalog,
+                composer: this.shared.composer,
+              },
+              document,
+            );
       if (generation !== this.generation) {
         built.rig.dispose();
         return;
@@ -313,7 +323,7 @@ export class Viewer implements FrameListener {
   }
 
   private async applyAnimation(
-    catalog: CharacterCatalog | AnimalCatalog,
+    catalog: CharacterCatalog | AnimalCatalog | ItemCatalog,
     rig: CharacterRig,
     generation: number,
   ): Promise<void> {
@@ -322,7 +332,9 @@ export class Viewer implements FrameListener {
     let name: string | null | undefined = this.options.animation;
     let timeScale = speed;
     let startFraction = 0;
-    if (name === undefined && document) {
+    if (document && isItem(document)) {
+      name = null;
+    } else if (name === undefined && document) {
       if (isAnimal(document)) {
         const auto = autoAnimalClip(catalog as AnimalCatalog, document);
         name = auto?.clip ?? null;
@@ -335,7 +347,7 @@ export class Viewer implements FrameListener {
       }
     }
     const clip =
-      name === null || name === undefined
+      name === null || name === undefined || !('animations' in catalog)
         ? null
         : await loadClip(this.cache, catalog, name, rig.warnings);
     if (generation !== this.generation) return;

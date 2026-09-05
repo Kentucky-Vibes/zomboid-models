@@ -4,7 +4,7 @@ Renders Project Zomboid (Build 42) characters in the browser: the body, clothing
 
 The project has three parts. A three.js library draws the character from a JSON description. A command line pipeline converts the assets from your own copy of the game or of the dedicated server into files a browser can load. A playground lets you assemble a character and look at the result.
 
-Status: released on npm (0.1) with zombies, outfits by name, and stances on the way to 0.2. The renderer draws players and zombies: bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, and bandages the way the game composes them, and it can dress a character from one of the game's named outfits with the game's own randomiser. A reference mod exports players from the game. Models stored as FBX, animals, and vehicles are next; see [docs/decisions.md](docs/decisions.md).
+Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, and any item on the ground or in the hand. A reference mod exports players from the game. Vehicles are next; see [docs/decisions.md](docs/decisions.md).
 
 A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It ships without game assets, so paste the URL of a folder you built with the pipeline into its asset field.
 

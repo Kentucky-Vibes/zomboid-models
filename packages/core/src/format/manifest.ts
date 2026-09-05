@@ -396,3 +396,28 @@ export interface AnimalCatalog {
   animations: Record<string, ManifestAnimation>;
   animals: Record<string, ManifestAnimal>;
 }
+
+/** One of an item's models: the mesh, its texture, and the script's scale. */
+export interface ManifestItemModel {
+  model: string;
+  texture?: string;
+  scale: number;
+  /** Attachment points declared on the model, keyed by name (`world` places it on the ground). */
+  attachments: Record<string, ManifestAttachment>;
+}
+
+/** One inventory item, keyed by its full type. */
+export interface ManifestItem {
+  displayName?: string;
+  /** The model the item shows lying in the world (`WorldStaticModel`). */
+  world?: ManifestItemModel;
+  /** The model the item shows in a hand (`WeaponSprite` or `StaticModel`). */
+  held?: ManifestItemModel;
+}
+
+/** Everything needed to render items on their own. */
+export interface ItemCatalog {
+  models: Record<string, ManifestModel>;
+  textures: Record<string, string>;
+  items: Record<string, ManifestItem>;
+}

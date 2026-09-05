@@ -14,6 +14,8 @@ export { autoClip, prepareCharacter } from './character/CharacterBuilder.js';
 export type { AutoClip, PreparedCharacter } from './character/CharacterBuilder.js';
 export { autoAnimalClip, resolveAnimalLook } from './animal/AnimalBuilder.js';
 export type { AnimalLook } from './animal/AnimalBuilder.js';
+export { resolveItemLook } from './item/ItemBuilder.js';
+export type { ItemLook } from './item/ItemBuilder.js';
 export { generateOutfit, randomBodyBlood, rollRotStage } from './outfit/generate.js';
 export type { GeneratedOutfit, OutfitGenerationOptions } from './outfit/generate.js';
 export { LocationRng, OutfitRng, hsbToRgb } from './outfit/rng.js';

@@ -6,6 +6,7 @@ import {
   MANIFEST_VERSION,
   type AnimalCatalog,
   type CharacterCatalog,
+  type ItemCatalog,
   type ManifestIndex,
   type SubjectKind,
 } from '../format/manifest.js';
@@ -86,6 +87,10 @@ export class AssetCache {
 
   loadAnimalCatalog(): Promise<AnimalCatalog> {
     return this.loadCatalog<AnimalCatalog>('animals');
+  }
+
+  loadItemCatalog(): Promise<ItemCatalog> {
+    return this.loadCatalog<ItemCatalog>('items');
   }
 
   loadGltf(relativePath: string): Promise<GLTF> {

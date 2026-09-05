@@ -13,7 +13,7 @@ import {
   type Color,
   type Material,
   type Mesh,
-  type Object3D,
+  Object3D,
   type SkinnedMesh,
   type Texture,
 } from 'three';
@@ -63,7 +63,11 @@ export class CharacterRig extends Group {
     });
   }
 
-  /** Loads the body for the description's sex and returns a rig with only the body attached. */
+  /** A rig with no skeleton, for static models such as items shown on their own. */
+  static empty(): CharacterRig {
+    return new CharacterRig(new Object3D());
+  }
+
   /** Loads the body model whose skeleton every other part binds to. */
   static async load(
     cache: AssetCache,
@@ -127,7 +131,7 @@ export class CharacterRig extends Group {
    */
   async addStaticModel(
     cache: AssetCache,
-    manifest: Manifest,
+    manifest: Pick<Manifest, 'models'>,
     key: string,
     modelKey: string,
     boneName: string | undefined,

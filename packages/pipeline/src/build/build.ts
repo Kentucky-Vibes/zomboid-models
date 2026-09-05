@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
@@ -15,6 +15,7 @@ import {
 
 import type { PipelineConfig } from '../config.js';
 import { convertAnimationFile } from '../convert/animationToGltf.js';
+import { convertFbxFile } from '../convert/fbxToGltf.js';
 import { convertMeshFile } from '../convert/meshToGltf.js';
 import { loadCatalog, type GameCatalog } from '../game/catalog.js';
 import { buildActiveFileMap, type ActiveFileMap } from '../game/fileMap.js';
@@ -33,6 +34,7 @@ import {
 } from '../game/version.js';
 import { parseX } from '../x/parser.js';
 import { assembleAnimalCatalog, planAnimalAssets, type AnimalPlan } from './animals.js';
+import { assembleItemCatalog, planItemAssets, type ItemPlan } from './items.js';
 import {
   BANDAGE_ITEMS,
   BODY_MODELS,
@@ -59,6 +61,7 @@ export interface BuildReport {
   heldItems: number;
   outfits: number;
   animals: number;
+  items: number;
   warnings: string[];
   seconds: number;
   outDir: string;
@@ -166,13 +169,17 @@ function convertModels(
       warnings.push(`model "${key}" has no file under media/models_X`);
       continue;
     }
-    if (source.extension !== '.x') {
-      warnings.push(`model "${key}" is ${source.extension}; only .x is converted for now`);
+    if (source.extension === '.glb') {
+      warnings.push(`model "${key}" is already glTF; copying is not supported yet`);
       continue;
     }
     try {
-      const result = convertMeshFile(parseX(readFileSync(source.path, 'utf8')));
+      const result =
+        source.extension === '.fbx'
+          ? convertFbxFile(readFileSync(source.path))
+          : convertMeshFile(parseX(readFileSync(source.path, 'utf8')));
       for (const warning of result.warnings) warnings.push(`model "${key}": ${warning}`);
+      if (result.meshes.length === 0) continue;
       const file = `models/${slug(key)}-${hashOf(result.glb)}.glb`;
       writeFileSync(join(outDir, file), result.glb);
       writer.models.set(key, {
@@ -408,13 +415,21 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     warnings.push(...animalPlan.warnings);
     log.info(`${Object.keys(animalPlan.animals).length} animal types`);
   }
+  let itemPlan: ItemPlan | undefined;
+  if (config.subjects.includes('items')) {
+    itemPlan = planItemAssets(catalog);
+    warnings.push(...itemPlan.warnings);
+    log.info(`${Object.keys(itemPlan.items).length} items with models`);
+  }
   const models = new Set<string>([
     ...(buildCharacters ? plan.models : []),
     ...(animalPlan?.models ?? []),
+    ...(itemPlan?.models ?? []),
   ]);
   const textures = new Set<string>([
     ...(buildCharacters ? plan.textures : []),
     ...(animalPlan?.textures ?? []),
+    ...(itemPlan?.textures ?? []),
   ]);
   const animations = new Set<string>([
     ...(buildCharacters ? plan.animations : []),
@@ -441,6 +456,10 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     mods: mods.map((mod) => mod.id),
     catalogs: {},
   };
+  // Catalog names carry a content hash; stale ones from earlier builds would only confuse.
+  for (const entry of readdirSync(config.outDir)) {
+    if (/^catalog-[a-z]+-[0-9a-f]+.json$/.test(entry)) rmSync(join(config.outDir, entry));
+  }
   const outfits = catalog.outfits;
   if (buildCharacters) {
     const characters = JSON.stringify(assembleCharacterCatalog(catalog, plan, writer));
@@ -456,6 +475,12 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     writeFileSync(join(config.outDir, file), animals);
     index.catalogs.animals = file;
   }
+  if (itemPlan) {
+    const items = JSON.stringify(assembleItemCatalog(itemPlan, writer.models, writer.textures));
+    const file = `catalog-items-${hashOf(items)}.json`;
+    writeFileSync(join(config.outDir, file), items);
+    index.catalogs.items = file;
+  }
   writeFileSync(join(config.outDir, 'manifest.json'), JSON.stringify(index));
   for (const warning of warnings) log.warn(warning);
 
@@ -469,6 +494,7 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     heldItems: Object.keys(plan.heldItems).length,
     outfits: Object.keys(outfits.male).length + Object.keys(outfits.female).length,
     animals: animalPlan ? Object.keys(animalPlan.animals).length : 0,
+    items: itemPlan ? Object.keys(itemPlan.items).length : 0,
     warnings,
     seconds: (performance.now() - started) / 1000,
     outDir: config.outDir,

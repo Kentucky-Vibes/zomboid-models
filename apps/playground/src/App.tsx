@@ -2,20 +2,24 @@ import { useState } from 'react';
 import {
   ANIMAL_FORMAT,
   ATTRIBUTION_TEXT,
+  ITEM_FORMAT,
   validateAnimalDescription,
   validateCharacterDescription,
+  validateItemDescription,
   type AnimalDescription,
   type CameraOptions,
   type CharacterDescription,
+  type ItemDescription,
   type ViewerDocument,
 } from 'zomboid-models';
 
 import { AnimalEditor } from './AnimalEditor.js';
 import { CharacterView } from './CharacterView.js';
+import { ItemEditor } from './ItemEditor.js';
 import { OutfitEditor } from './OutfitEditor.js';
 import { useManifest } from './useManifest.js';
 
-type Subject = 'character' | 'animal';
+type Subject = 'character' | 'animal' | 'item';
 
 const DEFAULT_ASSET_BASE_URL = `${import.meta.env.BASE_URL}dev-assets/`;
 const ASSET_URL_STORAGE_KEY = 'zomboid-models.playground.assets';
@@ -67,6 +71,12 @@ const INITIAL_ANIMAL: AnimalDescription = {
   breed: 'holstein',
 };
 
+const INITIAL_ITEM: ItemDescription = {
+  format: 'zomboid-models/item',
+  version: 1,
+  item: 'Base.Axe',
+};
+
 const CAMERA_PRESETS: Record<string, CameraOptions> = {
   full: {},
   head: { distance: 0.8, targetHeight: 0.86, fov: 22, yaw: 0, pitch: 4 },
@@ -77,16 +87,18 @@ const CAMERA_PRESETS: Record<string, CameraOptions> = {
 export function App() {
   const [assetBaseUrl, setAssetBaseUrl] = useState(initialAssetBaseUrl);
   const [assetDraft, setAssetDraft] = useState(assetBaseUrl);
-  const { manifest, animals, error } = useManifest(assetBaseUrl);
+  const { manifest, animals, items, error } = useManifest(assetBaseUrl);
   const [subject, setSubject] = useState<Subject>('character');
   const [character, setCharacter] = useState<CharacterDescription>(INITIAL_CHARACTER);
   const [animal, setAnimal] = useState<AnimalDescription>(INITIAL_ANIMAL);
+  const [item, setItem] = useState<ItemDescription>(INITIAL_ITEM);
   const [animation, setAnimation] = useState<string | null | undefined>(undefined);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [preset, setPreset] = useState('full');
   const [jsonDraft, setJsonDraft] = useState('');
   const [jsonError, setJsonError] = useState<string | undefined>(undefined);
-  const document: ViewerDocument = subject === 'animal' ? animal : character;
+  const document: ViewerDocument =
+    subject === 'animal' ? animal : subject === 'item' ? item : character;
   const clipNames = Object.keys(
     (subject === 'animal' ? animals?.animations : manifest?.animations) ?? {},
   );
@@ -94,7 +106,15 @@ export function App() {
   const importJson = (): void => {
     try {
       const parsed = JSON.parse(jsonDraft) as { format?: unknown };
-      if (parsed.format === ANIMAL_FORMAT) {
+      if (parsed.format === ITEM_FORMAT) {
+        const result = validateItemDescription(parsed);
+        if (!result.ok) {
+          setJsonError(result.errors.join('; '));
+          return;
+        }
+        setItem(result.value);
+        setSubject('item');
+      } else if (parsed.format === ANIMAL_FORMAT) {
         const result = validateAnimalDescription(parsed);
         if (!result.ok) {
           setJsonError(result.errors.join('; '));
@@ -171,6 +191,9 @@ export function App() {
               <option value="animal" disabled={!animals}>
                 animal{animals ? '' : ' (no catalog)'}
               </option>
+              <option value="item" disabled={!items}>
+                item{items ? '' : ' (no catalog)'}
+              </option>
             </select>
           </label>{' '}
           <label style={{ fontSize: 12 }}>
@@ -246,6 +269,9 @@ export function App() {
         )}
         {subject === 'animal' && animals && (
           <AnimalEditor catalog={animals} animal={animal} onChange={setAnimal} />
+        )}
+        {subject === 'item' && items && (
+          <ItemEditor catalog={items} item={item} onChange={setItem} />
         )}
       </div>
       <details style={{ marginTop: 12, fontSize: 12 }}>

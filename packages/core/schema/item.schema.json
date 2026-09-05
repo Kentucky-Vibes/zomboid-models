@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kentucky-vibes/zomboid-models/schema/item.schema.json",
+  "title": "zomboid-models item",
+  "description": "One Project Zomboid inventory item shown on its own: its model on the ground or in a hand.",
+  "type": "object",
+  "required": ["format", "version", "item"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "zomboid-models/item" },
+    "version": { "const": 1 },
+    "item": { "type": "string", "minLength": 1 },
+    "model": { "enum": ["world", "held"] },
+    "blood": { "type": "number", "minimum": 0, "maximum": 1 },
+    "meta": { "type": "object" }
+  }
+}

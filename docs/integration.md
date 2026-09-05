@@ -1,6 +1,6 @@
 # Integrating the viewer
 
-Three packages show a character on a page. All of them need a folder of converted assets (see [pipeline.md](pipeline.md)) reachable by URL, and a character document (see [format.md](format.md)).
+Three packages show a character, an animal, or an item on a page. All of them need a folder of converted assets (see [pipeline.md](pipeline.md)) reachable by URL, and a document (see [format.md](format.md)).
 
 ## Plain JavaScript
 
@@ -26,7 +26,7 @@ Options:
 
 - `assetBaseUrl`: the folder that holds `manifest.json`.
 - `mode`: `viewer` (orbit controls, zoom) or `showcase` (no controls, transparent background by default, pauses when off screen and when the visitor prefers reduced motion).
-- `document`: the document to show. `character` and `setCharacter()` mean the same and stay until 1.0.
+- `document`: the document to show: a character, an animal, or an item (see [format.md](format.md)). `character` and `setCharacter()` mean the same and stay until 1.0.
 - `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it.
 - `animationSpeed`: multiplies the playback speed; 1 by default. `setAnimationSpeed()` changes it in place.
 - `poseTime`: freezes the clip at that time in seconds instead of playing it.
@@ -52,7 +52,7 @@ Every viewer on a page shares one WebGL context, so a list of twenty characters 
 ></zomboid-character>
 ```
 
-The element bundles three.js. Attributes map to the options above (`asset-base-url`, `mode`, `animation`, `pose-time`, `background`, `auto-rotate`, `attribution`, `camera` as JSON), `src` loads a document by URL, and the `character` property takes an object. It dispatches `ready`, `warning`, and `error` events and has `toImage()`, `play()`, and `pause()` methods. Give it a size with CSS.
+The element bundles three.js. Attributes map to the options above (`asset-base-url`, `mode`, `animation`, `animation-speed`, `pose-time`, `background`, `auto-rotate`, `attribution`, `camera` as JSON), `src` loads a document by URL, and the `document` property (or `character`, its alias) takes an object. It dispatches `ready`, `warning`, and `error` events and has `toImage()`, `play()`, and `pause()` methods. Give it a size with CSS.
 
 ## React
 
@@ -64,14 +64,14 @@ export function Avatar({ character }) {
     <ZomboidCharacter
       assetBaseUrl="/assets/"
       mode="showcase"
-      character={character}
+      document={character}
       style={{ width: 320, height: 480 }}
     />
   );
 }
 ```
 
-Props are the viewer options plus `className`, `style`, and `onReady`. The component rebuilds the viewer when the asset folder, mode, background, or camera change and updates the character and animation in place.
+Props are the viewer options plus `className`, `style`, and `onReady`. The component rebuilds the viewer when the asset folder, mode, background, or camera change and updates the document, the animation, and the speed in place.
 
 ## Next.js
 
