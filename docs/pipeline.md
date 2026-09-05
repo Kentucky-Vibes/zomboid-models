@@ -30,7 +30,7 @@ Fields:
 - `mods`: ordered ids to enable; every discovered mod when omitted. `serverIni` reads the order from a server's `Mods=` line instead.
 - `outDir`: where the assets go. It is recreated on every build.
 - `animations`: extra clip names from any folder under `anims_X` to convert on top of the idle and stance clips.
-- `subjects`: which catalogs to build, from `characters`, `vehicles`, `animals`, and `items`; all of them when omitted. Only `characters` exists in this version.
+- `subjects`: which catalogs to build, from `characters`, `vehicles`, `animals`, and `items`; all of them when omitted. `characters` and `animals` exist in this version.
 
 `zomboid-models doctor` checks the configuration, the install, the mod folders, and the output folder, and lists the mods it found with the version folder it picked for each.
 
@@ -50,6 +50,7 @@ Warnings list what could not be converted. Meshes stored as FBX (some props and 
 assets-out/
   manifest.json
   catalog-characters-<hash>.json
+  catalog-animals-<hash>.json
   models/<key>-<hash>.glb
   textures/<key>-<hash>.png
   anims/<clip>-<hash>.glb

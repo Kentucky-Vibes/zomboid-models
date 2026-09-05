@@ -9,11 +9,13 @@ import {
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+import { autoAnimalClip, buildAnimal } from '../animal/AnimalBuilder.js';
 import { getAssetCache, type AssetCache } from '../assets/AssetCache.js';
 import { ATTRIBUTION_TEXT } from '../attribution.js';
 import { autoClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
 import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
-import type { CharacterCatalog } from '../format/manifest.js';
+import { ANIMAL_FORMAT, type AnimalDescription } from '../format/animal.js';
+import type { AnimalCatalog, CharacterCatalog } from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
@@ -34,7 +36,11 @@ export interface CameraOptions {
 }
 
 /** Any document the viewer can show. */
-export type ViewerDocument = CharacterDescription;
+export type ViewerDocument = CharacterDescription | AnimalDescription;
+
+function isAnimal(document: ViewerDocument): document is AnimalDescription {
+  return document.format === ANIMAL_FORMAT;
+}
 
 export interface ViewerOptions {
   /** URL of the folder that holds `manifest.json`, with or without a trailing slash. */
@@ -78,6 +84,18 @@ const DEFAULT_CAMERA: Required<CameraOptions> = {
   targetHeight: 0.5,
 };
 
+/** Camera yaw for the compass direction an animal faces in the game's own avatar pictures. */
+const AVATAR_DIRECTION_YAW: Record<string, number> = {
+  S: 0,
+  SE: 45,
+  E: 90,
+  NE: 135,
+  N: 180,
+  NW: -135,
+  W: -90,
+  SW: -45,
+};
+
 /**
  * One document on one canvas. The viewer owns its scene, camera, and rig, and draws through
  * the renderer shared by every viewer on the page.
@@ -95,7 +113,8 @@ export class Viewer implements FrameListener {
   private readonly reducedMotion: MediaQueryList;
   private readonly attribution: HTMLElement | undefined;
   private options: ViewerOptions;
-  private catalog: CharacterCatalog | undefined;
+  /** The catalog of the document being shown; characters and animals have their own. */
+  private catalog: CharacterCatalog | AnimalCatalog | undefined;
   private rig: CharacterRig | undefined;
   private clip: AnimationClip | null = null;
   private visible = false;
@@ -251,15 +270,31 @@ export class Viewer implements FrameListener {
   private async load(): Promise<void> {
     const generation = ++this.generation;
     try {
-      const catalog = await this.cache.loadCharacterCatalog();
+      const document = this.document;
+      const catalog =
+        document && isAnimal(document)
+          ? await this.cache.loadAnimalCatalog()
+          : await this.cache.loadCharacterCatalog();
       if (generation !== this.generation) return;
       this.catalog = catalog;
-      const document = this.document;
       if (!document) return;
-      const built = await buildCharacter(
-        { cache: this.cache, manifest: catalog, composer: this.shared.composer },
-        document,
-      );
+      const built = isAnimal(document)
+        ? await buildAnimal(
+            {
+              cache: this.cache,
+              catalog: catalog as AnimalCatalog,
+              composer: this.shared.composer,
+            },
+            document,
+          )
+        : await buildCharacter(
+            {
+              cache: this.cache,
+              manifest: catalog as CharacterCatalog,
+              composer: this.shared.composer,
+            },
+            document,
+          );
       if (generation !== this.generation) {
         built.rig.dispose();
         return;
@@ -278,7 +313,7 @@ export class Viewer implements FrameListener {
   }
 
   private async applyAnimation(
-    catalog: CharacterCatalog,
+    catalog: CharacterCatalog | AnimalCatalog,
     rig: CharacterRig,
     generation: number,
   ): Promise<void> {
@@ -288,10 +323,16 @@ export class Viewer implements FrameListener {
     let timeScale = speed;
     let startFraction = 0;
     if (name === undefined && document) {
-      const auto = autoClip(catalog, document);
-      name = auto.clip;
-      timeScale = auto.timeScale * speed;
-      startFraction = auto.startFraction;
+      if (isAnimal(document)) {
+        const auto = autoAnimalClip(catalog as AnimalCatalog, document);
+        name = auto?.clip ?? null;
+        timeScale = (auto?.speed ?? 1) * speed;
+      } else {
+        const auto = autoClip(catalog as CharacterCatalog, document);
+        name = auto.clip;
+        timeScale = auto.timeScale * speed;
+        startFraction = auto.startFraction;
+      }
     }
     const clip =
       name === null || name === undefined
@@ -323,8 +364,19 @@ export class Viewer implements FrameListener {
     this.placeCamera();
   }
 
+  /** The camera defaults for the document: animals face the way the game's avatars face. */
+  private defaultCamera(): Required<CameraOptions> {
+    const document = this.document;
+    if (document && isAnimal(document) && this.catalog && 'animals' in this.catalog) {
+      const direction = this.catalog.animals[document.type]?.avatar?.direction;
+      const yaw = direction === undefined ? undefined : AVATAR_DIRECTION_YAW[direction];
+      if (yaw !== undefined) return { ...DEFAULT_CAMERA, yaw, pitch: 12 };
+    }
+    return DEFAULT_CAMERA;
+  }
+
   private placeCamera(): void {
-    const camera = { ...DEFAULT_CAMERA, ...this.options.camera };
+    const camera = { ...this.defaultCamera(), ...this.options.camera };
     const target = new Vector3(0, this.characterHeight * camera.targetHeight, 0);
     const distance = this.characterExtent * camera.distance;
     const yaw = (camera.yaw * Math.PI) / 180;

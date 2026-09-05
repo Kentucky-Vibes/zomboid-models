@@ -38,6 +38,7 @@ import {
   readHairDefinitions,
   readUnderwear,
 } from './luaDefinitions.js';
+import { readAnimalDefinitions, type AnimalDefinition } from './animals.js';
 import { parseOutfitsXml, type OutfitItemXml } from './outfitsXml.js';
 import { entryValue, parseScript, type ScriptBlock, type ScriptEntry } from './scripts.js';
 
@@ -100,6 +101,10 @@ export interface GameCatalog {
   defaultClothing: ManifestDefaultClothing;
   underwear: ManifestUnderwear;
   attachedWeapons: ManifestAttachedWeapons;
+  /** Animal types from the Build 42 definitions, sorted by type name. */
+  animals: AnimalDefinition[];
+  /** The nodes of one animation state folder, for callers that pick clips. */
+  stateNodes: (animSet: string, state: string) => { fileName: string; node: AnimNode }[];
   warnings: string[];
 }
 
@@ -467,6 +472,29 @@ function loadDefinitions(
   }
 }
 
+const ANIMAL_DEFINITIONS_PREFIX = 'media/lua/shared/definitions/animal/';
+
+/** Runs the animal definition files, in name order, and reads the types they declare. */
+function loadAnimals(files: ActiveFileMap, warnings: string[]): AnimalDefinition[] {
+  const sources = files
+    .under(ANIMAL_DEFINITIONS_PREFIX)
+    .filter(
+      ({ relPath }) => relPath.endsWith('definitions.lua') || relPath.endsWith('definition.lua'),
+    )
+    .sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0))
+    .map(({ file }) => readFileSync(file.path, 'utf8'));
+  if (sources.length === 0) return [];
+  try {
+    const errors: string[] = [];
+    const animals = readAnimalDefinitions(sources, errors);
+    for (const error of errors) warnings.push(`animal definitions: ${error}`);
+    return animals;
+  } catch (error) {
+    warnings.push(`animal definitions: ${error instanceof Error ? error.message : String(error)}`);
+    return [];
+  }
+}
+
 /** Reads everything the build needs from the active file map. */
 export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): GameCatalog {
   const warnings: string[] = [];
@@ -504,6 +532,8 @@ export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): 
     stances: loadStances(files, warnings),
     outfits: loadOutfits(files, byGuid, warnings),
     ...loadDefinitions(files, warnings),
+    animals: loadAnimals(files, warnings),
+    stateNodes: (animSet, state) => loadStateNodes(files, animSet, state, warnings),
     warnings,
   };
 }

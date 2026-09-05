@@ -32,6 +32,7 @@ import {
   type GameVersion,
 } from '../game/version.js';
 import { parseX } from '../x/parser.js';
+import { assembleAnimalCatalog, planAnimalAssets, type AnimalPlan } from './animals.js';
 import {
   BANDAGE_ITEMS,
   BODY_MODELS,
@@ -57,6 +58,7 @@ export interface BuildReport {
   wearables: number;
   heldItems: number;
   outfits: number;
+  animals: number;
   warnings: string[];
   seconds: number;
   outDir: string;
@@ -151,14 +153,14 @@ function findModelFile(
 }
 
 function convertModels(
-  plan: AssetPlan,
+  keys: ReadonlySet<string>,
   files: ActiveFileMap,
   outDir: string,
   writer: Writer,
   warnings: string[],
 ): void {
   mkdirSync(join(outDir, 'models'), { recursive: true });
-  for (const key of [...plan.models].sort()) {
+  for (const key of [...keys].sort()) {
     const source = findModelFile(files, key);
     if (!source) {
       warnings.push(`model "${key}" has no file under media/models_X`);
@@ -185,14 +187,14 @@ function convertModels(
 }
 
 function copyTextures(
-  plan: AssetPlan,
+  keys: ReadonlySet<string>,
   files: ActiveFileMap,
   outDir: string,
   writer: Writer,
   warnings: string[],
 ): void {
   mkdirSync(join(outDir, 'textures'), { recursive: true });
-  for (const key of [...plan.textures].sort()) {
+  for (const key of [...keys].sort()) {
     const source = files.get(`media/textures/${key}.png`);
     if (!source) {
       warnings.push(`texture "${key}" has no file under media/textures`);
@@ -217,7 +219,7 @@ function indexAnimationFiles(files: ActiveFileMap): Map<string, string> {
 }
 
 function convertAnimations(
-  plan: AssetPlan,
+  clips: ReadonlySet<string>,
   files: ActiveFileMap,
   outDir: string,
   writer: Writer,
@@ -225,7 +227,7 @@ function convertAnimations(
 ): void {
   mkdirSync(join(outDir, 'anims'), { recursive: true });
   const index = indexAnimationFiles(files);
-  for (const clip of [...plan.animations].sort()) {
+  for (const clip of [...clips].sort()) {
     const path = index.get(clip.toLowerCase());
     if (!path) {
       warnings.push(`animation "${clip}" has no file under media/anims_X`);
@@ -260,6 +262,16 @@ function bodyEntry(
     skins: skins.filter((key) => writer.textures.has(key)),
     bodyHair,
   };
+}
+
+/** The converted entries of one plan's keys, sorted, skipping what failed to convert. */
+function pickConverted<T>(map: ReadonlyMap<string, T>, keys: Iterable<string>): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const key of [...keys].sort()) {
+    const value = map.get(key);
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
 }
 
 function assembleCharacterCatalog(
@@ -337,9 +349,9 @@ function assembleCharacterCatalog(
     ...(writer.models.has(SKELETON_MODELS.male) ? { skeletons } : {}),
     zombieSkins,
     bodyAttachments: plan.bodyAttachments,
-    models: Object.fromEntries([...writer.models].sort()),
-    textures: Object.fromEntries([...writer.textures].sort()),
-    animations: Object.fromEntries([...writer.animations].sort()),
+    models: pickConverted(writer.models, plan.models),
+    textures: pickConverted(writer.textures, plan.textures),
+    animations: pickConverted(writer.animations, plan.animations),
     idle: catalog.idle,
     stances: catalog.stances,
     clothingItems: plan.clothingItems,
@@ -386,19 +398,39 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     mods.map((m) => m.id),
   );
   warnings.push(...catalog.warnings);
+  const buildCharacters = config.subjects.includes('characters');
+  const buildAnimals = config.subjects.includes('animals');
   const plan = planAssets(catalog, files, config.animations);
-  warnings.push(...plan.warnings);
+  if (buildCharacters) warnings.push(...plan.warnings);
+  let animalPlan: AnimalPlan | undefined;
+  if (buildAnimals) {
+    animalPlan = planAnimalAssets(catalog, catalog.animals, files, catalog.stateNodes);
+    warnings.push(...animalPlan.warnings);
+    log.info(`${Object.keys(animalPlan.animals).length} animal types`);
+  }
+  const models = new Set<string>([
+    ...(buildCharacters ? plan.models : []),
+    ...(animalPlan?.models ?? []),
+  ]);
+  const textures = new Set<string>([
+    ...(buildCharacters ? plan.textures : []),
+    ...(animalPlan?.textures ?? []),
+  ]);
+  const animations = new Set<string>([
+    ...(buildCharacters ? plan.animations : []),
+    ...(animalPlan?.animations ?? []),
+  ]);
   log.info(
-    `${plan.models.size} models, ${plan.textures.size} textures, ${plan.animations.size} animations to convert`,
+    `${models.size} models, ${textures.size} textures, ${animations.size} animations to convert`,
   );
 
   mkdirSync(config.outDir, { recursive: true });
   const writer: Writer = { models: new Map(), textures: new Map(), animations: new Map() };
-  convertModels(plan, files, config.outDir, writer, warnings);
+  convertModels(models, files, config.outDir, writer, warnings);
   log.info(`${writer.models.size} models converted`);
-  copyTextures(plan, files, config.outDir, writer, warnings);
+  copyTextures(textures, files, config.outDir, writer, warnings);
   log.info(`${writer.textures.size} textures copied`);
-  convertAnimations(plan, files, config.outDir, writer, warnings);
+  convertAnimations(animations, files, config.outDir, writer, warnings);
   log.info(`${writer.animations.size} animations converted`);
 
   const index: ManifestIndex = {
@@ -410,11 +442,19 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     catalogs: {},
   };
   const outfits = catalog.outfits;
-  if (config.subjects.includes('characters')) {
+  if (buildCharacters) {
     const characters = JSON.stringify(assembleCharacterCatalog(catalog, plan, writer));
     const file = `catalog-characters-${hashOf(characters)}.json`;
     writeFileSync(join(config.outDir, file), characters);
     index.catalogs.characters = file;
+  }
+  if (animalPlan) {
+    const animals = JSON.stringify(
+      assembleAnimalCatalog(animalPlan, writer.models, writer.textures, writer.animations),
+    );
+    const file = `catalog-animals-${hashOf(animals)}.json`;
+    writeFileSync(join(config.outDir, file), animals);
+    index.catalogs.animals = file;
   }
   writeFileSync(join(config.outDir, 'manifest.json'), JSON.stringify(index));
   for (const warning of warnings) log.warn(warning);
@@ -428,6 +468,7 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     wearables: Object.keys(plan.wearables).length,
     heldItems: Object.keys(plan.heldItems).length,
     outfits: Object.keys(outfits.male).length + Object.keys(outfits.female).length,
+    animals: animalPlan ? Object.keys(animalPlan.animals).length : 0,
     warnings,
     seconds: (performance.now() - started) / 1000,
     outDir: config.outDir,

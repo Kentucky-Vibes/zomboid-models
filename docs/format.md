@@ -97,3 +97,32 @@ For a zombie the game's extras apply in the game's order: underwear, the outfit,
 The reference mod in `mods/zomboid-models-exporter` does exactly this and writes one file per player; read it for the method names.
 
 An exporter running inside the game can fill the document from `IsoPlayer`: `getHumanVisual()` for the body (skin texture index, hair and beard models and colours, blood and dirt per `BloodBodyPartType`), `getWornItems()` and each item's `getVisual()` for the worn list (texture choice, base texture, tint, hue, decal, blood, dirt, holes, patches), `getPrimaryHandItem()` and `getSecondaryHandItem()`, `getAttachedItems()`, and `getBodyDamage()` for the parts' bandage and wound state.
+
+## Animals
+
+Build 42 animals have their own document, `zomboid-models/animal`:
+
+```json
+{
+  "format": "zomboid-models/animal",
+  "version": 1,
+  "type": "cow",
+  "breed": "holstein",
+  "texture": 1,
+  "variant": "normal",
+  "size": 1.05,
+  "hue": 0,
+  "stance": "standing"
+}
+```
+
+- `type`: the animal type as the game's definitions name it: `cow`, `bull`, `cowcalf`, `ewe`, `ram`, `lamb`, `hen`, `cockerel`, `chick`, `sow`, `boar`, `piglet`, `doe`, `buck`, `fawn`, `rabdoe`, `rabbuck`, `rabkitten`, `turkeyhen`, `gobblers`, `turkeypoult`, `rat`, `ratfemale`, `ratbaby`, `mouse`, `mousefemale`, `mousepups`, `raccoonsow`, `raccoonboar`, `raccoonkit`. The type carries the sex and the growth stage, so the renderer picks the male, female, or young texture of the breed the way `IsoAnimal` does.
+- `breed`: a breed of the type, for example `angus`, `simmental`, or `holstein` for cows; the first breed when absent.
+- `texture`: an index into the breed's texture list for the animal's sex and age, or a texture name such as `Cow_BW_02`. When absent the seed picks one, as the game picks at random.
+- `variant`: `normal`, `rotten` (the breed's rotting texture), `skinned` (the butchered carcass texture), `skeleton`, `skeletonBloody`, `headless`, `skeletonHeadless`, and for sheep `fleece` and `sheared`. Variants a type lacks fall back to the live body with a warning.
+- `size`: the size factor the game grows an animal through, between the type's `minSize` and `maxSize`; the grown size when absent. Animals scale relative to a human exactly by this factor, as in the game.
+- `tint`, `hue`: the `TintColour` and `HueChange` of the game's animal shader.
+- `stance`: `standing` (the idle loop), `sitting`, or `corpse`, from the type's animation set.
+- `seed`: for the texture choice.
+
+The pipeline writes the animal catalog when `subjects` includes `animals`; the viewer loads it for animal documents. The JSON Schema is `schema/animal.schema.json`, and `validateAnimalDescription()` checks a document at runtime.

@@ -4,6 +4,7 @@ import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import {
   MANIFEST_FORMAT,
   MANIFEST_VERSION,
+  type AnimalCatalog,
   type CharacterCatalog,
   type ManifestIndex,
   type SubjectKind,
@@ -81,6 +82,10 @@ export class AssetCache {
 
   loadCharacterCatalog(): Promise<CharacterCatalog> {
     return this.loadCatalog<CharacterCatalog>('characters');
+  }
+
+  loadAnimalCatalog(): Promise<AnimalCatalog> {
+    return this.loadCatalog<AnimalCatalog>('animals');
   }
 
   loadGltf(relativePath: string): Promise<GLTF> {

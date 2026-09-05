@@ -484,7 +484,7 @@ export async function buildCharacter(
 /** Loads a clip by catalog name; resolves to null and records a warning when it is unknown. */
 export async function loadClip(
   cache: AssetCache,
-  manifest: CharacterCatalog,
+  manifest: Pick<CharacterCatalog, 'animations'>,
   name: string,
   warnings: RigWarning[],
 ): Promise<AnimationClip | null> {

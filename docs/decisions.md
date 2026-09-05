@@ -80,7 +80,7 @@ Later additions to the list: the Web Component and React packages exist (decided
 After the first release the plan grew, in this order, each step a minor release:
 
 - 0.2: animation speed from the animation sets, zombies, outfits by name with the game's randomiser, stances, the manifest split into catalogs, the `document` option. Done.
-- 0.3: animals from Build 42 (`.x` meshes, whole-body breed textures, their own animation sets, the avatar camera framing the game defines).
+- 0.3: animals from Build 42: the thirty types of the definitions with their breeds and textures, the body variants (rotten, skinned, skeleton, headless, fleece), the size as the game scales it, tint and hue from the animal shader, and the idle, sitting, and corpse clips of each animation set. Done.
 - 0.4: FBX for static meshes through the three.js loader, and an item document for showing one model on its own.
 - 0.5: vehicles with a live port of the game's vehicle shader (paint zones, rust, damage, blood, lights) and the game's text mesh format for wheels.
 

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kentucky-vibes/zomboid-models/schema/animal.schema.json",
+  "title": "zomboid-models animal",
+  "description": "A Project Zomboid (Build 42) animal as the zomboid-models renderer draws it: type, breed texture, body variant, size, tint, and hue.",
+  "type": "object",
+  "required": ["format", "version", "type"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "zomboid-models/animal" },
+    "version": { "const": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "breed": { "type": "string", "minLength": 1 },
+    "texture": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "string", "minLength": 1 }
+      ]
+    },
+    "variant": {
+      "enum": [
+        "normal",
+        "rotten",
+        "skinned",
+        "skeleton",
+        "skeletonBloody",
+        "headless",
+        "skeletonHeadless",
+        "fleece",
+        "sheared"
+      ]
+    },
+    "size": { "type": "number", "exclusiveMinimum": 0 },
+    "tint": {
+      "type": "object",
+      "required": ["r", "g", "b"],
+      "additionalProperties": false,
+      "properties": {
+        "r": { "type": "number", "minimum": 0, "maximum": 1 },
+        "g": { "type": "number", "minimum": 0, "maximum": 1 },
+        "b": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "hue": { "type": "number", "minimum": -1, "maximum": 1 },
+    "stance": { "enum": ["standing", "sitting", "corpse"] },
+    "seed": { "type": "integer" },
+    "meta": { "type": "object" }
+  }
+}

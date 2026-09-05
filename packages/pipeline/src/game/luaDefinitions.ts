@@ -30,14 +30,31 @@ function SurvivorDesc.addTrouserColor(c) table.insert(SurvivorDesc.trouserColors
 function getActivatedMods() return { size = function() return 0 end, get = function() return nil end } end
 function isServer() return false end
 function isClient() return false end
+function copyTable(t) local r = {} for k, v in pairs(t) do r[k] = v end return r end
+function getTexture(name) return { getName = function() return name end } end
+function ZombRand(a, b) return (b and a or 0) end
+function ZombRandFloat(a, b) return a end
 `;
 
+/** The error message on top of the stack when a Lua call failed, popped. */
+function failure(L: LuaState, status: number, what: string): string | undefined {
+  if (status === lua.LUA_OK) return undefined;
+  const message = lua.lua_tojsstring(L, -1);
+  lua.lua_pop(L, 1);
+  return `${what}: ${message}`;
+}
+
 function check(L: LuaState, status: number, what: string): void {
-  if (status !== lua.LUA_OK) {
-    const message = lua.lua_tojsstring(L, -1);
-    lua.lua_pop(L, 1);
-    throw new Error(`${what}: ${message}`);
-  }
+  const message = failure(L, status, what);
+  if (message !== undefined) throw new Error(message);
+}
+
+export interface EvaluateLuaOptions {
+  /**
+   * Keeps going after a source fails, recording the message here. The game's definition
+   * folders mix data files with code that needs the running game; the data still loads.
+   */
+  errors?: string[];
 }
 
 function readValue(L: LuaState, index: number, depth: number): LuaValue {
@@ -69,12 +86,19 @@ function readValue(L: LuaState, index: number, depth: number): LuaValue {
 export function evaluateLua(
   sources: readonly string[],
   globals: readonly string[],
+  options: EvaluateLuaOptions = {},
 ): Map<string, LuaValue> {
   const L = lauxlib.luaL_newstate();
   lualib.luaL_openlibs(L);
   check(L, lauxlib.luaL_dostring(L, to_luastring(PRELUDE)), 'prelude');
   for (const [index, source] of sources.entries()) {
-    check(L, lauxlib.luaL_dostring(L, to_luastring(source)), `lua source ${index + 1}`);
+    const status = lauxlib.luaL_dostring(L, to_luastring(source));
+    if (options.errors) {
+      const message = failure(L, status, `lua source ${index + 1}`);
+      if (message !== undefined) options.errors.push(message);
+    } else {
+      check(L, status, `lua source ${index + 1}`);
+    }
   }
   const out = new Map<string, LuaValue>();
   for (const name of globals) {

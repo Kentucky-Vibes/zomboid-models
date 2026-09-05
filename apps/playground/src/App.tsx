@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import {
+  ANIMAL_FORMAT,
   ATTRIBUTION_TEXT,
+  validateAnimalDescription,
   validateCharacterDescription,
+  type AnimalDescription,
   type CameraOptions,
   type CharacterDescription,
+  type ViewerDocument,
 } from 'zomboid-models';
 
+import { AnimalEditor } from './AnimalEditor.js';
 import { CharacterView } from './CharacterView.js';
 import { OutfitEditor } from './OutfitEditor.js';
 import { useManifest } from './useManifest.js';
+
+type Subject = 'character' | 'animal';
 
 const DEFAULT_ASSET_BASE_URL = `${import.meta.env.BASE_URL}dev-assets/`;
 const ASSET_URL_STORAGE_KEY = 'zomboid-models.playground.assets';
@@ -53,6 +60,13 @@ const INITIAL_CHARACTER: CharacterDescription = {
   held: { primary: { item: 'Base.Axe' } },
 };
 
+const INITIAL_ANIMAL: AnimalDescription = {
+  format: 'zomboid-models/animal',
+  version: 1,
+  type: 'cow',
+  breed: 'holstein',
+};
+
 const CAMERA_PRESETS: Record<string, CameraOptions> = {
   full: {},
   head: { distance: 0.8, targetHeight: 0.86, fov: 22, yaw: 0, pitch: 4 },
@@ -63,23 +77,41 @@ const CAMERA_PRESETS: Record<string, CameraOptions> = {
 export function App() {
   const [assetBaseUrl, setAssetBaseUrl] = useState(initialAssetBaseUrl);
   const [assetDraft, setAssetDraft] = useState(assetBaseUrl);
-  const { manifest, error } = useManifest(assetBaseUrl);
+  const { manifest, animals, error } = useManifest(assetBaseUrl);
+  const [subject, setSubject] = useState<Subject>('character');
   const [character, setCharacter] = useState<CharacterDescription>(INITIAL_CHARACTER);
+  const [animal, setAnimal] = useState<AnimalDescription>(INITIAL_ANIMAL);
   const [animation, setAnimation] = useState<string | null | undefined>(undefined);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [preset, setPreset] = useState('full');
   const [jsonDraft, setJsonDraft] = useState('');
   const [jsonError, setJsonError] = useState<string | undefined>(undefined);
+  const document: ViewerDocument = subject === 'animal' ? animal : character;
+  const clipNames = Object.keys(
+    (subject === 'animal' ? animals?.animations : manifest?.animations) ?? {},
+  );
 
   const importJson = (): void => {
     try {
-      const result = validateCharacterDescription(JSON.parse(jsonDraft));
-      if (!result.ok) {
-        setJsonError(result.errors.join('; '));
-        return;
+      const parsed = JSON.parse(jsonDraft) as { format?: unknown };
+      if (parsed.format === ANIMAL_FORMAT) {
+        const result = validateAnimalDescription(parsed);
+        if (!result.ok) {
+          setJsonError(result.errors.join('; '));
+          return;
+        }
+        setAnimal(result.value);
+        setSubject('animal');
+      } else {
+        const result = validateCharacterDescription(parsed);
+        if (!result.ok) {
+          setJsonError(result.errors.join('; '));
+          return;
+        }
+        setCharacter(result.value);
+        setSubject('character');
       }
       setJsonError(undefined);
-      setCharacter(result.value);
     } catch (error) {
       setJsonError(error instanceof Error ? error.message : String(error));
     }
@@ -127,6 +159,21 @@ export function App() {
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
         <div>
           <label style={{ fontSize: 12 }}>
+            Subject:{' '}
+            <select
+              value={subject}
+              onChange={(e) => {
+                setSubject(e.target.value as Subject);
+                setAnimation(undefined);
+              }}
+            >
+              <option value="character">character</option>
+              <option value="animal" disabled={!animals}>
+                animal{animals ? '' : ' (no catalog)'}
+              </option>
+            </select>
+          </label>{' '}
+          <label style={{ fontSize: 12 }}>
             Animation:{' '}
             <select
               value={animation === undefined ? 'auto' : (animation ?? 'none')}
@@ -140,9 +187,9 @@ export function App() {
                 )
               }
             >
-              <option value="auto">auto (by held item)</option>
+              <option value="auto">auto (as in the game)</option>
               <option value="none">bind pose</option>
-              {Object.keys(manifest?.animations ?? { Bob_Idle: null }).map((name) => (
+              {clipNames.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
@@ -175,7 +222,7 @@ export function App() {
             <CharacterView
               assetBaseUrl={assetBaseUrl}
               mode="viewer"
-              character={character}
+              document={document}
               animation={animation}
               animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
@@ -185,7 +232,7 @@ export function App() {
             <CharacterView
               assetBaseUrl={assetBaseUrl}
               mode="showcase"
-              character={character}
+              document={document}
               animation={animation}
               animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
@@ -194,13 +241,16 @@ export function App() {
             />
           </div>
         </div>
-        {manifest && (
+        {subject === 'character' && manifest && (
           <OutfitEditor manifest={manifest} character={character} onChange={setCharacter} />
+        )}
+        {subject === 'animal' && animals && (
+          <AnimalEditor catalog={animals} animal={animal} onChange={setAnimal} />
         )}
       </div>
       <details style={{ marginTop: 12, fontSize: 12 }}>
-        <summary>character JSON</summary>
-        <pre style={{ fontSize: 11 }}>{JSON.stringify(character, null, 2)}</pre>
+        <summary>document JSON</summary>
+        <pre style={{ fontSize: 11 }}>{JSON.stringify(document, null, 2)}</pre>
       </details>
       <details style={{ marginTop: 8, fontSize: 12 }}>
         <summary>import JSON</summary>
@@ -209,7 +259,7 @@ export function App() {
           style={{ width: '100%', fontFamily: 'monospace', fontSize: 11 }}
           value={jsonDraft}
           onChange={(e) => setJsonDraft(e.target.value)}
-          placeholder="Paste a character document and press Apply"
+          placeholder="Paste a character or animal document and press Apply"
         />
         <div>
           <button type="button" onClick={importJson}>

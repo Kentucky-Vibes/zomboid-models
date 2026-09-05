@@ -335,3 +335,64 @@ export interface CharacterCatalog {
 
 /** @deprecated The name from manifest version 1; the character catalog carries the same data. */
 export type Manifest = CharacterCatalog;
+
+/** The textures of one animal breed, as texture keys, in the definition's order. */
+export interface ManifestAnimalBreed {
+  /** Textures of females; the game picks one at random. */
+  textures: string[];
+  /** Textures of males. */
+  texturesMale: string[];
+  /** Textures of young animals; empty when the young use the adult textures. */
+  texturesBaby: string[];
+  rottenTexture?: string;
+}
+
+/** Camera framing the game uses for the animal's picture in its interface. */
+export interface ManifestAnimalAvatar {
+  zoom: number;
+  xoffset: number;
+  yoffset: number;
+  width: number;
+  /** Compass direction the animal faces, for example `SE`. */
+  direction: string;
+}
+
+/** One animal type from the game's definitions, keyed by the type name. */
+export interface ManifestAnimal {
+  /** The species group, for example `cow` for `cow`, `bull`, and `cowcalf`. */
+  group: string;
+  female: boolean;
+  /** True for a growth stage that still has a next stage. */
+  baby: boolean;
+  /** Model keys per body variant; `body` is the live animal (the sheared body for sheep). */
+  models: {
+    body: string;
+    skeleton?: string;
+    skeletonHeadless?: string;
+    headless?: string;
+    fleece?: string;
+  };
+  /** Texture keys of the type's own variants. */
+  textures: {
+    skeleton?: string;
+    skeletonBloody?: string;
+    skinned?: string;
+  };
+  animSet: string;
+  /** Clips per stance from the type's animation set. */
+  stances: Partial<Record<'standing' | 'sitting' | 'corpse', ManifestClip>>;
+  minSize: number;
+  maxSize: number;
+  breeds: Record<string, ManifestAnimalBreed>;
+  /** Breed names in the definition's order. */
+  breedOrder: string[];
+  avatar?: ManifestAnimalAvatar;
+}
+
+/** Everything needed to render animals. */
+export interface AnimalCatalog {
+  models: Record<string, ManifestModel>;
+  textures: Record<string, string>;
+  animations: Record<string, ManifestAnimation>;
+  animals: Record<string, ManifestAnimal>;
+}

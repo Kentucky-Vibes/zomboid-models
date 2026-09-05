@@ -67,7 +67,7 @@ export class CharacterRig extends Group {
   /** Loads the body model whose skeleton every other part binds to. */
   static async load(
     cache: AssetCache,
-    manifest: Manifest,
+    manifest: Pick<Manifest, 'models'>,
     modelKey: string,
   ): Promise<CharacterRig> {
     const model = manifest.models[modelKey];
