@@ -1,6 +1,6 @@
 {
   "name": "zomboid-models-render",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Renders Project Zomboid character, animal, item, vehicle, and scene documents to PNG or WebP files from Node, without a browser on the page",
   "license": "MIT",
   "type": "module",
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "playwright": "1.63.0",
-    "zomboid-models": "0.2.0"
+    "zomboid-models": "1.0.0"
   },
   "devDependencies": {
     "@types/three": "0.185.4",
