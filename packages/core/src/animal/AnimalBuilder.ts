@@ -2,6 +2,8 @@ import { Color, type Texture } from 'three';
 
 import type { AssetCache } from '../assets/AssetCache.js';
 import { CharacterRig, type RigWarning } from '../character/CharacterRig.js';
+import { GAME_MODEL_SCALE } from '../character/scale.js';
+import { characterShadowParams, createCharacterShadow } from '../character/shadow.js';
 import type { AnimalDescription, AnimalStance } from '../format/animal.js';
 import type { AnimalCatalog, ManifestAnimal, ManifestClip } from '../format/manifest.js';
 import { OutfitRng } from '../outfit/rng.js';
@@ -16,6 +18,8 @@ export interface AnimalBuildContext {
   catalog: AnimalCatalog;
   /** When absent, the hue shift is skipped and the texture is used as it is. */
   composer?: TextureComposer;
+  /** Draws the game's blob shadow under the animal; on by default. */
+  shadow?: boolean;
 }
 
 export interface BuiltAnimal {
@@ -181,7 +185,25 @@ export async function buildAnimal(
   const rig = await CharacterRig.load(cache, catalog, look.model);
   for (const warning of look.warnings)
     rig.warnings.push({ code: 'missing-item', message: warning });
-  rig.scale.setScalar(look.scale);
+  rig.scale.setScalar(look.scale * GAME_MODEL_SCALE);
+  const shadowKey = catalog.shadowTexture;
+  const shadowFile = shadowKey === undefined ? undefined : catalog.textures[shadowKey];
+  if (context.shadow !== false && shadowFile !== undefined) {
+    const texture = await cache.loadTexture(shadowFile);
+    rig.shadowUpdater = () => {
+      const box = rig.bounds();
+      if (box.isEmpty()) return;
+      const scale = rig.scale.x;
+      rig.setShadow(
+        createCharacterShadow(
+          texture,
+          characterShadowParams(rig.bones, rig, scale),
+          scale,
+          box.min.y,
+        ),
+      );
+    };
+  }
 
   if (look.texture !== undefined) {
     const file = catalog.textures[look.texture] as string;

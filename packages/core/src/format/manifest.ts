@@ -301,6 +301,10 @@ export interface CharacterCatalog {
   idle: ManifestIdleClips;
   /** The clip a character seated in a vehicle plays, from the `player-vehicle` animation set. */
   vehicleIdle?: ManifestClip;
+  /** Texture key of the blob shadow the game draws under characters. */
+  shadowTexture?: string;
+  /** Texture keys of the blood overlay and its mask for held weapons. */
+  weaponBlood?: { overlay: string; mask: string };
   /** Clips per stance for players and zombies. */
   stances: {
     player: Partial<Record<Stance, ManifestClip>>;
@@ -399,6 +403,8 @@ export interface AnimalCatalog {
   textures: Record<string, string>;
   animations: Record<string, ManifestAnimation>;
   animals: Record<string, ManifestAnimal>;
+  /** Texture key of the blob shadow the game draws under animals. */
+  shadowTexture?: string;
 }
 
 /** One of an item's models: the mesh, its texture, and the script's scale. */
@@ -424,6 +430,8 @@ export interface ItemCatalog {
   models: Record<string, ManifestModel>;
   textures: Record<string, string>;
   items: Record<string, ManifestItem>;
+  /** Texture keys of the blood overlay and its mask for weapons. */
+  weaponBlood?: { overlay: string; mask: string };
 }
 
 /** A vector of three numbers in the vehicle script's own units and frame. */
@@ -504,6 +512,8 @@ export interface ManifestVehicle {
   lightbar?: true;
   /** Seat positions inside the vehicle by passenger id, in script units, as the `inside` position offsets. */
   seats?: Record<string, ScriptVector>;
+  /** The shadow quad: width and length, and its offset on the ground, in script units. */
+  shadow?: { extents: [number, number]; offset: [number, number] };
   /** `forcedColor` from the script, as hue, saturation, and value from 0 to 1. */
   forcedColor?: { hue: number; saturation: number; value: number };
 }
@@ -513,4 +523,6 @@ export interface VehicleCatalog {
   models: Record<string, ManifestModel>;
   textures: Record<string, string>;
   vehicles: Record<string, ManifestVehicle>;
+  /** Texture key of the shadow the game draws under vehicles. */
+  shadowTexture?: string;
 }

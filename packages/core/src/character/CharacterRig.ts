@@ -53,8 +53,11 @@ export class CharacterRig extends Group {
   private readonly ownedTextures: Texture[] = [];
   private readonly childRigs: CharacterRig[] = [];
   private action: AnimationAction | undefined;
+  private shadow: Object3D | undefined;
+  /** Rebuilds the shadow for the current pose; installed by the builders, called after posing. */
+  shadowUpdater: (() => void) | undefined;
 
-  private constructor(readonly skeletonRoot: Object3D) {
+  protected constructor(readonly skeletonRoot: Object3D) {
     super();
     this.name = 'character';
     this.add(skeletonRoot);
@@ -247,6 +250,25 @@ export class CharacterRig extends Group {
    */
   addObject(object: Object3D): void {
     this.skeletonRoot.add(object);
+  }
+
+  /** Replaces the shadow quad under the rig; `undefined` removes it. */
+  setShadow(mesh: Object3D | undefined): void {
+    if (this.shadow) {
+      this.shadow.removeFromParent();
+      if (isMesh(this.shadow)) {
+        this.shadow.geometry.dispose();
+        disposeMaterial(this.shadow.material);
+      }
+    }
+    this.shadow = mesh;
+    if (mesh) this.skeletonRoot.add(mesh);
+  }
+
+  /** Rebuilds the shadow of this rig and its children from their current poses. */
+  refreshShadow(): void {
+    this.shadowUpdater?.();
+    for (const rig of this.childRigs) rig.refreshShadow();
   }
 
   /** Adds another rig as a child: it animates, freezes, and is freed with this one. */

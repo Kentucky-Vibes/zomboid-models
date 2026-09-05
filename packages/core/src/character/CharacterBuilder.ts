@@ -21,9 +21,11 @@ import {
   planItemTexture,
   type BodyLayerInput,
 } from '../texture/characterTextures.js';
-import { planTextureKeys, type CompositePlan } from '../texture/plan.js';
+import { BLOOD_DARK, planTextureKeys, type CompositePlan } from '../texture/plan.js';
 import type { TextureComposer } from '../texture/TextureComposer.js';
 import { CharacterRig, type RigWarning } from './CharacterRig.js';
+import { GAME_MODEL_SCALE } from './scale.js';
+import { characterShadowParams, createCharacterShadow } from './shadow.js';
 import { damageWornItems } from './damage.js';
 import { resolveBeard, resolveHair, resolveOutfit, type ResolvedWornItem } from './outfit.js';
 
@@ -234,6 +236,8 @@ export interface BuildContext {
   manifest: CharacterCatalog;
   /** When absent, textures are used as they are and blood, masks, and holes are skipped. */
   composer?: TextureComposer;
+  /** Draws the game's blob shadow under the character; on by default. */
+  shadow?: boolean;
 }
 
 function textureFile(context: BuildContext, key: string | undefined): string | undefined {
@@ -255,6 +259,51 @@ async function applyPlainTexture(
     return;
   }
   rig.setTexture(key, await context.cache.loadTexture(file));
+}
+
+/**
+ * A held weapon's texture, with the game's blood overlay composited in when the item carries
+ * blood (`ItemModelRenderer`: the weapon blood overlay and mask through `overlayMask`).
+ */
+async function applyHeldTexture(
+  context: BuildContext,
+  rig: CharacterRig,
+  key: string,
+  textureKey: string,
+  blood: number,
+): Promise<void> {
+  const weaponBlood = context.manifest.weaponBlood;
+  if (blood <= 0 || !weaponBlood || !context.composer) {
+    await applyPlainTexture(context, rig, key, textureKey);
+    return;
+  }
+  await applyPlan(context, rig, key, {
+    passes: [
+      { shader: 'blit', diffuse: { key: textureKey } },
+      {
+        shader: 'overlayMask',
+        diffuse: { key: weaponBlood.overlay },
+        mask: { key: weaponBlood.mask },
+        intensity: Math.min(blood, 1),
+        bloodDark: BLOOD_DARK,
+      },
+    ],
+  });
+}
+
+/** Installs the shadow updater: the game's blob under the feet, sized from the pose. */
+async function installCharacterShadow(context: BuildContext, rig: CharacterRig): Promise<void> {
+  const key = context.manifest.shadowTexture;
+  const file = key === undefined ? undefined : context.manifest.textures[key];
+  if (context.shadow === false || file === undefined) return;
+  const texture = await context.cache.loadTexture(file);
+  rig.shadowUpdater = () => {
+    const box = rig.bounds();
+    if (box.isEmpty()) return;
+    const scale = rig.scale.x;
+    const params = characterShadowParams(rig.bones, rig, scale);
+    rig.setShadow(createCharacterShadow(texture, params, scale, box.min.y));
+  };
 }
 
 /** Loads every source of a plan without colour conversion and composes it on the GPU. */
@@ -428,7 +477,7 @@ export async function buildCharacter(
     }
     const key = `held:${hand}`;
     await rig.addHeldModel(cache, manifest, key, held, prop);
-    if (held.texture) await applyPlainTexture(context, rig, key, held.texture);
+    if (held.texture) await applyHeldTexture(context, rig, key, held.texture, item.blood ?? 0);
   }
 
   for (const [index, attached] of (description.attached ?? []).entries()) {
@@ -478,6 +527,8 @@ export async function buildCharacter(
     );
   }
 
+  rig.scale.setScalar(GAME_MODEL_SCALE);
+  await installCharacterShadow(context, rig);
   return { rig, warnings: rig.warnings };
 }
 

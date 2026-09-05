@@ -33,6 +33,9 @@ const ANIMAL_STANCE_SOURCES: Record<
  * Decides which models, textures, and animations the animals need and shapes the catalog
  * entries. Model script names resolve through the merged scripts like the game does.
  */
+/** The blob shadow under animals, the same texture as under characters. */
+export const ANIMAL_SHADOW_TEXTURE = 'newshadow';
+
 export function planAnimalAssets(
   catalog: GameCatalog,
   definitions: readonly AnimalDefinition[],
@@ -41,7 +44,7 @@ export function planAnimalAssets(
 ): AnimalPlan {
   const plan: AnimalPlan = {
     models: new Set(),
-    textures: new Set(),
+    textures: new Set([ANIMAL_SHADOW_TEXTURE]),
     animations: new Set(),
     animals: {},
     warnings: [],
@@ -168,5 +171,6 @@ export function assembleAnimalCatalog(
     textures: pick(textures, plan.textures),
     animations: pick(animations, plan.animations),
     animals: plan.animals,
+    ...(textures.has(ANIMAL_SHADOW_TEXTURE) ? { shadowTexture: ANIMAL_SHADOW_TEXTURE } : {}),
   };
 }

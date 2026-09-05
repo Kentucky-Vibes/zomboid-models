@@ -44,9 +44,11 @@ import {
   BANDAGE_ITEMS,
   BODY_MODELS,
   planAssets,
+  SHADOW_TEXTURE,
   SKELETON_MODELS,
   SKELETON_TEXTURES,
   SKIN_TEXTURES,
+  WEAPON_BLOOD_TEXTURES,
   zombieSkinTextures,
   type AssetPlan,
 } from './select.js';
@@ -98,6 +100,11 @@ const BLOOD_MASK_NAMES: Record<BodyPart, string> = {
 };
 
 const MODEL_EXTENSIONS = ['.x', '.fbx', '.glb'];
+
+/** Textures that do not live under `media/textures`, by key. */
+const TEXTURE_PATHS: Record<string, string> = {
+  vehicleshadow: 'media/vehicleShadow.png',
+};
 const ANIMS_PREFIX = 'media/anims_x/';
 
 function hashOf(data: Uint8Array | string): string {
@@ -215,7 +222,7 @@ function copyTextures(
 ): void {
   mkdirSync(join(outDir, 'textures'), { recursive: true });
   for (const key of [...keys].sort()) {
-    const source = files.get(`media/textures/${key}.png`);
+    const source = files.get(TEXTURE_PATHS[key] ?? `media/textures/${key}.png`);
     if (!source) {
       warnings.push(`texture "${key}" has no file under media/textures`);
       continue;
@@ -376,6 +383,11 @@ function assembleCharacterCatalog(
     stances: catalog.stances,
     ...(catalog.vehicleIdle && writer.animations.has(catalog.vehicleIdle.clip)
       ? { vehicleIdle: catalog.vehicleIdle }
+      : {}),
+    ...(writer.textures.has(SHADOW_TEXTURE) ? { shadowTexture: SHADOW_TEXTURE } : {}),
+    ...(writer.textures.has(WEAPON_BLOOD_TEXTURES.overlay) &&
+    writer.textures.has(WEAPON_BLOOD_TEXTURES.mask)
+      ? { weaponBlood: { ...WEAPON_BLOOD_TEXTURES } }
       : {}),
     clothingItems: plan.clothingItems,
     wearables: plan.wearables,

@@ -87,6 +87,10 @@ export interface VehicleScript {
   parts: VehicleScriptPart[];
   passengers: VehicleScriptPassenger[];
   extents: Vec3;
+  centerOfMassOffset: Vec3;
+  /** `shadowExtents` and `shadowOffset` (width and length, x and z), when the script sets them. */
+  shadowExtents: [number, number] | undefined;
+  shadowOffset: [number, number] | undefined;
   forcedColor: { hue: number; saturation: number; value: number } | undefined;
   lightbar: boolean;
   carModelName: string | undefined;
@@ -105,6 +109,9 @@ export function emptyVehicleScript(module: string, name: string, source: string)
     parts: [],
     passengers: [],
     extents: [1, 1, 1],
+    centerOfMassOffset: [0, 0, 0],
+    shadowExtents: undefined,
+    shadowOffset: undefined,
     forcedColor: undefined,
     lightbar: false,
     carModelName: undefined,
@@ -115,6 +122,12 @@ function vector(value: string, fallback: Vec3): Vec3 {
   const parts = value.trim().split(/\s+/).map(Number);
   if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return fallback;
   return [parts[0] as number, parts[1] as number, parts[2] as number];
+}
+
+function vector2(value: string): [number, number] | undefined {
+  const parts = value.trim().split(/\s+/).map(Number);
+  if (parts.length !== 2 || parts.some((n) => !Number.isFinite(n))) return undefined;
+  return [parts[0] as number, parts[1] as number];
 }
 
 function number(value: string, fallback: number): number {
@@ -228,6 +241,12 @@ export class VehicleScriptLoader {
       this.loadTemplate(script, value);
     } else if (key === 'extents') {
       script.extents = vector(value, script.extents);
+    } else if (key === 'centerOfMassOffset') {
+      script.centerOfMassOffset = vector(value, script.centerOfMassOffset);
+    } else if (key === 'shadowExtents') {
+      script.shadowExtents = vector2(value) ?? script.shadowExtents;
+    } else if (key === 'shadowOffset') {
+      script.shadowOffset = vector2(value) ?? script.shadowOffset;
     } else if (key === 'forcedColor') {
       const [hue, saturation, value2] = vector(value, [-1, -1, -1]);
       script.forcedColor = { hue, saturation, value: value2 };

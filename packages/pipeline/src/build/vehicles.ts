@@ -40,8 +40,12 @@ const SKIN_TEXTURE_KEYS: readonly Exclude<keyof VehicleScriptSkin, 'texture'>[] 
  * script names resolve through the merged scripts like the game does; a skin takes the
  * vehicle-level textures for the ones it lacks, as `Skin.copyMissingFrom` does.
  */
+/** The shadow the game draws under every vehicle, from `media/vehicleShadow.png`. */
+export const VEHICLE_SHADOW_TEXTURE = 'vehicleshadow';
+
 export function planVehicleAssets(catalog: GameCatalog): VehiclePlan {
   const plan: VehiclePlan = { models: new Set(), textures: new Set(), vehicles: {}, warnings: [] };
+  plan.textures.add(VEHICLE_SHADOW_TEXTURE);
 
   const texture = (reference: string): string => {
     const key = textureKeyFromReference(reference);
@@ -165,6 +169,11 @@ export function planVehicleAssets(catalog: GameCatalog): VehiclePlan {
       if (passenger.inside) seats[passenger.id] = [...passenger.inside];
     }
     if (Object.keys(seats).length > 0) vehicle.seats = seats;
+    // `VehicleScript.Loaded`: the shadow defaults to the extents and the centre of mass.
+    vehicle.shadow = {
+      extents: script.shadowExtents ?? [script.extents[0], script.extents[2]],
+      offset: script.shadowOffset ?? [script.centerOfMassOffset[0], script.centerOfMassOffset[2]],
+    };
     if (script.forcedColor) vehicle.forcedColor = { ...script.forcedColor };
     plan.vehicles[script.fullName] = vehicle;
   }
@@ -189,5 +198,6 @@ export function assembleVehicleCatalog(
     models: pick(models, plan.models),
     textures: pick(textures, plan.textures),
     vehicles: plan.vehicles,
+    ...(textures.has(VEHICLE_SHADOW_TEXTURE) ? { shadowTexture: VEHICLE_SHADOW_TEXTURE } : {}),
   };
 }

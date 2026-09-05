@@ -1,13 +1,20 @@
+import type { Texture } from 'three';
+
 import type { AssetCache } from '../assets/AssetCache.js';
 import { CharacterRig, type RigWarning } from '../character/CharacterRig.js';
+import { GAME_MODEL_SCALE } from '../character/scale.js';
 import type { ItemDescription } from '../format/item.js';
 import type { ItemCatalog, ManifestItemModel } from '../format/manifest.js';
+import { BLOOD_DARK, planTextureKeys, type CompositePlan } from '../texture/plan.js';
+import type { TextureComposer } from '../texture/TextureComposer.js';
 
 export const ITEM_KEY = 'item';
 
 export interface ItemBuildContext {
   cache: AssetCache;
   catalog: ItemCatalog;
+  /** When absent, blood on weapons is skipped. */
+  composer?: TextureComposer;
 }
 
 export interface BuiltItem {
@@ -48,6 +55,38 @@ export function resolveItemLook(catalog: ItemCatalog, description: ItemDescripti
   return { model, kind, warnings };
 }
 
+/** The weapon's texture with the game's blood overlay composited in, when the catalog has it. */
+async function composeWeaponBlood(
+  context: ItemBuildContext,
+  rig: CharacterRig,
+  textureKey: string,
+  blood: number,
+): Promise<Texture | undefined> {
+  const weaponBlood = context.catalog.weaponBlood;
+  if (!weaponBlood || !context.composer) return undefined;
+  const plan: CompositePlan = {
+    passes: [
+      { shader: 'blit', diffuse: { key: textureKey } },
+      {
+        shader: 'overlayMask',
+        diffuse: { key: weaponBlood.overlay },
+        mask: { key: weaponBlood.mask },
+        intensity: Math.min(blood, 1),
+        bloodDark: BLOOD_DARK,
+      },
+    ],
+  };
+  const sources = new Map<string, Texture>();
+  for (const key of planTextureKeys(plan)) {
+    const file = context.catalog.textures[key];
+    if (file === undefined) return undefined;
+    sources.set(key, await context.cache.loadTexture(file, true));
+  }
+  const texture = context.composer.compose(plan, (key) => sources.get(key));
+  rig.ownTexture(texture);
+  return texture;
+}
+
 /**
  * Builds a rig for one item: the mesh scaled by its script, with its texture. The rig has no
  * skeleton to animate; it exists so that items share the viewer's framing and export.
@@ -66,7 +105,7 @@ export async function buildItem(
   for (const warning of look.warnings)
     rig.warnings.push({ code: 'missing-item', message: warning });
   await rig.addStaticModel(cache, catalog, ITEM_KEY, look.model.model, undefined);
-  rig.scale.setScalar(look.model.scale);
+  rig.scale.setScalar(look.model.scale * GAME_MODEL_SCALE);
   const textureKey = look.model.texture;
   const file = textureKey === undefined ? undefined : catalog.textures[textureKey];
   if (file === undefined) {
@@ -75,7 +114,12 @@ export async function buildItem(
       message: `${description.item}: texture "${textureKey ?? ''}" is not in the catalog`,
     });
   } else {
-    rig.setTexture(ITEM_KEY, await cache.loadTexture(file));
+    const blood = description.blood ?? 0;
+    const composed =
+      blood > 0 && textureKey !== undefined
+        ? await composeWeaponBlood(context, rig, textureKey, blood)
+        : undefined;
+    rig.setTexture(ITEM_KEY, composed ?? (await cache.loadTexture(file)));
   }
   return { rig, warnings: rig.warnings };
 }

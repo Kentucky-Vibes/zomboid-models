@@ -6,6 +6,7 @@ import type {
 } from 'zomboid-models/format';
 
 import { resolveModel, type GameCatalog, type ModelDefinition } from '../game/catalog.js';
+import { WEAPON_BLOOD_TEXTURES } from './select.js';
 import { textureKeyFromReference } from '../game/clothingXml.js';
 import { entryValue } from '../game/scripts.js';
 import { mirrorAttachmentZ } from '../x/mirror.js';
@@ -41,7 +42,12 @@ function attachmentsOf(model: ModelDefinition): Record<string, ManifestAttachmen
  * model from `WorldStaticModel` and the held model from `WeaponSprite` or `StaticModel`.
  */
 export function planItemAssets(catalog: GameCatalog): ItemPlan {
-  const plan: ItemPlan = { models: new Set(), textures: new Set(), items: {}, warnings: [] };
+  const plan: ItemPlan = {
+    models: new Set(),
+    textures: new Set([WEAPON_BLOOD_TEXTURES.overlay, WEAPON_BLOOD_TEXTURES.mask]),
+    items: {},
+    warnings: [],
+  };
 
   const entryFor = (
     reference: string,
@@ -102,9 +108,14 @@ export function assembleItemCatalog(
     }
     return out;
   };
+  const weaponBlood =
+    textures.has(WEAPON_BLOOD_TEXTURES.overlay) && textures.has(WEAPON_BLOOD_TEXTURES.mask)
+      ? { weaponBlood: { ...WEAPON_BLOOD_TEXTURES } }
+      : {};
   return {
     models: pick(models, plan.models),
     textures: pick(textures, plan.textures),
     items: plan.items,
+    ...weaponBlood,
   };
 }

@@ -31,6 +31,8 @@ const ROW_GAP = 0.4;
 export interface SceneBuildContext {
   cache: AssetCache;
   composer?: TextureComposer;
+  /** Draws the game's shadows under the subjects; on by default. */
+  shadow?: boolean;
 }
 
 export interface BuiltScene {
@@ -63,20 +65,23 @@ async function buildOne(
     startFraction: 0,
   });
   let rig: CharacterRig;
-  let scale = GAME_MODEL_SCALE;
   let facing = 0;
   let vehicle: ManifestVehicle | undefined;
   if (document.format === VEHICLE_FORMAT) {
     const catalog = await cache.loadVehicleCatalog();
-    const built = await buildVehicle({ cache, catalog }, document);
+    const built = await buildVehicle({ cache, catalog, shadow: context.shadow ?? true }, document);
     rig = built.rig;
-    scale = 1;
     facing = Math.PI;
     vehicle = catalog.vehicles[document.vehicle];
   } else if (document.format === ANIMAL_FORMAT) {
     const catalog = await cache.loadAnimalCatalog();
     const built = await buildAnimal(
-      { cache, catalog, ...(context.composer ? { composer: context.composer } : {}) },
+      {
+        cache,
+        catalog,
+        shadow: context.shadow ?? true,
+        ...(context.composer ? { composer: context.composer } : {}),
+      },
       document,
     );
     rig = built.rig;
@@ -86,11 +91,22 @@ async function buildOne(
     rig.playClip(clip, speedOf(auto?.speed ?? 1));
   } else if (document.format === ITEM_FORMAT) {
     const catalog = await cache.loadItemCatalog();
-    rig = (await buildItem({ cache, catalog }, document)).rig;
+    rig = (
+      await buildItem(
+        { cache, catalog, ...(context.composer ? { composer: context.composer } : {}) },
+        document,
+      )
+    ).rig;
   } else {
     const catalog = await cache.loadCharacterCatalog();
     const built = await buildCharacter(
-      { cache, manifest: catalog, ...(context.composer ? { composer: context.composer } : {}) },
+      {
+        cache,
+        manifest: catalog,
+        // A seated character casts no shadow in the game.
+        shadow: subject.seat === undefined && (context.shadow ?? true),
+        ...(context.composer ? { composer: context.composer } : {}),
+      },
       document,
     );
     rig = built.rig;
@@ -113,7 +129,8 @@ async function buildOne(
   warnings.push(...rig.warnings);
   rig.update(0);
   rig.updateMatrixWorld(true);
-  return { subject, rig, box: rig.bounds(), scale, facing, vehicle };
+  rig.refreshShadow();
+  return { subject, rig, box: rig.bounds(), scale: rig.scale.x, facing, vehicle };
 }
 
 /** The seat's point in the vehicle rig's space, as `BaseVehicle.getPassengerLocalPos` gives it. */

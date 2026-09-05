@@ -29,6 +29,7 @@ import { VEHICLE_FORMAT, type VehicleDescription } from '../format/vehicle.js';
 import { buildItem } from '../item/ItemBuilder.js';
 import { buildScene } from '../scene/SceneBuilder.js';
 import { buildVehicle } from '../vehicle/VehicleBuilder.js';
+import { VehicleRig } from '../vehicle/VehicleRig.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
 
@@ -81,6 +82,10 @@ export interface ViewerOptions {
   animation?: string | null;
   /** Multiplies the playback speed; 1 when absent. */
   animationSpeed?: number;
+  /** Draws the game's shadows under characters, animals, and vehicles; on by default. */
+  shadow?: boolean;
+  /** Flashes a vehicle's light bar with the game's pattern; on by default. */
+  animateLightbar?: boolean;
   /** Freezes the animation at this time in seconds instead of playing it. */
   poseTime?: number;
   /** CSS colour, or `transparent`. */
@@ -224,11 +229,25 @@ export class Viewer implements FrameListener {
     return this.options.document ?? this.options.character;
   }
 
-  /** Replaces the document and rebuilds the rig. */
+  /** Replaces the document; a vehicle of the same script and skin updates in place. */
   async setDocument(document: ViewerDocument): Promise<void> {
     const options = { ...this.options, document };
     delete options.character;
     this.options = options;
+    const rig = this.rig;
+    if (
+      rig instanceof VehicleRig &&
+      isVehicle(document) &&
+      this.catalog &&
+      'vehicles' in this.catalog &&
+      rig.matches(document, this.catalog)
+    ) {
+      rig.applyDescription(document, this.catalog);
+      rig.refreshShadow();
+      this.needsRender = true;
+      this.syncLoop();
+      return;
+    }
     await this.load();
   }
 
@@ -323,18 +342,37 @@ export class Viewer implements FrameListener {
               cache: this.cache,
               catalog: catalog as AnimalCatalog,
               composer: this.shared.composer,
+              shadow: this.options.shadow ?? true,
             },
             document,
           )
         : isItem(document)
-          ? await buildItem({ cache: this.cache, catalog: catalog as ItemCatalog }, document)
+          ? await buildItem(
+              {
+                cache: this.cache,
+                catalog: catalog as ItemCatalog,
+                composer: this.shared.composer,
+              },
+              document,
+            )
           : isVehicle(document)
             ? await buildVehicle(
-                { cache: this.cache, catalog: catalog as VehicleCatalog },
+                {
+                  cache: this.cache,
+                  catalog: catalog as VehicleCatalog,
+                  shadow: this.options.shadow ?? true,
+                },
                 document,
               )
             : isScene(document)
-              ? await buildScene({ cache: this.cache, composer: this.shared.composer }, document)
+              ? await buildScene(
+                  {
+                    cache: this.cache,
+                    composer: this.shared.composer,
+                    shadow: this.options.shadow ?? true,
+                  },
+                  document,
+                )
               : await buildCharacter(
                   {
                     cache: this.cache,
@@ -351,6 +389,9 @@ export class Viewer implements FrameListener {
       this.rig?.dispose();
       this.rig?.removeFromParent();
       this.rig = built.rig;
+      if (this.rig instanceof VehicleRig) {
+        this.rig.animateLightbar = this.options.animateLightbar ?? true;
+      }
       this.scene.add(this.rig);
       this.frameCharacter();
       await this.applyAnimation(catalog, this.rig, generation);
@@ -406,6 +447,7 @@ export class Viewer implements FrameListener {
     // Pose the skeleton once so the framing sees a lying or sitting body as it is, not the bind pose.
     rig.update(0);
     rig.updateMatrixWorld(true);
+    rig.refreshShadow();
     this.frameCharacter();
     this.needsRender = true;
     this.syncLoop();
@@ -415,13 +457,15 @@ export class Viewer implements FrameListener {
     if (!this.rig) return;
     const box = this.rig.bounds();
     if (box.isEmpty()) return;
-    const size = box.getSize(new Vector3());
+    // The bounds are in the rig's own units; the rig may carry the game's world scale.
+    const scale = this.rig.scale.x;
+    const size = box.getSize(new Vector3()).multiplyScalar(scale);
     this.characterHeight = Math.max(size.y, 0.001);
     // A lying or crawling character is wider than tall; the camera backs off for the larger side.
     this.characterExtent = Math.max(size.x, size.y, size.z, 0.001);
-    const center = box.getCenter(new Vector3());
+    const center = box.getCenter(new Vector3()).multiplyScalar(scale);
     // Put the character's feet on the origin so the camera framing is stable across outfits.
-    this.rig.position.set(-center.x, -box.min.y, -center.z);
+    this.rig.position.set(-center.x, -box.min.y * scale, -center.z);
     this.placeCamera();
   }
 

@@ -199,6 +199,18 @@ export function VehicleEditor({ catalog, vehicle, onChange, names }: VehicleEdit
               <option value="right">light bar right</option>
             </select>
           )}
+          {entry?.lightbar && vehicle.lightbar !== undefined && (
+            <select
+              value={vehicle.lightbarMode ?? 1}
+              onChange={(e) =>
+                onChange({ ...vehicle, lightbarMode: Number(e.target.value) as 1 | 2 | 3 })
+              }
+            >
+              <option value={1}>mode 1 (slow)</option>
+              <option value={2}>mode 2 (double flash)</option>
+              <option value={3}>mode 3 (fast)</option>
+            </select>
+          )}
         </div>
       </Field>
       <Field label="Blood">

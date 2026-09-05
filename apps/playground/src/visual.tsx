@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     mode: 'showcase',
     document: result.value,
     poseTime: 0,
-    background: '#202024',
+    background: '#4a4c50',
     attribution: false,
     maxPixelRatio: 1,
     ...(camera ? { camera } : {}),

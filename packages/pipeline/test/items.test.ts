@@ -35,6 +35,8 @@ describe('planItemAssets', () => {
         'worlditems/pillow',
       ]);
       expect([...plan.textures].sort()).toEqual([
+        'bloodtextures/bloodoverlayweapon',
+        'bloodtextures/bloodoverlayweaponmask',
         'weapons/2handed/axe',
         'worlditems/axe',
         'worlditems/pillow',

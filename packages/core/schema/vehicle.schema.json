@@ -38,6 +38,7 @@
     "stoplights": { "type": "boolean" },
     "interiorLight": { "type": "boolean" },
     "lightbar": { "enum": ["left", "right"] },
+    "lightbarMode": { "enum": [1, 2, 3] },
     "blood": {
       "type": "object",
       "additionalProperties": false,

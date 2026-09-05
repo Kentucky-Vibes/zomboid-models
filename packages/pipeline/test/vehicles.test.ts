@@ -72,6 +72,7 @@ describe('planVehicleAssets', () => {
         'vehicles/vehicle_carnormalshell',
         'vehicles/vehicle_carnormalshell2',
         'vehicles/vehicle_wheel',
+        'vehicleshadow',
       ]);
       const car = plan.vehicles['Base.CarNormal'];
       expect(car).toBeDefined();
@@ -90,6 +91,7 @@ describe('planVehicleAssets', () => {
       expect(car?.forcedColor).toEqual({ hue: 0.5, saturation: -1, value: -1 });
       expect(car?.lightbar).toBe(true);
       expect(car?.seats).toEqual({ FrontLeft: [0.17, -0.13, 0.08] });
+      expect(car?.shadow).toEqual({ extents: [0.89, 2.6], offset: [0, 0] });
       expect(car?.skins).toEqual([
         {
           texture: 'vehicles/vehicle_carnormalshell',

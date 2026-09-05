@@ -36,8 +36,8 @@ export function CharacterView({
         {...(animation === undefined ? {} : { animation })}
         {...(animationSpeed === undefined ? {} : { animationSpeed })}
         {...(camera ? { camera } : {})}
-        background={mode === 'viewer' ? '#1d1d1f' : 'transparent'}
-        style={{ width, height, background: '#2a2a2e' }}
+        background={mode === 'viewer' ? '#4a4c50' : 'transparent'}
+        style={{ width, height, background: '#3a3c40' }}
         onWarning={(warning) => setMessages((m) => [...m, `${warning.code}: ${warning.message}`])}
         onError={(error) => setMessages((m) => [...m, `error: ${error.message}`])}
       />

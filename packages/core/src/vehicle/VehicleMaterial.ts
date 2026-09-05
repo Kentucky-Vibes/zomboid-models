@@ -320,6 +320,36 @@ export interface VehicleMaterialOptions {
   lighting?: VehicleLighting;
 }
 
+/** Writes the paint, rust, reflection, and per-zone switches of a state into a material. */
+export function applyVehicleMaterialState(
+  material: ShaderMaterial,
+  paint: { hue: number; saturation: number; value: number },
+  state: VehicleShaderState,
+): void {
+  const pairs: [string, string, Float32Array][] = [
+    ['TextureUninstall1', 'TextureUninstall2', state.uninstall],
+    ['TextureLightsEnables1', 'TextureLightsEnables2', state.lights],
+    ['TextureDamage1Enables1', 'TextureDamage1Enables2', state.damage1],
+    ['TextureDamage2Enables1', 'TextureDamage2Enables2', state.damage2],
+    ['MatBlood1Enables1', 'MatBlood1Enables2', state.blood],
+    ['MatBlood2Enables1', 'MatBlood2Enables2', state.bloodMask],
+  ];
+  for (const [first, second, values] of pairs) {
+    const [a, b] = zoneMatrices(values);
+    (material.uniforms[first]?.value as Matrix4).fromArray(a);
+    (material.uniforms[second]?.value as Matrix4).fromArray(b);
+  }
+  (material.uniforms['TexturePainColor']?.value as Vector4).set(
+    paint.hue,
+    paint.saturation,
+    paint.value,
+    1,
+  );
+  const rust = material.uniforms['TextureRustA'];
+  if (rust) rust.value = state.rust;
+  (material.uniforms['ReflectionParam']?.value as Vector3).set(1, state.refWindows, state.refBody);
+}
+
 /** Builds the body material for one skin, one paint, and one shader state. */
 export function createVehicleMaterial(
   textures: VehicleTextures,

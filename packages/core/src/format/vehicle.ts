@@ -61,6 +61,8 @@ export interface VehicleDescription {
   interiorLight?: boolean;
   /** Which half of a light bar is lit, for vehicles that have one. */
   lightbar?: LightbarSide;
+  /** The light bar's flashing pattern (1 slow, 2 double flash, 3 fast), as the game's mode. */
+  lightbarMode?: 1 | 2 | 3;
   blood?: VehicleBlood;
   /** Decides the skin, paint, and rust the document leaves open. */
   seed?: number;
@@ -145,6 +147,10 @@ export function validateVehicleDescription(value: unknown): VehicleValidationRes
   const lightbar = doc['lightbar'];
   if (lightbar !== undefined && lightbar !== 'left' && lightbar !== 'right') {
     errors.push('lightbar: must be "left" or "right"');
+  }
+  const mode = doc['lightbarMode'];
+  if (mode !== undefined && mode !== 1 && mode !== 2 && mode !== 3) {
+    errors.push('lightbarMode: must be 1, 2, or 3');
   }
   const blood = doc['blood'];
   if (blood !== undefined) {

@@ -17,7 +17,8 @@ import {
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 
 import type { AssetCache } from '../assets/AssetCache.js';
-import { CharacterRig, type RigWarning } from '../character/CharacterRig.js';
+import { type CharacterRig, type RigWarning } from '../character/CharacterRig.js';
+import { createVehicleShadow } from '../character/shadow.js';
 import type {
   ManifestVehicle,
   ManifestVehicleModel,
@@ -36,6 +37,7 @@ import {
   type VehicleLighting,
   type VehicleTextures,
 } from './VehicleMaterial.js';
+import { VehicleRig } from './VehicleRig.js';
 import { vehicleShaderState } from './VehicleState.js';
 
 export const VEHICLE_KEY = 'vehicle';
@@ -44,10 +46,12 @@ export interface VehicleBuildContext {
   cache: AssetCache;
   catalog: VehicleCatalog;
   lighting?: VehicleLighting;
+  /** Draws the game's shadow under the vehicle; on by default. */
+  shadow?: boolean;
 }
 
 export interface BuiltVehicle {
-  rig: CharacterRig;
+  rig: VehicleRig;
   warnings: RigWarning[];
 }
 
@@ -158,6 +162,8 @@ export interface PlacedVehicleModel {
   part: string | undefined;
   model: ManifestVehicleModel;
   matrix: Matrix4;
+  /** The part is missing in the description, so the model is built but not shown. */
+  hidden: boolean;
 }
 
 const RAD = Math.PI / 180;
@@ -198,7 +204,8 @@ function modelScale(model: ManifestVehicleModel): ScriptVector {
 /**
  * Places the body and the part models as `BaseVehicle.updateTransform` does: the body at the
  * script's offset with the vehicle and model scales, every part model relative to the vehicle
- * transform, and wheels at their wheel's offset. Parts the document marks missing are left out.
+ * transform, and wheels at their wheel's offset. Parts the document marks missing are placed
+ * too, marked hidden, so that a later description can show them without a rebuild.
  */
 export function placeVehicleModels(
   vehicle: ManifestVehicle,
@@ -219,13 +226,14 @@ export function placeVehicleModels(
     part: undefined,
     model: body,
     matrix: toRendererFrame(transform(offset, body.rotate, modelScale(body), 1)),
+    hidden: false,
   });
   const vehicleTransform = new Matrix4()
     .makeTranslation(...offset)
     .multiply(new Matrix4().makeScale(scale, scale, scale));
 
   for (const [id, part] of Object.entries(vehicle.parts)) {
-    if (description.parts?.[id]?.missing === true) continue;
+    const hidden = description.parts?.[id]?.missing === true;
     const wheel =
       part.wheel === undefined ? undefined : vehicle.wheels.find((w) => w.id === part.wheel);
     if (part.wheel !== undefined && !wheel) {
@@ -252,7 +260,7 @@ export function placeVehicleModels(
           .copy(vehicleTransform)
           .multiply(transform(local, model.rotate, scales, -1));
       }
-      placed.push({ key: id, part: id, model, matrix: toRendererFrame(matrix) });
+      placed.push({ key: id, part: id, model, matrix: toRendererFrame(matrix), hidden });
     }
   }
   return { placed, warnings };
@@ -325,7 +333,10 @@ export async function buildVehicle(
   if (!look.vehicle) {
     throw new Error(look.warnings[0] ?? `cannot render vehicle "${description.vehicle}"`);
   }
-  const rig = CharacterRig.empty();
+  const rig = new VehicleRig();
+  rig.vehicle = look.vehicle;
+  rig.description = description;
+  rig.look = look;
   for (const warning of look.warnings) {
     rig.warnings.push({ code: 'missing-item', message: warning });
   }
@@ -341,6 +352,7 @@ export async function buildVehicle(
     state,
     materialOptions,
   );
+  rig.vehicleMaterials.push(bodyMaterial);
   let noRandomMaterial: ShaderMaterial | undefined;
   const wheelMaterials = new Map<string, ShaderMaterial>();
 
@@ -372,10 +384,13 @@ export async function buildVehicle(
     let material: ShaderMaterial;
     if (shader.startsWith('vehicle') && shader !== 'vehiclewheel') {
       if (shader.includes('norandom')) {
-        noRandomMaterial ??= createVehicleMaterial(textures, reflection, look.paint, state, {
-          ...materialOptions,
-          noRandom: true,
-        });
+        if (!noRandomMaterial) {
+          noRandomMaterial = createVehicleMaterial(textures, reflection, look.paint, state, {
+            ...materialOptions,
+            noRandom: true,
+          });
+          rig.vehicleMaterials.push(noRandomMaterial);
+        }
         material = noRandomMaterial;
       } else {
         material = bodyMaterial;
@@ -400,6 +415,10 @@ export async function buildVehicle(
     holder.name = item.key;
     holder.matrixAutoUpdate = false;
     holder.matrix.copy(item.matrix);
+    holder.visible = !item.hidden;
+    if (item.part !== undefined) {
+      rig.partHolders.set(item.part, [...(rig.partHolders.get(item.part) ?? []), holder]);
+    }
     for (const mesh of meshes) {
       const local = mesh.matrixWorld.clone();
       mesh.removeFromParent();
@@ -411,5 +430,20 @@ export async function buildVehicle(
     group.add(holder);
   }
   rig.addObject(group);
+  const shadowFile =
+    catalog.shadowTexture === undefined ? undefined : catalog.textures[catalog.shadowTexture];
+  const shadow = look.vehicle.shadow;
+  if (context.shadow !== false && shadowFile !== undefined && shadow) {
+    const texture = await cache.loadTexture(shadowFile);
+    const vehicle = look.vehicle;
+    rig.shadowUpdater = () => {
+      const box = rig.bounds();
+      if (box.isEmpty()) return;
+      rig.setShadow(
+        createVehicleShadow(texture, shadow.extents, shadow.offset, vehicle.modelScale, box.min.y),
+      );
+    };
+  }
+  rig.setLightbar(description.lightbar === 'left' ? 1 : description.lightbar === 'right' ? 2 : 0);
   return { rig, warnings: rig.warnings };
 }

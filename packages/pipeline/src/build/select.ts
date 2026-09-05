@@ -172,6 +172,14 @@ function addTexturesIfPresent(
   return found;
 }
 
+/** The blob shadow under characters and animals, `media/textures/NewShadow.png`. */
+export const SHADOW_TEXTURE = 'newshadow';
+/** The blood overlay and mask the game composites onto bloody weapons. */
+export const WEAPON_BLOOD_TEXTURES = {
+  overlay: 'bloodtextures/bloodoverlayweapon',
+  mask: 'bloodtextures/bloodoverlayweaponmask',
+};
+
 /** Decides which models, textures, and animations a build needs and shapes the catalog data. */
 export function planAssets(
   catalog: GameCatalog,
@@ -189,7 +197,7 @@ export function planAssets(
       SKELETON_MODELS.male,
       SKELETON_MODELS.female,
     ]),
-    textures: new Set(),
+    textures: new Set([SHADOW_TEXTURE, WEAPON_BLOOD_TEXTURES.overlay, WEAPON_BLOOD_TEXTURES.mask]),
     animations: new Set([
       catalog.idle.default.clip,
       ...Object.values(catalog.idle.byWeaponType).map((clip) => clip.clip),

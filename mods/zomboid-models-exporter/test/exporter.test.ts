@@ -151,6 +151,9 @@ function makeVehicle()
     getStoplightsOn = function() return false end,
     getWindowLightsOn = function() return false end,
     getBloodIntensity = function(self, side) return side == 'Front' and 0.5 or 0 end,
+    getLightbarLightsModeObject = function()
+      return { isEnable = function() return true end, getLightTexIndex = function() return 2 end, getMode = function() return 3 end }
+    end,
   }
 end
 
@@ -337,6 +340,8 @@ describe('ZomboidModels.exportVehicle', () => {
         TireRearRight: { missing: true },
       },
       headlights: true,
+      lightbar: 'right',
+      lightbarMode: 3,
       blood: { front: 0.5 },
     });
     expect(doc.parts?.['Engine']).toBeUndefined();

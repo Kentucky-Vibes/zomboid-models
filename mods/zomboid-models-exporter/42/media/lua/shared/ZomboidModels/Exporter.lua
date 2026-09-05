@@ -378,6 +378,8 @@ function M.describeVehicle(vehicle)
     if lightbar ~= nil and try(lightbar, 'isEnable') then
         local index = try(lightbar, 'getLightTexIndex')
         if index == 1 then doc.lightbar = 'left' elseif index == 2 then doc.lightbar = 'right' end
+        local mode = try(lightbar, 'getMode')
+        if mode == 1 or mode == 2 or mode == 3 then doc.lightbarMode = mode end
     end
     local blood = {}
     for _, side in ipairs({ 'Front', 'Rear', 'Left', 'Right' }) do

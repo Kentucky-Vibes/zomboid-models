@@ -112,9 +112,13 @@ describe('placeVehicleModels', () => {
     ]);
   });
 
-  it('leaves out the models of missing parts', () => {
+  it('marks the models of missing parts hidden instead of leaving them out', () => {
     const without = placeVehicleModels(CAR, doc({ parts: { TireFrontLeft: { missing: true } } }));
-    expect(without.placed.map((p) => p.key)).toEqual(['body', 'Seat']);
+    expect(without.placed.map((p) => [p.key, p.hidden])).toEqual([
+      ['body', false],
+      ['TireFrontLeft', true],
+      ['Seat', false],
+    ]);
   });
 });
 
