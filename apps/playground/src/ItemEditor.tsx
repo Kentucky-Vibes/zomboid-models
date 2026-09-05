@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react';
-import type { ItemCatalog, ItemDescription } from 'zomboid-models';
+import {
+  displayName,
+  type ItemCatalog,
+  type ItemDescription,
+  type NamesCatalog,
+} from 'zomboid-models';
 
 export interface ItemEditorProps {
   catalog: ItemCatalog;
   item: ItemDescription;
   onChange: (item: ItemDescription) => void;
+  names?: NamesCatalog | undefined;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -17,21 +23,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** Pickers for the item type and which of its models to show. */
-export function ItemEditor({ catalog, item, onChange }: ItemEditorProps) {
+export function ItemEditor({ catalog, item, onChange, names }: ItemEditorProps) {
   const [filter, setFilter] = useState('');
   const types = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     return Object.keys(catalog.items)
-      .filter((type) => needle.length === 0 || type.toLowerCase().includes(needle))
+      .filter(
+        (type) =>
+          needle.length === 0 ||
+          type.toLowerCase().includes(needle) ||
+          displayName(names, 'items', type).toLowerCase().includes(needle),
+      )
       .sort()
       .slice(0, 80);
-  }, [catalog, filter]);
+  }, [catalog, filter, names]);
   const entry = catalog.items[item.item];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 320, fontSize: 12 }}>
       <Field
-        label={`Item (${Object.keys(catalog.items).length}; ${entry?.displayName ?? 'unknown'})`}
+        label={`Item (${Object.keys(catalog.items).length}; ${names ? displayName(names, 'items', item.item) : (entry?.displayName ?? 'unknown')})`}
       >
         <input
           type="text"
@@ -48,7 +59,7 @@ export function ItemEditor({ catalog, item, onChange }: ItemEditorProps) {
         >
           {types.map((type) => (
             <option key={type} value={type}>
-              {type}
+              {names ? `${displayName(names, 'items', type)} (${type})` : type}
             </option>
           ))}
         </select>

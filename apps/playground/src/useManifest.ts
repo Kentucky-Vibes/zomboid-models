@@ -4,6 +4,7 @@ import type {
   CharacterCatalog,
   ItemCatalog,
   ManifestIndex,
+  NamesCatalog,
   VehicleCatalog,
 } from 'zomboid-models';
 
@@ -14,6 +15,32 @@ export interface ManifestState {
   vehicles: VehicleCatalog | undefined;
   index: ManifestIndex | undefined;
   error: string | undefined;
+}
+
+/** Loads the names of one language when the asset folder has them. */
+export function useNames(
+  assetBaseUrl: string,
+  language: string | undefined,
+): NamesCatalog | undefined {
+  const [names, setNames] = useState<NamesCatalog | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    setNames(undefined);
+    if (!language) return;
+    (async () => {
+      const index = (await fetchJson(`${assetBaseUrl}manifest.json`)) as ManifestIndex;
+      const file = index.names?.[language];
+      if (!file) return;
+      const loaded = (await fetchJson(`${assetBaseUrl}${file}`)) as NamesCatalog;
+      if (!cancelled) setNames(loaded);
+    })().catch(() => {
+      if (!cancelled) setNames(undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [assetBaseUrl, language]);
+  return names;
 }
 
 const EMPTY: ManifestState = {

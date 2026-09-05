@@ -21,6 +21,8 @@ export interface PipelineConfigFile {
   animations?: string[];
   /** Kinds of subject to build catalogs for; every kind when absent. */
   subjects?: SubjectKind[];
+  /** Languages to write name files for, as the game's `Translate` folders name them; `["EN"]` when absent. */
+  languages?: string[];
 }
 
 export interface PipelineConfig {
@@ -32,6 +34,7 @@ export interface PipelineConfig {
   outDir: string;
   animations: string[];
   subjects: SubjectKind[];
+  languages: string[];
   /** Folder the paths were resolved against. */
   baseDir: string;
 }
@@ -87,6 +90,7 @@ export function resolveConfig(value: unknown, baseDir: string): PipelineConfig {
     outDir: abs(stringField(record, 'outDir', true) as string),
     animations: stringList(record, 'animations') ?? [],
     subjects: subjectList(record),
+    languages: languageList(record),
     baseDir,
   };
 }
@@ -100,6 +104,19 @@ function subjectList(record: Record<string, unknown>): SubjectKind[] {
     }
   }
   return value as SubjectKind[];
+}
+
+function languageList(record: Record<string, unknown>): string[] {
+  const value = stringList(record, 'languages');
+  if (value === undefined) return ['EN'];
+  for (const language of value) {
+    if (!/^[A-Za-z_]+$/.test(language)) {
+      throw new ConfigError(
+        `"languages" contains "${language}"; expected folder names such as EN or RU`,
+      );
+    }
+  }
+  return value.map((language) => language.toUpperCase());
 }
 
 /** Reads and validates a configuration file. */

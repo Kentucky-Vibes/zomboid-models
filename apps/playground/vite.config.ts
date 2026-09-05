@@ -6,6 +6,11 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: process.env['PLAYGROUND_BASE'] ?? '/',
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: { main: 'index.html', visual: 'visual.html' },
+    },
+  },
   server: {
     port: Number(process.env['PORT']) || 5173,
     strictPort: Boolean(process.env['PORT']),

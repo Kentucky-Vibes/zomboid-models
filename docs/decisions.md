@@ -64,6 +64,8 @@ The manifest is an index plus one catalog file per subject kind. Reason: the cha
 
 ## Tooling
 
+Screenshot tests run the viewer in headless Chromium through Playwright, with software rendering so that every machine draws the same pixels. The committed screenshots come from a synthetic asset folder built out of the test fixtures; a second set against a real install runs only on request and keeps its screenshots out of the repository, because images rendered from the game's assets are the game's assets too.
+
 TypeScript in strict mode, ESM only, Node 20.19 or newer. three.js is a peer dependency of the renderer and is bundled into the Web Component build. Packages are built with tsup, the playground with Vite. Tests run with vitest on synthetic fixtures; tests that need a real install run only when a `PZ_DIR` environment variable is set. ESLint and Prettier enforce style. GitHub Actions runs the checks and publishes releases through changesets. Commits follow Conventional Commits. Everything is written in English. Documentation lives in `docs/` as Markdown.
 
 The game's Java classes are decompiled locally to understand model loading, texture composition, and the visual state, and the decompiled code is never committed.
@@ -86,7 +88,11 @@ After the first release the plan grew, in this order, each step a minor release:
 - 0.4: FBX through the three.js loader in Node, for the ground models of items, the held items that were skipped, and the vehicle bodies; an item document that shows one item on its own, on the ground or in the hand. Done.
 - 0.5: vehicles with a live port of the game's vehicle shader (paint zones, rust, damage, blood, lights) and the game's text mesh format for wheels. Done; the document stores the parts' state as the game keeps it, and the exporter mod describes vehicles on request.
 
-Open after 0.5: the door, hood, and trunk animations of the three cars with separate door meshes, models placed on attachment points, and a vehicle example exported from a server.
+- 0.6: display names per language from the game's translation files, the players index and the vehicle a player sits in from the exporter mod, and the screenshot tests. Done. Names are baked complete per language (a language's text, else English, else the script's name) so that a page loads one file; outfit names stay identifiers because the game does not translate them.
+
+Planned next, in this order: 0.7 scenes with several subjects, passengers on the seats of vehicles, and the `zomboid-view` element and `ZomboidView` component names; 0.8 ground shadows, lighting by hour and season from the game's tables, blood on weapons, animated doors and hoods, the light bar modes; 0.9 actions from the animation sets (walking, running, attacking, eating, and more) for players, zombies, and animals; 0.10 a package that renders documents to PNG and WebP without a browser on the page, and an image mode in the viewer.
+
+Open after 0.5: models placed on attachment points and a vehicle example exported from a server.
 
 Coverage of the game's subjects stops at things that are drawn in 3D. Tiles, buildings, and furniture are sprites and stay out.
 

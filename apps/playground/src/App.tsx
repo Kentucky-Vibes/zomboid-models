@@ -17,7 +17,7 @@ import { AnimalEditor } from './AnimalEditor.js';
 import { CharacterView } from './CharacterView.js';
 import { ItemEditor } from './ItemEditor.js';
 import { OutfitEditor } from './OutfitEditor.js';
-import { useManifest } from './useManifest.js';
+import { useManifest, useNames } from './useManifest.js';
 import { VehicleEditor } from './VehicleEditor.js';
 
 type Subject = 'character' | 'animal' | 'item' | 'vehicle';
@@ -94,7 +94,11 @@ const CAMERA_PRESETS: Record<string, CameraOptions> = {
 export function App() {
   const [assetBaseUrl, setAssetBaseUrl] = useState(initialAssetBaseUrl);
   const [assetDraft, setAssetDraft] = useState(assetBaseUrl);
-  const { manifest, animals, items, vehicles, error } = useManifest(assetBaseUrl);
+  const { manifest, animals, items, vehicles, index, error } = useManifest(assetBaseUrl);
+  const languages = Object.keys(index?.names ?? {});
+  const [language, setLanguage] = useState<string | undefined>(undefined);
+  const activeLanguage = language ?? languages[0];
+  const names = useNames(assetBaseUrl, activeLanguage);
   const [subject, setSubject] = useState<Subject>('character');
   const [character, setCharacter] = useState<CharacterDescription>(INITIAL_CHARACTER);
   const [animal, setAnimal] = useState<AnimalDescription>(INITIAL_ANIMAL);
@@ -243,6 +247,18 @@ export function App() {
               ))}
             </select>
           </label>{' '}
+          {languages.length > 0 && (
+            <label style={{ fontSize: 12 }}>
+              Names:{' '}
+              <select value={activeLanguage ?? ''} onChange={(e) => setLanguage(e.target.value)}>
+                {languages.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}{' '}
           <label style={{ fontSize: 12 }}>
             Speed:{' '}
             <input
@@ -279,16 +295,21 @@ export function App() {
           </div>
         </div>
         {subject === 'character' && manifest && (
-          <OutfitEditor manifest={manifest} character={character} onChange={setCharacter} />
+          <OutfitEditor
+            manifest={manifest}
+            character={character}
+            onChange={setCharacter}
+            names={names}
+          />
         )}
         {subject === 'animal' && animals && (
-          <AnimalEditor catalog={animals} animal={animal} onChange={setAnimal} />
+          <AnimalEditor catalog={animals} animal={animal} onChange={setAnimal} names={names} />
         )}
         {subject === 'item' && items && (
-          <ItemEditor catalog={items} item={item} onChange={setItem} />
+          <ItemEditor catalog={items} item={item} onChange={setItem} names={names} />
         )}
         {subject === 'vehicle' && vehicles && (
-          <VehicleEditor catalog={vehicles} vehicle={vehicle} onChange={setVehicle} />
+          <VehicleEditor catalog={vehicles} vehicle={vehicle} onChange={setVehicle} names={names} />
         )}
       </div>
       <details style={{ marginTop: 12, fontSize: 12 }}>

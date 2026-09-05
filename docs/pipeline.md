@@ -31,6 +31,7 @@ Fields:
 - `outDir`: where the assets go. It is recreated on every build.
 - `animations`: extra clip names from any folder under `anims_X` to convert on top of the idle and stance clips.
 - `subjects`: which catalogs to build, from `characters`, `vehicles`, `animals`, and `items`; all of them when omitted.
+- `languages`: languages to write name files for, as the game's `Translate` folders name them (`EN`, `RU`, `FR`, and so on); `["EN"]` when omitted.
 
 `zomboid-models doctor` checks the configuration, the install, the mod folders, and the output folder, and lists the mods it found with the version folder it picked for each.
 
@@ -53,12 +54,17 @@ assets-out/
   catalog-animals-<hash>.json
   catalog-items-<hash>.json
   catalog-vehicles-<hash>.json
+  catalog-names-en-<hash>.json
   models/<key>-<hash>.glb
   textures/<key>-<hash>.png
   anims/<clip>-<hash>.glb
 ```
 
 `manifest.json` is the index: the format version, the game version, the mod ids, and the catalog file of each subject kind that was built. The renderer loads only the catalog of the document it shows. Keys are the game's own paths, lowercased. Every file name carries a content hash, so a web server can cache them for a long time; only `manifest.json` changes in place.
+
+## Names
+
+For every language in `languages` the build writes a name file, listed in `manifest.json` under `names` by language code. It holds the display names of every item the game's `ItemName.json` knows plus the items the catalogs reference, of every vehicle script, and of the hair and beard styles, animal types, breeds, and body locations the catalogs use, read from the game's `media/lua/shared/Translate/<LANG>/` files (`ItemName.json`, `IG_UI.json`, `UI.json`) and from the same files of every enabled mod, a mod adding or replacing keys. A key the language lacks gets the English text, then the script's `DisplayName` or `carModelName`, then the identifier, so every file is complete on its own. Outfit names are not translated by the game and stay identifiers.
 
 The vehicle catalog carries each vehicle script as the game loads it: the body model with its scale and offset, the skins with their texture sets, the wheels, and the parts that have models or that the vehicle shader reads (doors, windows, the hood, the trunk, the lights). Offsets and rotations stay as the scripts write them, in the game's frame; the renderer composes them the way the game does and mirrors the result into its own space.
 

@@ -39,6 +39,33 @@ function getFileWriter(relPath, createIfNull, append)
   }
 end
 
+function getFileReader(relPath, createIfNull)
+  local text = written[relPath]
+  if text == nil then return nil end
+  local lines = {}
+  local start = 1
+  while true do
+    local nl = string.find(text, '\\n', start, true)
+    if nl == nil then
+      table.insert(lines, string.sub(text, start))
+      break
+    end
+    table.insert(lines, string.sub(text, start, nl - 1))
+    start = nl + 1
+  end
+  local index = 0
+  return {
+    readLine = function(self)
+      index = index + 1
+      return lines[index]
+    end,
+    close = function(self) end,
+  }
+end
+
+clock = 1700000000
+function getTimestamp() return clock end
+
 local function color(r, g, b)
   return { getRedFloat = function() return r end, getGreenFloat = function() return g end, getBlueFloat = function() return b end }
 end
@@ -127,14 +154,15 @@ function makeVehicle()
   }
 end
 
-function makePlayer(female)
+function makePlayer(female, vehicle)
   local damageByPart = {
     Torso_Upper = bodyPart({ bitten = true, bandaged = true, dirty = true }),
     Hand_L = bodyPart({ scratched = true, bleeding = true }),
   }
   return {
     isFemale = function() return female end,
-    getUsername = function() return 'tlagx' end,
+    getVehicle = function() return vehicle end,
+    getUsername = function() return female and 'grey' or 'tlagx' end,
     getDisplayName = function() return 'Grey' end,
     getHumanVisual = function()
       return {
@@ -277,7 +305,7 @@ describe('ZomboidModels.export', () => {
     const L = newState();
     run(L, 'ZomboidModels.export(makePlayer(true))');
     const doc = JSON.parse(
-      evalString(L, "written['zomboid-models/tlagx.json']"),
+      evalString(L, "written['zomboid-models/grey.json']"),
     ) as CharacterDescription;
     expect(doc.body.sex).toBe('female');
     expect(doc.body.beard).toBeUndefined();
@@ -323,5 +351,88 @@ describe('ZomboidModels.exportVehicle', () => {
       evalString(L, "written['zomboid-models/vehicle-Mod.Truck-0.json']"),
     ) as unknown;
     expect(validateVehicleDescription(doc).ok).toBe(true);
+  });
+});
+
+describe('players.json', () => {
+  it('records exported players with their vehicle and keeps earlier entries', () => {
+    const L = newState();
+    run(L, 'ZomboidModels.export(makePlayer(false, makeVehicle()))');
+    run(L, 'ZomboidModels.writeIndex()');
+    const first = JSON.parse(evalString(L, "written['zomboid-models/players.json']")) as {
+      format: string;
+      updatedAt: number;
+      players: { username: string; online: boolean; vehicleId?: number; vehicleFile?: string }[];
+    };
+    expect(first.format).toBe('zomboid-models/players');
+    expect(first.updatedAt).toBe(1700000000);
+    expect(first.players).toEqual([
+      {
+        username: 'tlagx',
+        displayName: 'Grey',
+        file: 'zomboid-models/tlagx.json',
+        updatedAt: 1700000000,
+        online: true,
+        vehicleId: 42,
+        vehicleFile: 'zomboid-models/vehicle-Base.CarNormal-42.json',
+      },
+    ]);
+    const player = JSON.parse(evalString(L, "written['zomboid-models/tlagx.json']")) as {
+      meta: { vehicleId?: number; vehicleFile?: string };
+    };
+    expect(player.meta.vehicleId).toBe(42);
+    expect(player.meta.vehicleFile).toBe('zomboid-models/vehicle-Base.CarNormal-42.json');
+    expect(evalString(L, "written['zomboid-models/vehicle-Base.CarNormal-42.json']")).toContain(
+      '"vehicle":"Base.CarNormal"',
+    );
+
+    // A fresh session reads the index back from disk before adding to it.
+    const M = newState();
+    run(
+      M,
+      "written['zomboid-models/players.json'] = [[" +
+        evalString(L, "written['zomboid-models/players.json']") +
+        ']]',
+    );
+    run(M, 'clock = 1700000600');
+    run(M, 'ZomboidModels.export(makePlayer(true))');
+    run(M, 'ZomboidModels.markOffline({ grey = true })');
+    run(M, 'ZomboidModels.writeIndex()');
+    const second = JSON.parse(evalString(M, "written['zomboid-models/players.json']")) as {
+      players: { username: string; online: boolean; updatedAt: number; vehicleId?: number }[];
+    };
+    expect(second.players.map((p) => [p.username, p.online, p.updatedAt])).toEqual([
+      ['grey', true, 1700000600],
+      ['tlagx', false, 1700000000],
+    ]);
+    expect(second.players[1]?.vehicleId).toBe(42);
+  });
+
+  it('starts a new index when the file is unreadable', () => {
+    const L = newState();
+    run(L, "written['zomboid-models/players.json'] = 'not json'");
+    run(L, 'ZomboidModels.export(makePlayer(false))');
+    run(L, 'ZomboidModels.writeIndex()');
+    const index = JSON.parse(evalString(L, "written['zomboid-models/players.json']")) as {
+      players: { username: string }[];
+    };
+    expect(index.players.map((p) => p.username)).toEqual(['tlagx']);
+  });
+});
+
+describe('ZomboidModelsJSON.decode', () => {
+  it('round-trips objects, arrays, strings with escapes, numbers, and literals', () => {
+    const L = newState();
+    const json = evalString(
+      L,
+      `ZomboidModelsJSON.encode(ZomboidModelsJSON.decode('{"a": [1, 2.5, true, null, "q\\\\"\\\\n\\\\u00e9"], "b": {"c": false}, "d": -3e2}'))`,
+    );
+    expect(JSON.parse(json)).toEqual({
+      a: [1, 2.5, true, null, 'q"\né'],
+      b: { c: false },
+      d: -300,
+    });
+    run(L, 'ok, err = pcall(ZomboidModelsJSON.decode, "[1, 2")');
+    expect(evalString(L, 'tostring(ok)')).toBe('false');
   });
 });

@@ -86,6 +86,44 @@ const ZomboidCharacter = dynamic(
 );
 ```
 
+## Display names
+
+The asset folder can carry display names per language (see [pipeline.md](pipeline.md)). `getAssetCache(assetBaseUrl).loadNames('RU')` loads one language, and `displayName(names, 'items', 'Base.Axe')` returns the name or the key when there is none:
+
+```js
+import { displayName, getAssetCache } from 'zomboid-models';
+
+const names = await getAssetCache('/assets/').loadNames('RU');
+label.textContent = displayName(names, 'vehicles', 'Base.CarLightsPolice');
+```
+
+The kinds are `items`, `vehicles`, `hair`, `beards`, `animals`, `breeds`, and `bodyLocations`.
+
+## Reading what the exporter mod writes
+
+The reference mod writes one document per player under `Zomboid/Lua/zomboid-models/` and an index, `players.json`:
+
+```json
+{
+  "format": "zomboid-models/players",
+  "version": 1,
+  "updatedAt": 1700000000,
+  "players": [
+    {
+      "username": "tlagx",
+      "displayName": "Grey",
+      "file": "zomboid-models/tlagx.json",
+      "updatedAt": 1700000000,
+      "online": true,
+      "vehicleId": 42,
+      "vehicleFile": "zomboid-models/vehicle-Base.CarNormal-42.json"
+    }
+  ]
+}
+```
+
+Times are Unix seconds. A player who sits in a vehicle gets the vehicle written next to their document, linked from the index and from `meta.vehicleId` and `meta.vehicleFile` in the player's document. A page can show the player and the vehicle side by side from those two files.
+
 ## Hosting the assets
 
 The asset folder is static: put it behind any web server or CDN. File names other than `manifest.json` contain a content hash, so they can be cached for a long time; `manifest.json` is fetched with revalidation. When the assets live on another origin than the page, the server has to send `Access-Control-Allow-Origin` for them.

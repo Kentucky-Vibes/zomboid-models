@@ -25,6 +25,8 @@ export interface ManifestIndex {
   mods: string[];
   /** Catalog files relative to the manifest, by subject kind; absent kinds were not built. */
   catalogs: Partial<Record<SubjectKind, string>>;
+  /** Name files relative to the manifest, by language code (`EN`, `RU`). */
+  names?: Record<string, string>;
 }
 
 /** A converted mesh file; keyed by the game's model path, lowercased with forward slashes. */

@@ -1,4 +1,8 @@
+export { runBuild } from './build/build.js';
+export type { BuildLogger, BuildReport } from './build/build.js';
 export { CLI_NAME, runCli } from './cli/run.js';
+export { ConfigError, loadConfig, resolveConfig } from './config.js';
+export type { PipelineConfig, PipelineConfigFile } from './config.js';
 export { convertAnimationFile } from './convert/animationToGltf.js';
 export type {
   AnimationConversionOptions,

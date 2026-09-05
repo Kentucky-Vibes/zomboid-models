@@ -7,7 +7,7 @@ import type { ManifestIndex, VehicleCatalog } from 'zomboid-models/format';
 
 import { runBuild } from '../src/build/build.js';
 import { SKINNED_QUAD } from './fixtures/x.js';
-import { TRIANGLE_TXT } from './text-mesh.test.js';
+import { TRIANGLE_TXT } from './fixtures/textMesh.js';
 
 /** A 1x1 transparent PNG. */
 const PNG = Buffer.from(
@@ -86,6 +86,7 @@ describe('runBuild with the vehicles subject', () => {
         outDir,
         animations: [],
         subjects: ['vehicles'],
+        languages: [],
         baseDir: root,
       },
       { info: () => undefined, warn: () => undefined },

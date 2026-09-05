@@ -173,6 +173,7 @@ describe('runBuild on a synthetic game folder', () => {
         outDir,
         animations: [],
         subjects: ['characters'],
+        languages: [],
         baseDir: root,
       },
       { info: (m) => messages.push(m), warn: (m) => messages.push(`warn ${m}`) },

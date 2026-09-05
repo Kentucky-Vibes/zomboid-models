@@ -4,7 +4,7 @@ Renders Project Zomboid (Build 42) characters, animals, items, and vehicles in t
 
 The project has three parts. A three.js library draws the character from a JSON description. A command line pipeline converts the assets from your own copy of the game or of the dedicated server into files a browser can load. A playground lets you assemble a character and look at the result.
 
-Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, any item on the ground or in the hand, and every vehicle with its paint, rust, damage, blood, and lights through a port of the game's vehicle shader. A reference mod exports players from the game and describes vehicles on request. See [docs/decisions.md](docs/decisions.md) for what is still open.
+Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, any item on the ground or in the hand, and every vehicle with its paint, rust, damage, blood, and lights through a port of the game's vehicle shader. Display names come in every language the game ships. A reference mod exports players from the game with an index and the vehicle they sit in. See [docs/decisions.md](docs/decisions.md) for what is still open.
 
 A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It ships without game assets, so paste the URL of a folder you built with the pipeline into its asset field.
 
@@ -49,6 +49,8 @@ npm run check
 ```
 
 `npm run check` builds the packages and runs type checking, linting, formatting checks, and the tests. Tests that need a real game install run only when the `PZ_DIR` environment variable points at one; `PZ_SWEEP=1` also parses every model and animation file in it.
+
+`npm run test:visual` takes screenshots of the viewer in headless Chromium (install it once with `npx playwright install chromium`) and compares them with the ones under `visual/tests/__screenshots__`; pass `--update-snapshots` after an intended change. With `ZM_VISUAL_REAL=1` it also renders documents from `apps/playground/public/dev-assets`, a folder built from your own install, and keeps those screenshots locally.
 
 To try the playground against your own install, build the assets into its public folder and start the dev server:
 

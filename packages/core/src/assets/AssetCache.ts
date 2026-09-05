@@ -11,6 +11,7 @@ import {
   type SubjectKind,
   type VehicleCatalog,
 } from '../format/manifest.js';
+import type { NamesCatalog } from '../format/names.js';
 
 /**
  * Loads and caches the manifest index, the catalogs, the GLB files, and the textures of one
@@ -22,6 +23,7 @@ export class AssetCache {
   private readonly gltfs = new Map<string, Promise<GLTF>>();
   private readonly textures = new Map<string, Promise<Texture>>();
   private readonly catalogs = new Map<SubjectKind, Promise<unknown>>();
+  private readonly names = new Map<string, Promise<NamesCatalog>>();
   private manifest: Promise<ManifestIndex> | undefined;
 
   constructor(readonly baseUrl: string) {}
@@ -98,6 +100,30 @@ export class AssetCache {
     return this.loadCatalog<VehicleCatalog>('vehicles');
   }
 
+  /** Loads the display names of one language (`EN`, `RU`), once. */
+  loadNames(language: string): Promise<NamesCatalog> {
+    const code = language.toUpperCase();
+    let promise = this.names.get(code);
+    if (!promise) {
+      promise = this.loadManifest()
+        .then((manifest) => {
+          const file = manifest.names?.[code];
+          if (file === undefined) {
+            throw new Error(
+              `the asset folder has no names for ${code}; add the language to the pipeline configuration`,
+            );
+          }
+          return this.fetchJson(file) as Promise<NamesCatalog>;
+        })
+        .catch((error: unknown) => {
+          this.names.delete(code);
+          throw error;
+        });
+      this.names.set(code, promise);
+    }
+    return promise;
+  }
+
   loadGltf(relativePath: string): Promise<GLTF> {
     let promise = this.gltfs.get(relativePath);
     if (!promise) {
@@ -145,6 +171,7 @@ export class AssetCache {
     this.textures.clear();
     this.gltfs.clear();
     this.catalogs.clear();
+    this.names.clear();
     this.manifest = undefined;
   }
 }

@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import {
   BODY_PARTS,
+  displayName,
   type BodyPart,
   type CharacterDescription,
   type Manifest,
+  type NamesCatalog,
   type Sex,
   type WornItemDescription,
 } from 'zomboid-models';
@@ -12,6 +14,7 @@ export interface OutfitEditorProps {
   manifest: Manifest;
   character: CharacterDescription;
   onChange: (character: CharacterDescription) => void;
+  names?: NamesCatalog | undefined;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -24,7 +27,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 /** Pickers for the body, hair, beard, and worn items, driven by the manifest. */
-export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProps) {
+export function OutfitEditor({ manifest, character, onChange, names }: OutfitEditorProps) {
   const [filter, setFilter] = useState('');
   const sex: Sex = character.body.sex;
   const worn = character.worn ?? [];
@@ -38,12 +41,15 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
         return (
           needle.length === 0 ||
           type.toLowerCase().includes(needle) ||
-          wearable.bodyLocation.includes(needle)
+          wearable.bodyLocation.includes(needle) ||
+          displayName(names, 'items', type).toLowerCase().includes(needle)
         );
       })
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(0, 60);
-  }, [manifest, sex, filter]);
+  }, [manifest, sex, filter, names]);
+  const label = (kind: 'items' | 'hair' | 'beards' | 'bodyLocations', key: string): string =>
+    names ? `${displayName(names, kind, key)} (${key})` : key;
 
   const update = (patch: Partial<CharacterDescription>): void =>
     onChange({ ...character, ...patch });
@@ -256,7 +262,7 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           <option value="">none</option>
           {hairStyles.map((name) => (
             <option key={name} value={name}>
-              {name}
+              {label('hair', name)}
             </option>
           ))}
         </select>
@@ -272,7 +278,7 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
           <option value="">none</option>
           {beards.map((name) => (
             <option key={name} value={name}>
-              {name}
+              {label('beards', name)}
             </option>
           ))}
         </select>
@@ -298,7 +304,7 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
                 <button type="button" onClick={() => toggle(w.item)} title="remove">
                   ×
                 </button>
-                <span style={{ flex: 1 }}>{w.item}</span>
+                <span style={{ flex: 1 }}>{label('items', w.item)}</span>
                 {choices.length > 1 && (
                   <select
                     value={w.textureChoice ?? 0}

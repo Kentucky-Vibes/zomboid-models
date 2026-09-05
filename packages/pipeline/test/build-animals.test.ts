@@ -101,6 +101,7 @@ describe('runBuild with the animals subject', () => {
         outDir,
         animations: [],
         subjects: ['animals'],
+        languages: [],
         baseDir: root,
       },
       { info: () => undefined, warn: () => undefined },

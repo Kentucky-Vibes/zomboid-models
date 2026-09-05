@@ -1,15 +1,18 @@
 import { useMemo, useState } from 'react';
-import type {
-  ManifestVehicle,
-  VehicleCatalog,
-  VehicleDescription,
-  VehiclePartState,
+import {
+  displayName,
+  type ManifestVehicle,
+  type NamesCatalog,
+  type VehicleCatalog,
+  type VehicleDescription,
+  type VehiclePartState,
 } from 'zomboid-models';
 
 export interface VehicleEditorProps {
   catalog: VehicleCatalog;
   vehicle: VehicleDescription;
   onChange: (vehicle: VehicleDescription) => void;
+  names?: NamesCatalog | undefined;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -35,15 +38,20 @@ function editableParts(entry: ManifestVehicle | undefined): string[] {
 }
 
 /** Pickers for the vehicle script, skin, paint, rust, lights, blood, and the state of its parts. */
-export function VehicleEditor({ catalog, vehicle, onChange }: VehicleEditorProps) {
+export function VehicleEditor({ catalog, vehicle, onChange, names }: VehicleEditorProps) {
   const [filter, setFilter] = useState('');
-  const names = useMemo(() => {
+  const vehicleNames = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     return Object.keys(catalog.vehicles)
-      .filter((name) => needle.length === 0 || name.toLowerCase().includes(needle))
+      .filter(
+        (name) =>
+          needle.length === 0 ||
+          name.toLowerCase().includes(needle) ||
+          displayName(names, 'vehicles', name).toLowerCase().includes(needle),
+      )
       .sort()
       .slice(0, 80);
-  }, [catalog, filter]);
+  }, [catalog, filter, names]);
   const entry = catalog.vehicles[vehicle.vehicle];
   const update = (patch: Partial<VehicleDescription>): void => onChange({ ...vehicle, ...patch });
 
@@ -80,9 +88,9 @@ export function VehicleEditor({ catalog, vehicle, onChange }: VehicleEditorProps
             }
           }}
         >
-          {names.map((name) => (
+          {vehicleNames.map((name) => (
             <option key={name} value={name}>
-              {name}
+              {names ? `${displayName(names, 'vehicles', name)} (${name})` : name}
             </option>
           ))}
         </select>

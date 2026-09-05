@@ -1,16 +1,19 @@
 import {
   ANIMAL_STANCES,
   ANIMAL_VARIANTS,
+  displayName,
   type AnimalCatalog,
   type AnimalDescription,
   type AnimalStance,
   type AnimalVariant,
+  type NamesCatalog,
 } from 'zomboid-models';
 
 export interface AnimalEditorProps {
   catalog: AnimalCatalog;
   animal: AnimalDescription;
   onChange: (animal: AnimalDescription) => void;
+  names?: NamesCatalog | undefined;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -46,7 +49,7 @@ function fromHex(hex: string): { r: number; g: number; b: number } {
 }
 
 /** Pickers for the animal type, breed, texture, body variant, size, tint, hue, and stance. */
-export function AnimalEditor({ catalog, animal, onChange }: AnimalEditorProps) {
+export function AnimalEditor({ catalog, animal, onChange, names }: AnimalEditorProps) {
   const types = Object.keys(catalog.animals).sort();
   const definition = catalog.animals[animal.type];
   const breedName = animal.breed ?? definition?.breedOrder[0];
@@ -74,7 +77,7 @@ export function AnimalEditor({ catalog, animal, onChange }: AnimalEditorProps) {
         >
           {types.map((type) => (
             <option key={type} value={type}>
-              {type}
+              {names ? `${displayName(names, 'animals', type)} (${type})` : type}
             </option>
           ))}
         </select>
@@ -86,7 +89,7 @@ export function AnimalEditor({ catalog, animal, onChange }: AnimalEditorProps) {
         >
           {(definition?.breedOrder ?? []).map((name) => (
             <option key={name} value={name}>
-              {name}
+              {names ? `${displayName(names, 'breeds', name)} (${name})` : name}
             </option>
           ))}
         </select>

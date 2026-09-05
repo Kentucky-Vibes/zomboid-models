@@ -17,6 +17,7 @@ export interface MappedFile {
  */
 export class ActiveFileMap {
   private readonly files = new Map<string, MappedFile>();
+  private readonly history = new Map<string, MappedFile[]>();
   /** Relative paths that a later folder replaced, for reporting. */
   readonly overrides: { relPath: string; previous: string; replacedBy: string }[] = [];
 
@@ -48,7 +49,11 @@ export class ActiveFileMap {
         if (previous && previous.source !== source) {
           this.overrides.push({ relPath, previous: previous.source, replacedBy: source });
         }
-        this.files.set(relPath, { path, source });
+        const file = { path, source };
+        this.files.set(relPath, file);
+        const versions = this.history.get(relPath);
+        if (versions) versions.push(file);
+        else this.history.set(relPath, [file]);
         count++;
       }
     };
@@ -63,6 +68,14 @@ export class ActiveFileMap {
 
   has(relPath: string): boolean {
     return this.files.has(normalizeRelPath(relPath));
+  }
+
+  /**
+   * Every file that was added under the relative path, game first and then the mods in load
+   * order, for files the game merges instead of replacing (the translation files).
+   */
+  versions(relPath: string): MappedFile[] {
+    return [...(this.history.get(normalizeRelPath(relPath)) ?? [])];
   }
 
   /** Every entry whose relative path starts with the prefix, in insertion order. */

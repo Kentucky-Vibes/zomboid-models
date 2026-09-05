@@ -277,10 +277,24 @@ function M.fileName(character)
     return safe
 end
 
---- Writes the document for a character and returns the relative path, or nil on failure.
+--- Writes the document for a character and returns the relative path, or nil on failure. A
+--- character sitting in a vehicle gets the vehicle exported too, and the document links to it
+--- through `meta.vehicleId` and `meta.vehicleFile`. The player is recorded in the index; call
+--- `writeIndex` to save it.
 function M.export(character)
     if character == nil then return nil end
-    local ok, text = pcall(function() return JSON.encode(M.describe(character)) end)
+    local doc = M.describe(character)
+    local vehicle = try(character, 'getVehicle')
+    local exportedVehicle = nil
+    if vehicle ~= nil then
+        local vehicleFile = M.exportVehicle(vehicle)
+        if vehicleFile ~= nil then
+            exportedVehicle = { id = try(vehicle, 'getId'), file = vehicleFile }
+            doc.meta.vehicleId = exportedVehicle.id
+            doc.meta.vehicleFile = vehicleFile
+        end
+    end
+    local ok, text = pcall(function() return JSON.encode(doc) end)
     if not ok then
         print('[zomboid-models] export failed: ' .. tostring(text))
         return nil
@@ -293,6 +307,7 @@ function M.export(character)
     end
     writer:write(text)
     writer:close()
+    M.updateIndex(character, relPath, exportedVehicle)
     return relPath
 end
 
@@ -398,4 +413,121 @@ function M.exportVehicle(vehicle)
     writer:write(text)
     writer:close()
     return relPath
+end
+
+--- Index of exported players ---------------------------------------------------------------
+
+M.INDEX_FILE = M.OUTPUT_FOLDER .. '/players.json'
+
+--- Reads the whole text of a file in the Zomboid folder, or nil when it does not exist.
+local function readText(relPath)
+    local reader = getFileReader(relPath, false)
+    if reader == nil then return nil end
+    local lines = {}
+    while true do
+        local line = reader:readLine()
+        if line == nil then break end
+        table.insert(lines, line)
+    end
+    reader:close()
+    return table.concat(lines, '\n')
+end
+
+local function writeText(relPath, text)
+    local writer = getFileWriter(relPath, true, false)
+    if writer == nil then
+        print('[zomboid-models] cannot open ' .. relPath)
+        return false
+    end
+    writer:write(text)
+    writer:close()
+    return true
+end
+
+--- The entries of players.json by username, read from disk on first use.
+local indexEntries = nil
+
+local function loadIndex()
+    if indexEntries ~= nil then return indexEntries end
+    indexEntries = {}
+    local text = readText(M.INDEX_FILE)
+    if text ~= nil and text ~= '' then
+        local ok, decoded = pcall(JSON.decode, text)
+        if ok and type(decoded) == 'table' and type(decoded.players) == 'table' then
+            for i = 1, decoded.players.n or #decoded.players do
+                local entry = decoded.players[i]
+                if type(entry) == 'table' and type(entry.username) == 'string' then
+                    indexEntries[entry.username] = entry
+                end
+            end
+        else
+            print('[zomboid-models] players.json could not be read; starting a new index')
+        end
+    end
+    return indexEntries
+end
+
+local function now()
+    local ok, seconds = pcall(getTimestamp)
+    if ok and type(seconds) == 'number' then return math.floor(seconds) end
+    return 0
+end
+
+--- Records one exported player in the index (in memory; `writeIndex` saves it).
+function M.updateIndex(character, relPath, vehicle)
+    local entries = loadIndex()
+    local username = try(character, 'getUsername') or try(character, 'getDisplayName')
+    if username == nil then return end
+    local entry = {
+        username = username,
+        displayName = try(character, 'getDisplayName'),
+        file = relPath,
+        updatedAt = now(),
+        online = true,
+    }
+    if vehicle ~= nil then
+        entry.vehicleId = vehicle.id
+        entry.vehicleFile = vehicle.file
+    end
+    entries[username] = entry
+end
+
+--- Marks every player whose username is not in the given set as offline.
+function M.markOffline(onlineUsernames)
+    local entries = loadIndex()
+    for username, entry in pairs(entries) do
+        if not onlineUsernames[username] then entry.online = false end
+    end
+end
+
+--- Writes players.json: the entries sorted by username, with the time of writing.
+function M.writeIndex()
+    local entries = loadIndex()
+    local list = JSON.array({})
+    local names = {}
+    for username in pairs(entries) do
+        local pos = #names + 1
+        while pos > 1 and names[pos - 1] > username do
+            names[pos] = names[pos - 1]
+            pos = pos - 1
+        end
+        names[pos] = username
+    end
+    for _, username in ipairs(names) do
+        list.n = list.n + 1
+        list[list.n] = entries[username]
+    end
+    local document = {
+        format = 'zomboid-models/players',
+        version = M.VERSION,
+        updatedAt = now(),
+        players = list,
+    }
+    local ok, text = pcall(JSON.encode, document)
+    if not ok then
+        print('[zomboid-models] index encoding failed: ' .. tostring(text))
+        return nil
+    end
+    if writeText(M.INDEX_FILE, text) then return M.INDEX_FILE end
+    return nil
 end

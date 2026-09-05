@@ -47,6 +47,8 @@ apps/playground/public/dev-assets/
 test-results/
 playwright-report/
 playwright/.cache/
+apps/playground/public/visual-assets/
+visual/local-snapshots/
 
 # operating system leftovers
 .DS_Store

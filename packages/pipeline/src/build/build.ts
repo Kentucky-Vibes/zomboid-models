@@ -18,7 +18,9 @@ import { convertAnimationFile } from '../convert/animationToGltf.js';
 import { convertFbxFile } from '../convert/fbxToGltf.js';
 import { convertMeshFile } from '../convert/meshToGltf.js';
 import { convertTextMeshFile } from '../convert/textMeshToGltf.js';
+import { entryValue } from '../game/scripts.js';
 import { loadCatalog, type GameCatalog } from '../game/catalog.js';
+import { availableLanguages, readTranslations } from '../game/translations.js';
 import { buildActiveFileMap, type ActiveFileMap } from '../game/fileMap.js';
 import {
   discoverMods,
@@ -36,6 +38,7 @@ import {
 import { parseX } from '../x/parser.js';
 import { assembleAnimalCatalog, planAnimalAssets, type AnimalPlan } from './animals.js';
 import { assembleItemCatalog, planItemAssets, type ItemPlan } from './items.js';
+import { assembleNames, type NameKeys } from './names.js';
 import { assembleVehicleCatalog, planVehicleAssets, type VehiclePlan } from './vehicles.js';
 import {
   BANDAGE_ITEMS,
@@ -65,6 +68,8 @@ export interface BuildReport {
   animals: number;
   items: number;
   vehicles: number;
+  /** Languages that got a name file. */
+  languages: string[];
   warnings: string[];
   seconds: number;
   outDir: string;
@@ -394,6 +399,79 @@ function assembleCharacterCatalog(
   };
 }
 
+/** The keys the built catalogs reference, for the name files. */
+function nameKeys(
+  catalog: GameCatalog,
+  plans: {
+    characters: AssetPlan | undefined;
+    animals: AnimalPlan | undefined;
+    items: ItemPlan | undefined;
+    vehicles: VehiclePlan | undefined;
+  },
+): NameKeys {
+  const items = new Map<string, string | undefined>();
+  const itemName = (fullType: string): void => {
+    const definition = catalog.items.get(fullType);
+    items.set(
+      fullType,
+      definition ? entryValue(definition.block, 'DisplayName')?.trim() : undefined,
+    );
+  };
+  for (const key of Object.keys(plans.characters?.wearables ?? {})) itemName(key);
+  for (const key of Object.keys(plans.characters?.heldItems ?? {})) itemName(key);
+  for (const key of Object.keys(plans.items?.items ?? {})) itemName(key);
+  const vehicles = new Map<string, string | undefined>();
+  for (const key of Object.keys(plans.vehicles?.vehicles ?? {})) {
+    vehicles.set(key, catalog.vehicles.get(key)?.carModelName);
+  }
+  const breeds = new Set<string>();
+  for (const animal of Object.values(plans.animals?.animals ?? {})) {
+    for (const breed of animal.breedOrder) breeds.add(breed);
+  }
+  return {
+    items,
+    vehicles,
+    hair: plans.characters
+      ? [...catalog.hair.male.map((s) => s.name), ...catalog.hair.female.map((s) => s.name)]
+      : [],
+    beards: plans.characters ? catalog.beards.map((s) => s.name) : [],
+    animals: Object.keys(plans.animals?.animals ?? {}),
+    breeds,
+    bodyLocations: plans.characters ? catalog.bodyLocations.order : [],
+  };
+}
+
+/** Writes one name file per configured language and returns their paths by language. */
+function writeNames(
+  config: PipelineConfig,
+  files: ActiveFileMap,
+  catalog: GameCatalog,
+  plans: Parameters<typeof nameKeys>[1],
+  warnings: string[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (config.languages.length === 0) return out;
+  const keys = nameKeys(catalog, plans);
+  const english = readTranslations(files, 'EN', warnings);
+  if (!english) warnings.push('no English translation files under media/lua/shared/Translate/EN');
+  for (const entry of readdirSync(config.outDir)) {
+    if (/^catalog-names-[a-z_]+-[0-9a-f]+.json$/.test(entry)) rmSync(join(config.outDir, entry));
+  }
+  for (const language of config.languages) {
+    const translations = language === 'EN' ? english : readTranslations(files, language, warnings);
+    if (!translations) {
+      warnings.push(
+        `no translation files for ${language}; available: ${availableLanguages(files).join(', ')}`,
+      );
+    }
+    const names = JSON.stringify(assembleNames(language, translations, english, keys));
+    const file = `catalog-names-${language.toLowerCase()}-${hashOf(names)}.json`;
+    writeFileSync(join(config.outDir, file), names);
+    out[language] = file;
+  }
+  return out;
+}
+
 /** Runs a complete build: mods, catalog, conversion, the catalogs, and the manifest index. */
 export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport {
   const started = performance.now();
@@ -505,6 +583,19 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     writeFileSync(join(config.outDir, file), vehicles);
     index.catalogs.vehicles = file;
   }
+  const languages = writeNames(
+    config,
+    files,
+    catalog,
+    {
+      characters: buildCharacters ? plan : undefined,
+      animals: animalPlan,
+      items: itemPlan,
+      vehicles: vehiclePlan,
+    },
+    warnings,
+  );
+  if (Object.keys(languages).length > 0) index.names = languages;
   writeFileSync(join(config.outDir, 'manifest.json'), JSON.stringify(index));
   for (const warning of warnings) log.warn(warning);
 
@@ -520,6 +611,7 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     animals: animalPlan ? Object.keys(animalPlan.animals).length : 0,
     items: itemPlan ? Object.keys(itemPlan.items).length : 0,
     vehicles: vehiclePlan ? Object.keys(vehiclePlan.vehicles).length : 0,
+    languages: Object.keys(languages),
     warnings,
     seconds: (performance.now() - started) / 1000,
     outDir: config.outDir,
