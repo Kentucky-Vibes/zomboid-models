@@ -19,4 +19,4 @@ The mod runs inside the game's Kahlua Lua runtime, which has no JSON library and
 
 ## Testing
 
-`test/exporter.test.ts` runs the Lua files under a Lua interpreter in Node.js (fengari) against mock game objects, validates the produced document with the renderer's schema, and checks the values. It does not replace a run in the game.
+`test/exporter.test.ts` runs the Lua files under a Lua interpreter in Node.js (fengari) against mock game objects, validates the produced document with the renderer's schema, and checks the values. The mod has also been run on a Build 42.20.3 dedicated server; the document it produced is kept unedited as [docs/examples/exported-player.json](../../docs/examples/exported-player.json).

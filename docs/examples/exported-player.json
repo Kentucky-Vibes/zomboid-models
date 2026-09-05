@@ -1,0 +1,67 @@
+{
+  "body": {
+    "beardColor": {
+      "b": 0.0863,
+      "g": 0.0902,
+      "r": 0.1059
+    },
+    "hair": "TopCurls",
+    "hairColor": {
+      "b": 0.0863,
+      "g": 0.0902,
+      "r": 0.1059
+    },
+    "sex": "female",
+    "skin": 2,
+    "skinTexture": "FemaleBody03"
+  },
+  "format": "zomboid-models/character",
+  "meta": {
+    "displayName": "tlagx",
+    "exporter": "ZomboidModelsExporter",
+    "username": "tlagx"
+  },
+  "version": 1,
+  "worn": [
+    {
+      "baseTexture": 0,
+      "clothingItem": "Belt",
+      "item": "Base.Belt2"
+    },
+    {
+      "baseTexture": 0,
+      "clothingItem": "Tshirt_WhiteLongSleeveTINT",
+      "item": "Base.Tshirt_WhiteLongSleeveTINT",
+      "tint": {
+        "b": 0.502,
+        "g": 0.4353,
+        "r": 0.5333
+      }
+    },
+    {
+      "baseTexture": 0,
+      "clothingItem": "Socks_Ankle",
+      "item": "Base.Socks_Ankle",
+      "tint": {
+        "b": 0.5882,
+        "g": 0.7255,
+        "r": 0.3216
+      }
+    },
+    {
+      "clothingItem": "Shoes_Strapped",
+      "item": "Base.Shoes_Strapped",
+      "textureChoice": 0
+    },
+    {
+      "baseTexture": 0,
+      "clothingItem": "Skirt_Normal",
+      "item": "Base.Skirt_Normal",
+      "tint": {
+        "b": 0.3255,
+        "g": 0.349,
+        "r": 0.349
+      }
+    }
+  ]
+}

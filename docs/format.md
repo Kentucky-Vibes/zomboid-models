@@ -81,6 +81,10 @@ Instead of listing `worn`, `outfit` names one of the game's outfits with an opti
 
 `Hand_L`, `Hand_R`, `ForeArm_L`, `ForeArm_R`, `UpperArm_L`, `UpperArm_R`, `Torso_Upper`, `Torso_Lower`, `Head`, `Neck`, `Groin`, `UpperLeg_L`, `UpperLeg_R`, `LowerLeg_L`, `LowerLeg_R`, `Foot_L`, `Foot_R`, `Back`. These are the game's own names.
 
+## Example
+
+[examples/exported-player.json](examples/exported-player.json) is a document the reference mod wrote for a real player on a Build 42.20.3 server, unedited. It is also a test fixture: every file in that folder has to pass the schema and the runtime validator.
+
 ## Where the values come from in the game
 
 The reference mod in `mods/zomboid-models-exporter` does exactly this and writes one file per player; read it for the method names.
