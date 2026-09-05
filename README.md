@@ -1,38 +1,66 @@
 # zomboid-models
 
-Renders Project Zomboid (Build 42) characters, animals, items, and vehicles in the browser: the body, clothing including clothing from mods, hair and beard, items in the hands, the blood, wounds, and bandages the game draws on them, animated with the game's own animation files; the animals with their breeds; items on the ground or in the hand; and vehicles with the game's paint, rust, damage, blood, and lights.
+Renders Project Zomboid (Build 42) characters, animals, items, and vehicles in the browser, from JSON documents that mirror the game's own state, with the game's own models, textures, animations, and rules. A character is drawn with its clothing (including clothing from mods), hair and beard, the items in its hands and on its back, and the blood, wounds, and bandages the game paints on skin and cloth. Zombies come with their decay stages and gaits, animals with their breeds and body variants, vehicles with their paint, rust, damage, blood, lights, and doors that open. Several subjects can share a scene, survivors can sit in their car, and everything can walk, run, attack, eat, sit, or sleep the way the game animates it.
 
-The project has three parts. A three.js library draws the character from a JSON description. A command line pipeline converts the assets from your own copy of the game or of the dedicated server into files a browser can load. A playground lets you assemble a character and look at the result.
+The project is a set of building blocks: a renderer, a pipeline that converts the assets from your own copy of the game, wrappers for pages and React, and a Node.js renderer for pictures. It ships no game files; you convert and host the assets yourself.
 
-Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, any item on the ground or in the hand, and every vehicle with its paint, rust, damage, blood, and lights through a port of the game's vehicle shader. Several subjects can share a scene, with survivors seated in their car. Display names come in every language the game ships. Characters and animals can be shown walking, running, attacking, eating, sitting, or asleep, with the clips and speeds of the game's animation sets, and a Node.js package renders documents to PNG and WebP files. A reference mod exports players from the game with an index, the vehicle they sit in, and what they were doing. See [docs/decisions.md](docs/decisions.md) for what is still open.
-
-A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It ships without game assets, so paste the URL of a folder you built with the pipeline into its asset field.
+A playground runs at https://kentucky-vibes.github.io/zomboid-models/ and the API reference at https://kentucky-vibes.github.io/zomboid-models/api/. The playground has no assets of its own: paste the URL of a folder you built with the pipeline into its asset field.
 
 ## How it fits together
 
-1. Run `zomboid-models build` against a Project Zomboid install and any mod folders. It writes a folder of meshes, textures, animations, and a catalog.
+1. Run `zomboid-models build` against a Project Zomboid install and any mod folders. It writes a folder of meshes, textures, animations, and catalogs.
 2. Serve that folder as static files.
-3. In your page, give the library a JSON description of a character and the URL of that folder.
+3. In your page, give the viewer a document (a character, an animal, an item, a vehicle, or a scene) and the URL of that folder. Or render the document to a PNG from Node.js.
+
+```js
+import { createViewer } from 'zomboid-models';
+
+createViewer(document.querySelector('#hero'), {
+  assetBaseUrl: '/assets/',
+  mode: 'showcase',
+  document: {
+    format: 'zomboid-models/character',
+    version: 1,
+    body: { sex: 'female', hair: 'Bob' },
+    worn: [{ item: 'Base.Jacket_Padded' }, { item: 'Base.Trousers_Denim' }],
+    held: { primary: { item: 'Base.Axe' } },
+    action: 'walk',
+  },
+});
+```
 
 ## Packages
 
-| Package                   | Folder                         | What it is                                                       |
-| ------------------------- | ------------------------------ | ---------------------------------------------------------------- |
-| `zomboid-models`          | `packages/core`                | The renderer, the character JSON format, and its schema          |
-| `zomboid-models-pipeline` | `packages/pipeline`            | The `zomboid-models` command line tool                           |
-| `zomboid-models-element`  | `packages/element`             | The `<zomboid-view>` Web Component, three.js bundled             |
-| `zomboid-models-react`    | `packages/react`               | A React component around the renderer                            |
-| `zomboid-models-render`   | `packages/render`              | Renders documents to PNG and WebP files from Node.js             |
-| playground                | `apps/playground`              | A Vite app for building and viewing characters (not published)   |
-| exporter mod              | `mods/zomboid-models-exporter` | A Project Zomboid mod that writes players as character documents |
+| Package                   | Folder                         | What it is                                                                |
+| ------------------------- | ------------------------------ | ------------------------------------------------------------------------- |
+| `zomboid-models`          | `packages/core`                | The renderer, the document formats with their schemas, the game rules     |
+| `zomboid-models-pipeline` | `packages/pipeline`            | The `zomboid-models` command line that converts the assets                |
+| `zomboid-models-element`  | `packages/element`             | The `<zomboid-view>` Web Component, three.js bundled                      |
+| `zomboid-models-react`    | `packages/react`               | The `ZomboidView` React component                                         |
+| `zomboid-models-render`   | `packages/render`              | Renders documents to PNG and WebP files from Node.js                      |
+| playground                | `apps/playground`              | A Vite app for building and viewing documents (not published)             |
+| exporter mod              | `mods/zomboid-models-exporter` | A Project Zomboid mod that writes players and their vehicles as documents |
+
+The five packages are released together under one version number.
 
 ## Documentation
 
-- [docs/integration.md](docs/integration.md): using the viewer from plain JavaScript, the Web Component, React, and Next.js; hosting the assets.
-- [docs/format.md](docs/format.md): the character JSON document.
+- [docs/integration.md](docs/integration.md): the viewer from plain JavaScript, the Web Component, React, and Next.js; the names, the exporter's files, hosting, pictures.
+- [docs/format.md](docs/format.md): the document formats.
 - [docs/pipeline.md](docs/pipeline.md): configuring and running the asset conversion.
-- [docs/decisions.md](docs/decisions.md): why things are the way they are.
-- [docs/research](docs/research): how the game loads models, composes textures, and merges mods.
+- [docs/decisions.md](docs/decisions.md): why things are the way they are, and what the project will not do.
+- [docs/research](docs/research): how the game loads models, composes textures, merges mods, and animates animals.
+- [API reference](https://kentucky-vibes.github.io/zomboid-models/api/): every exported function and type.
+
+## What 1.0 promises
+
+The document formats (`version: 1`), the viewer's options and methods, the element's attributes, the React props, the render package's API and command line, the pipeline's configuration and commands, and the exporter's `players.json` follow semantic versioning from 1.0 on: a minor release adds, a major release changes. Two things sit outside that promise on purpose. The catalog files the pipeline writes are a contract between the pipeline and the viewer of the same major version, so rebuild the assets when you move to a new major; the viewer warns when the folder comes from another one. And `zomboid-models/rules`, the game's rules as the renderer applies them, follows Build 42 and changes with it in minor releases.
+
+Supported: Node.js 22 or later for the pipeline and the render package; browsers with WebGL 2 (current Chrome, Firefox, and Safari) for the viewer, with `three` 0.185 as a peer dependency; Project Zomboid Build 42, checked against 42.20.3, with mods through the pipeline's configuration.
+
+## What it does not do
+
+The project draws what the game draws in 3D and stops there. It has no editor for characters or scenes beyond the playground, no runtime for scripted or animated scenes, no hosting of assets (the docs give a recipe), and no tiles, buildings, or furniture, which the game draws as sprites. Sites that need more build it on top, from the viewer and the exported rules, or in a fork.
 
 ## Assets and licensing
 
@@ -42,16 +70,16 @@ The code is licensed under [MIT](LICENSE).
 
 ## Development
 
-Requires Node.js 20.19 or newer.
+Requires Node.js 22 or newer.
 
 ```bash
 npm install
 npm run check
 ```
 
-`npm run check` builds the packages and runs type checking, linting, formatting checks, and the tests. Tests that need a real game install run only when the `PZ_DIR` environment variable points at one; `PZ_SWEEP=1` also parses every model and animation file in it.
+`npm run check` builds the packages and runs type checking, linting, formatting checks, and the tests. Tests that need a real game install run only when the `PZ_DIR` environment variable points at one; `PZ_SWEEP=1` also parses every model and animation file in it. `npm test -- --coverage` adds a coverage report.
 
-`npm run test:visual` takes screenshots of the viewer in headless Chromium (install it once with `npx playwright install chromium`) and compares them with the ones under `visual/tests/__screenshots__`; pass `--update-snapshots` after an intended change. With `ZM_VISUAL_REAL=1` it also renders documents from `apps/playground/public/dev-assets`, a folder built from your own install, and keeps those screenshots locally.
+`npm run test:visual` takes screenshots of the viewer in headless Chromium (install it once with `npx playwright install chromium`) and compares them with the ones under `visual/tests/__screenshots__`; pass `--update-snapshots` after an intended change. With `ZM_VISUAL_REAL=1` it also renders documents from `apps/playground/public/dev-assets`, a folder built from your own install, and keeps those screenshots locally. The render package's tests use the same Chromium and skip without it.
 
 To try the playground against your own install, build the assets into its public folder and start the dev server:
 
@@ -60,6 +88,10 @@ node packages/pipeline/dist/cli.js init
 node packages/pipeline/dist/cli.js build   # with outDir set to apps/playground/public/dev-assets
 npm run dev -w playground
 ```
+
+`npm run docs:api` builds the API reference into the playground's `dist/api` folder.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how changes are made and [SECURITY.md](SECURITY.md) for reporting a vulnerability.
 
 ## Credits
 

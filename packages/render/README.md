@@ -7,7 +7,7 @@ npm install zomboid-models-render
 npx playwright install chromium
 ```
 
-The second command downloads the browser once; set `PLAYWRIGHT_BROWSERS_PATH` to keep it somewhere other than the home folder.
+The second command downloads the browser once; set `PLAYWRIGHT_BROWSERS_PATH` to keep it somewhere other than the home folder. The package needs Node.js 22 or later.
 
 ## Command line
 
@@ -15,7 +15,7 @@ The second command downloads the browser once; set `PLAYWRIGHT_BROWSERS_PATH` to
 npx zomboid-models-render --assets ./assets --out ./pictures --width 320 --height 480 players/*.json
 ```
 
-Each document file becomes one picture, named after it, in `--out` (or next to the document when `--out` is absent; with one document `--out` may name the file itself, and its extension picks the format). Options: `--format png|webp`, `--quality` for WebP, `--camera` as JSON, `--lighting` (`day`, `dusk`, `night`, `studio`, or `{"hour":6,"season":"winter"}`), `--background` (a CSS colour, or `transparent`, the default), `--animation` (a clip name, or `none` for the bind pose), and `--pose-time` in seconds. Warnings about what could not be shown go to standard error; the exit code is 1 when a document failed.
+Each document file becomes one picture, named after it, in `--out` (or next to the document when `--out` is absent; with one document `--out` may name the file itself, and its extension picks the format). Options: `--format png|webp`, `--quality` for WebP, `--camera` as JSON, `--lighting` (`day`, `dusk`, `night`, `studio`, or `{"hour":6,"season":"winter"}`), `--background` (a CSS colour, or `transparent`, the default), `--animation` (a clip name, or `none` for the bind pose), `--animation-speed`, and `--pose-time` in seconds. Warnings about what could not be shown go to standard error; the exit code is 1 when a document failed.
 
 ## Node.js
 

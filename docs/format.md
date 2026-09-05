@@ -144,7 +144,7 @@ One inventory item on its own has the document `zomboid-models/item`:
 
 - `item`: the full item type.
 - `model`: `world` for the model the item shows lying on the ground (`WorldStaticModel` in the item script), `held` for the model it shows in a hand (`WeaponSprite` or `StaticModel`). The ground model is the default; an item that lacks the requested model shows the other one with a warning.
-- `blood`: reserved for blood on weapons; not drawn yet.
+- `blood`: blood on a weapon from 0 to 1, drawn through the game's blood overlay and its mask.
 
 The pipeline writes the item catalog when `subjects` includes `items`. Ground models are FBX files in the game, which the pipeline converts through the three.js FBX loader; the model's script scale applies, so a hammer on the ground is hammer-sized next to a character. The JSON Schema is `schema/item.schema.json`, and `validateItemDescription()` checks a document at runtime.
 

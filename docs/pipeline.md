@@ -6,6 +6,8 @@ The tool reads the game's own files. Both the Steam client and the dedicated ser
 
 ## Install and configure
 
+The tool needs Node.js 22 or later.
+
 ```bash
 npm install --save-dev zomboid-models-pipeline
 npx zomboid-models init
@@ -43,7 +45,7 @@ npx zomboid-models build
 
 The build discovers mods, orders them with their `require` entries like the game, and overlays their files on the game's `media` (a later mod replaces an earlier file at the same relative path). It then reads the scripts (items, models, and vehicles with their templates), clothing XML, the outfit list, hair styles, body locations, attachment points, animation sets, and decals, runs the Lua definition files behind outfit randomisation (default clothing, hair pools, underwear, attached weapons) and the animal definitions in a sandboxed Lua interpreter, converts every mesh and animation it needs, copies the textures, and writes the catalogs and the index. A vanilla build with every subject takes under a minute and produces about 150 MB.
 
-Warnings list what could not be converted. Meshes stored as FBX (items on the ground, vehicles, a few held items) go through the three.js FBX loader; their skinned parts (the doors, hood, and trunk of three cars) keep their bones and their closing clips, with the closed state, the last frame of the closing clip, as the rest pose, so that a viewer can hold them closed or open and swing them. The wheels of vehicles are stored in the game's own text mesh format under `media/models`; the pipeline reads that format too and mirrors those meshes like the `.x` files.
+Warnings list what could not be converted. A model a mod ships as glTF already is copied as it is. Meshes stored as FBX (items on the ground, vehicles, a few held items) go through the three.js FBX loader; their skinned parts (the doors, hood, and trunk of three cars) keep their bones and their closing clips, with the closed state, the last frame of the closing clip, as the rest pose, so that a viewer can hold them closed or open and swing them. The wheels of vehicles are stored in the game's own text mesh format under `media/models`; the pipeline reads that format too and mirrors those meshes like the `.x` files.
 
 ## Output layout
 
@@ -60,7 +62,7 @@ assets-out/
   anims/<clip>-<hash>.glb
 ```
 
-`manifest.json` is the index: the format version, the game version, the mod ids, and the catalog file of each subject kind that was built. The renderer loads only the catalog of the document it shows. Keys are the game's own paths, lowercased. Every file name carries a content hash, so a web server can cache them for a long time; only `manifest.json` changes in place.
+`manifest.json` is the index: the format version, the game version, the version of the pipeline that built the folder, the mod ids, and the catalog file of each subject kind that was built. The viewer warns when the pipeline's major version is not its own; rebuild the folder after a major upgrade. The renderer loads only the catalog of the document it shows. Keys are the game's own paths, lowercased. Every file name carries a content hash, so a web server can cache them for a long time; only `manifest.json` changes in place.
 
 ## Names
 
@@ -69,6 +71,10 @@ For every language in `languages` the build writes a name file, listed in `manif
 The vehicle catalog carries each vehicle script as the game loads it: the body model with its scale and offset, the skins with their texture sets, the wheels, the seats (the `inside` positions of the passengers), and the parts that have models or that the vehicle shader reads (doors, windows, the hood, the trunk, the lights), with the `anim` blocks of the hinged parts (the clip, its rate, and whether it plays backwards or holds a frame). Offsets and rotations stay as the scripts write them, in the game's frame; the renderer composes them the way the game does and mirrors the result into its own space.
 
 The character catalog also carries what the outfit randomiser needs, so that a page can dress a character from an outfit name without the game: the outfits of `clothing.xml`, the hair and beard style lists in the game's order, the hair definitions and colours, the default clothing names, the underwear and attached weapon definitions, and the speed of every idle and stance clip as the game's animation sets set it, plus the clip a seated driver or passenger plays.
+
+## From Node.js
+
+The package exports what the command line uses: `loadConfig` and `resolveConfig` read a configuration, `runBuild(config, logger)` runs a build and returns a report with the counts and the warnings, and the converters stand on their own for other tools: `parseX` reads an ASCII DirectX file into its object model, `convertMeshFile` and `convertAnimationFile` turn that into glTF, `convertFbxFile` converts an FBX file, and `convertTextMeshFile` a text mesh.
 
 ## Coordinates
 
