@@ -52,6 +52,11 @@ The JSON Schema is published as `schema/character.schema.json` in the `zomboid-m
 - `hair`, `beard`: style names from the game's hair and beard data, for example `CrewCut` or `Full`. Omit them for no hair or no beard. A hat replaces the hair by the style's alternate for that hat category, as in the game.
 - `hairColor`, `beardColor`: colours with channels from 0 to 1; the beard colour defaults to the hair colour.
 - `blood`, `dirt`: amount per body part, from 0 to 1.
+- `zombie`: makes the body a zombie. `rot` (1 to 3) picks the decay stage of the skin, `skeleton` (`burned`, `plain`, `muscle`) renders the skeleton body instead, and `seed` decides whatever the document leaves open: the rot stage, the skin, the blood on the body, and the speed and starting point of the idle. Zombies never have body hair, and `skin` indexes the zombie skins of the stage (four per stage in the vanilla game) or the three skeleton textures.
+
+## stance
+
+`standing` (the default), `crawling`, `onBack`, `sitting`, or `corpse`. Each maps to a clip of the game's animation sets: for players the sitting and dead body clips, for zombies the idle, crawler, floor, wall, and corpse clips, at the speed the game plays them. A viewer told to play a named clip ignores the stance.
 
 ## worn
 
@@ -75,7 +80,9 @@ Per body part: `bandage` (`clean` or `dirty`), and the wound flags `bitten`, `sc
 
 ## outfit
 
-Instead of listing `worn`, `outfit` names one of the game's outfits with an optional seed, for demos and placeholders. This is planned and not implemented yet.
+`outfit` names one of the game's outfits (`Police`, `Nurse`, `Bandit`, and about four hundred more from `clothing.xml`) and dresses the character with the game's own randomiser, ported bit for bit: the same `seed` gives the same clothes, texture choices, tints, hues, decals, hair, beard, and hair colour as the game gives a zombie or survivor with that outfit generator seed. Items listed in `worn` are put on afterwards, and `hair`, `beard`, `hairColor`, and `skin` in `body` override what the outfit rolled.
+
+For a zombie the game's extras apply in the game's order: underwear, the outfit, the rot stage and skin, an attached weapon by the sandbox chance, wounds and bandages, and the wear the clothing degradation setting adds. `worldAge` (days) unlocks the hair styles and attached weapons the game reserves for older worlds. The game draws a few amounts (blood on an attached weapon, dirt) from its unseeded generator; those come from a second stream derived from the seed and are the only part that may differ from the game.
 
 ## Body part names
 

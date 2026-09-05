@@ -1,6 +1,25 @@
 import { readFileSync } from 'node:fs';
 
-import { buildIdleClipTable, parseAnimNode, type IdleClipTable } from './animSets.js';
+import type {
+  ManifestAttachedWeapons,
+  ManifestClip,
+  ManifestDefaultClothing,
+  ManifestHairDefinitions,
+  ManifestOutfit,
+  ManifestOutfitItem,
+  ManifestUnderwear,
+  Stance,
+} from 'zomboid-models/format';
+
+import {
+  buildIdleClipTable,
+  parseAnimNode,
+  pickStanceNode,
+  clipOf,
+  STANCE_SOURCES,
+  type AnimNode,
+  type IdleClipTable,
+} from './animSets.js';
 import { parseClothingItemXml, type ClothingItemXml } from './clothingXml.js';
 import { parseDecalGroupsXml, parseDecalXml, type DecalXml } from './decalsXml.js';
 import type { ActiveFileMap } from './fileMap.js';
@@ -11,6 +30,15 @@ import {
   type HairStylesXml,
 } from './hairXml.js';
 import { parseAttachedLocationsLua, parseBodyLocationsLua, type BodyLocationsData } from './lua.js';
+import {
+  evaluateLua,
+  hairColorCalls,
+  readAttachedWeapons,
+  readDefaultClothing,
+  readHairDefinitions,
+  readUnderwear,
+} from './luaDefinitions.js';
+import { parseOutfitsXml, type OutfitItemXml } from './outfitsXml.js';
 import { entryValue, parseScript, type ScriptBlock, type ScriptEntry } from './scripts.js';
 
 export interface ItemDefinition {
@@ -46,23 +74,38 @@ export interface ModelDefinition {
   attachments: Record<string, ModelAttachment>;
 }
 
+/** Clips per stance, as read from the animation sets. */
+export type StanceTable = {
+  player: Partial<Record<Stance, ManifestClip>>;
+  zombie: Partial<Record<Stance, ManifestClip>>;
+};
+
 export interface GameCatalog {
   items: Map<string, ItemDefinition>;
   models: Map<string, ModelDefinition>;
   /** Clothing item definitions keyed by lowercased name. */
   clothingItems: Map<string, ClothingItemXml>;
+  /** Lowercased clothing item name per GUID, from every clothing item XML. */
+  clothingItemsByGuid: Map<string, string>;
   hair: HairStylesXml;
   beards: BeardStyleXml[];
   bodyLocations: BodyLocationsData;
   attachedLocations: Record<string, string>;
   idle: IdleClipTable;
+  stances: StanceTable;
   decals: Record<string, DecalXml>;
   decalGroups: Record<string, string[]>;
+  outfits: { male: Record<string, ManifestOutfit>; female: Record<string, ManifestOutfit> };
+  hairDefinitions: ManifestHairDefinitions;
+  defaultClothing: ManifestDefaultClothing;
+  underwear: ManifestUnderwear;
+  attachedWeapons: ManifestAttachedWeapons;
   warnings: string[];
 }
 
 const SCRIPTS_PREFIX = 'media/scripts/';
 const CLOTHING_PREFIX = 'media/clothing/clothingitems/';
+const DEFINITIONS_PREFIX = 'media/lua/shared/definitions/';
 
 function sourceRank(source: string, modOrder: readonly string[]): number {
   if (source === 'game') return -1;
@@ -218,31 +261,29 @@ export function resolveModel(
   return undefined;
 }
 
+/**
+ * Reads every clothing item XML the file map has. Items referenced from scripts are what the
+ * renderer needs; the rest still contribute their GUIDs, which outfits refer to.
+ */
 function loadClothingItems(
   files: ActiveFileMap,
-  items: ReadonlyMap<string, ItemDefinition>,
   warnings: string[],
-): Map<string, ClothingItemXml> {
-  const clothing = new Map<string, ClothingItemXml>();
-  const names = new Set<string>();
-  for (const item of items.values()) {
-    const name = entryValue(item.block, 'ClothingItem');
-    if (name !== undefined && name.trim().length > 0) names.add(name.trim());
-  }
-  for (const name of names) {
-    const key = name.toLowerCase();
-    const file = files.get(`${CLOTHING_PREFIX}${key}.xml`);
-    if (!file) {
-      warnings.push(`clothing item "${name}" has no XML file`);
-      continue;
-    }
+): { clothingItems: Map<string, ClothingItemXml>; byGuid: Map<string, string> } {
+  const clothingItems = new Map<string, ClothingItemXml>();
+  const byGuid = new Map<string, string>();
+  for (const { relPath, file } of files.under(CLOTHING_PREFIX)) {
+    if (!relPath.endsWith('.xml')) continue;
+    const key = relPath.slice(CLOTHING_PREFIX.length, -'.xml'.length);
+    if (key.includes('/')) continue;
     try {
-      clothing.set(key, parseClothingItemXml(readFileSync(file.path, 'utf8')));
+      const parsed = parseClothingItemXml(readFileSync(file.path, 'utf8'));
+      clothingItems.set(key, parsed);
+      if (parsed.guid) byGuid.set(parsed.guid.toLowerCase(), key);
     } catch (error) {
-      warnings.push(`${name}.xml: ${error instanceof Error ? error.message : String(error)}`);
+      warnings.push(`${relPath}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  return clothing;
+  return { clothingItems, byGuid };
 }
 
 function readText(files: ActiveFileMap, relPath: string): string | undefined {
@@ -269,20 +310,174 @@ function loadDecals(
   return { decals, decalGroups };
 }
 
-function loadIdleTable(files: ActiveFileMap): IdleClipTable {
-  const nodes = files
-    .under('media/animsets/player/idle/')
-    .filter(({ relPath }) => relPath.endsWith('.xml'))
-    .map(({ file }) => parseAnimNode(readFileSync(file.path, 'utf8')))
-    .filter((node): node is NonNullable<typeof node> => node !== undefined);
-  return buildIdleClipTable(nodes);
+/** The nodes of one animation state folder, in file order. */
+function loadStateNodes(
+  files: ActiveFileMap,
+  animSet: string,
+  state: string,
+  warnings: string[],
+): { fileName: string; node: AnimNode }[] {
+  const prefix = `media/animsets/${animSet}/${state}/`;
+  const out: { fileName: string; node: AnimNode }[] = [];
+  for (const { relPath, file } of files.under(prefix)) {
+    if (!relPath.endsWith('.xml') || relPath.slice(prefix.length).includes('/')) continue;
+    try {
+      const node = parseAnimNode(readFileSync(file.path, 'utf8'));
+      if (node) out.push({ fileName: relPath.slice(prefix.length, -'.xml'.length), node });
+    } catch (error) {
+      warnings.push(`${relPath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  return out.sort((a, b) => (a.fileName < b.fileName ? -1 : a.fileName > b.fileName ? 1 : 0));
+}
+
+function loadIdleTable(files: ActiveFileMap, warnings: string[]): IdleClipTable {
+  return buildIdleClipTable(loadStateNodes(files, 'player', 'idle', warnings).map((n) => n.node));
+}
+
+function loadStances(files: ActiveFileMap, warnings: string[]): StanceTable {
+  const table: StanceTable = { player: {}, zombie: {} };
+  for (const subject of ['player', 'zombie'] as const) {
+    const sources = STANCE_SOURCES[subject];
+    for (const stance of Object.keys(sources) as Stance[]) {
+      const source = sources[stance];
+      if (source === undefined) continue;
+      const nodes = loadStateNodes(files, source.animSet, source.state, warnings);
+      const node = pickStanceNode(nodes, source);
+      if (node?.animName === undefined) {
+        warnings.push(
+          `no clip for the ${subject} stance "${stance}" in AnimSets/${source.animSet}/${source.state}`,
+        );
+        continue;
+      }
+      table[subject][stance] = clipOf(node, node.animName);
+    }
+  }
+  return table;
+}
+
+function toOutfitItems(
+  items: readonly OutfitItemXml[],
+  byGuid: ReadonlyMap<string, string>,
+  modId: string | undefined,
+): ManifestOutfitItem[] {
+  return items.map((item) => {
+    const guid = item.guid.toLowerCase();
+    const bare =
+      modId !== undefined && guid.startsWith(`${modId.toLowerCase()}-`)
+        ? guid.slice(modId.length + 1)
+        : guid;
+    const clothingItem = byGuid.get(bare) ?? byGuid.get(guid);
+    return {
+      ...(clothingItem !== undefined ? { clothingItem } : {}),
+      probability: item.probability,
+      subItems: toOutfitItems(item.subItems, byGuid, modId),
+    };
+  });
+}
+
+/**
+ * Reads the game's `clothing.xml` and then every mod's, later files adding or replacing outfits
+ * by name the way `OutfitManager` merges them.
+ */
+function loadOutfits(
+  files: ActiveFileMap,
+  byGuid: ReadonlyMap<string, string>,
+  warnings: string[],
+): GameCatalog['outfits'] {
+  const outfits: GameCatalog['outfits'] = { male: {}, female: {} };
+  const file = files.get('media/clothing/clothing.xml');
+  if (!file) {
+    warnings.push('clothing.xml not found; outfits by name will not be available');
+    return outfits;
+  }
+  try {
+    const parsed = parseOutfitsXml(readFileSync(file.path, 'utf8'));
+    const modId = file.source === 'game' ? undefined : file.source;
+    for (const sex of ['male', 'female'] as const) {
+      for (const outfit of parsed[sex]) {
+        outfits[sex][outfit.name] = {
+          name: outfit.name,
+          top: outfit.top,
+          pants: outfit.pants,
+          allowPantsHue: outfit.allowPantsHue,
+          allowPantsTint: outfit.allowPantsTint,
+          allowTopTint: outfit.allowTopTint,
+          allowTshirtDecal: outfit.allowTshirtDecal,
+          items: toOutfitItems(outfit.items, byGuid, modId),
+          ...(modId !== undefined ? { modId } : {}),
+        };
+      }
+    }
+  } catch (error) {
+    warnings.push(`clothing.xml: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return outfits;
+}
+
+function loadDefinitions(
+  files: ActiveFileMap,
+  warnings: string[],
+): Pick<GameCatalog, 'hairDefinitions' | 'defaultClothing' | 'underwear' | 'attachedWeapons'> {
+  const empty = {
+    hairDefinitions: { restricted: [], byOutfit: [], colors: [] },
+    defaultClothing: {
+      pants: { hue: [], texture: [], tint: [] },
+      tShirt: { texture: [], tint: [] },
+      tShirtDecal: { texture: [], tint: [] },
+      vest: { texture: [], tint: [] },
+    },
+    underwear: { baseChance: 50, definitions: [] },
+    attachedWeapons: { definitions: [], byOutfit: [] },
+  };
+  const sources: string[] = [];
+  const names = [
+    'DefaultClothing.lua',
+    'HairOutfitDefinitions.lua',
+    'UnderwearDefinition.lua',
+    'AttachedWeaponDefinitions.lua',
+  ];
+  for (const name of names) {
+    const text = readText(files, `${DEFINITIONS_PREFIX}${name}`);
+    if (text === undefined) warnings.push(`${name} not found under media/lua/shared/Definitions`);
+    else sources.push(text);
+  }
+  const creation = readText(files, 'media/lua/shared/NPCs/MainCreationMethods.lua');
+  if (creation === undefined) warnings.push('MainCreationMethods.lua not found; no hair colours');
+  else sources.push(hairColorCalls(creation));
+  try {
+    const globals = evaluateLua(sources, [
+      'DefaultClothing',
+      'HairOutfitDefinitions',
+      'UnderwearDefinition',
+      'AttachedWeaponDefinitions',
+      'SurvivorDesc',
+    ]);
+    const survivorDesc = globals.get('SurvivorDesc');
+    const hairColors = survivorDesc instanceof Map ? survivorDesc.get('hairColors') : undefined;
+    return {
+      hairDefinitions: readHairDefinitions(globals.get('HairOutfitDefinitions'), hairColors),
+      defaultClothing: readDefaultClothing(globals.get('DefaultClothing')),
+      underwear: readUnderwear(globals.get('UnderwearDefinition')),
+      attachedWeapons: readAttachedWeapons(globals.get('AttachedWeaponDefinitions')),
+    };
+  } catch (error) {
+    warnings.push(`Lua definitions: ${error instanceof Error ? error.message : String(error)}`);
+    return empty;
+  }
 }
 
 /** Reads everything the build needs from the active file map. */
 export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): GameCatalog {
   const warnings: string[] = [];
   const { items, models } = loadScripts(files, modOrder, warnings);
-  const clothingItems = loadClothingItems(files, items, warnings);
+  const { clothingItems, byGuid } = loadClothingItems(files, warnings);
+  for (const item of items.values()) {
+    const name = entryValue(item.block, 'ClothingItem')?.trim();
+    if (name && !clothingItems.has(name.toLowerCase())) {
+      warnings.push(`clothing item "${name}" has no XML file`);
+    }
+  }
 
   const hairXml = readText(files, 'media/hairStyles/hairStyles.xml');
   const beardXml = readText(files, 'media/hairStyles/beardStyles.xml');
@@ -298,13 +493,17 @@ export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): 
     items,
     models,
     clothingItems,
+    clothingItemsByGuid: byGuid,
     hair: hairXml ? parseHairStylesXml(hairXml) : { male: [], female: [] },
     beards: beardXml ? parseBeardStylesXml(beardXml) : [],
     bodyLocations: bodyLua
       ? parseBodyLocationsLua(bodyLua)
       : { order: [], exclusive: [], hides: [], alt: [], multiItem: [] },
     attachedLocations: attachedLua ? parseAttachedLocationsLua(attachedLua) : {},
-    idle: loadIdleTable(files),
+    idle: loadIdleTable(files, warnings),
+    stances: loadStances(files, warnings),
+    outfits: loadOutfits(files, byGuid, warnings),
+    ...loadDefinitions(files, warnings),
     warnings,
   };
 }

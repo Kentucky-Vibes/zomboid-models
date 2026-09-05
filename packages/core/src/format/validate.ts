@@ -2,6 +2,7 @@ import {
   BODY_PARTS,
   CHARACTER_FORMAT,
   CHARACTER_FORMAT_VERSION,
+  STANCES,
   type BodyPart,
   type CharacterDescription,
 } from './types.js';
@@ -25,6 +26,8 @@ const DAMAGE_FLAGS = [
   'bleeding',
 ];
 const BODY_PART_SET: ReadonlySet<string> = new Set(BODY_PARTS);
+const STANCE_SET: ReadonlySet<string> = new Set(STANCES);
+const SKELETON_KINDS = new Set(['burned', 'plain', 'muscle']);
 
 class Checker {
   readonly errors: string[] = [];
@@ -150,6 +153,18 @@ function checkBody(c: Checker, value: unknown): void {
   c.optionalColor(body['beardColor'], 'body.beardColor');
   c.partAmounts(body['blood'], 'body.blood');
   c.partAmounts(body['dirt'], 'body.dirt');
+  const zombie = c.optionalRecord(body['zombie'], 'body.zombie');
+  if (zombie) {
+    const rot = zombie['rot'];
+    if (rot !== undefined && rot !== 1 && rot !== 2 && rot !== 3) {
+      c.fail('body.zombie.rot', 'must be 1, 2, or 3');
+    }
+    const skeleton = zombie['skeleton'];
+    if (skeleton !== undefined && (typeof skeleton !== 'string' || !SKELETON_KINDS.has(skeleton))) {
+      c.fail('body.zombie.skeleton', 'must be one of burned, plain, muscle');
+    }
+    c.optionalInteger(zombie['seed'], 'body.zombie.seed');
+  }
 }
 
 function checkWornItem(c: Checker, value: unknown, path: string): void {
@@ -203,6 +218,13 @@ function checkOutfit(c: Checker, value: unknown): void {
   if (!outfit) return;
   c.string(outfit['name'], 'outfit.name');
   c.optionalInteger(outfit['seed'], 'outfit.seed');
+  c.optionalNumber(outfit['worldAge'], 'outfit.worldAge');
+}
+
+function checkStance(c: Checker, value: unknown): void {
+  if (value !== undefined && (typeof value !== 'string' || !STANCE_SET.has(value))) {
+    c.fail('stance', `must be one of ${STANCES.join(', ')}`);
+  }
 }
 
 /** Checks that a parsed JSON value is a character description and narrows its type. */
@@ -221,6 +243,7 @@ export function validateCharacterDescription(value: unknown): ValidationResult {
   checkBody(c, doc['body']);
   c.optionalArray(doc['worn'], 'worn', (entry, path) => checkWornItem(c, entry, path));
   checkOutfit(c, doc['outfit']);
+  checkStance(c, doc['stance']);
   const held = c.optionalRecord(doc['held'], 'held');
   if (held) {
     checkHeldItem(c, held['primary'], 'held.primary');

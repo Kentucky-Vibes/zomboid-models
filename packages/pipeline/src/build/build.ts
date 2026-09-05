@@ -8,7 +8,9 @@ import {
   MANIFEST_FORMAT,
   MANIFEST_VERSION,
   type BodyPart,
-  type Manifest,
+  type CharacterCatalog,
+  type ManifestIndex,
+  type Sex,
 } from 'zomboid-models/format';
 
 import type { PipelineConfig } from '../config.js';
@@ -30,7 +32,16 @@ import {
   type GameVersion,
 } from '../game/version.js';
 import { parseX } from '../x/parser.js';
-import { BODY_MODELS, planAssets, SKIN_TEXTURES, type AssetPlan } from './select.js';
+import {
+  BANDAGE_ITEMS,
+  BODY_MODELS,
+  planAssets,
+  SKELETON_MODELS,
+  SKELETON_TEXTURES,
+  SKIN_TEXTURES,
+  zombieSkinTextures,
+  type AssetPlan,
+} from './select.js';
 
 export interface BuildLogger {
   info(message: string): void;
@@ -45,6 +56,7 @@ export interface BuildReport {
   animations: number;
   wearables: number;
   heldItems: number;
+  outfits: number;
   warnings: string[];
   seconds: number;
   outDir: string;
@@ -73,8 +85,9 @@ const BLOOD_MASK_NAMES: Record<BodyPart, string> = {
 };
 
 const MODEL_EXTENSIONS = ['.x', '.fbx', '.glb'];
+const ANIMS_PREFIX = 'media/anims_x/';
 
-function hashOf(data: Uint8Array): string {
+function hashOf(data: Uint8Array | string): string {
   return createHash('sha1').update(data).digest('hex').slice(0, 10);
 }
 
@@ -121,9 +134,9 @@ export function resolveMods(
 }
 
 interface Writer {
-  models: Map<string, Manifest['models'][string]>;
+  models: Map<string, CharacterCatalog['models'][string]>;
   textures: Map<string, string>;
-  animations: Map<string, Manifest['animations'][string]>;
+  animations: Map<string, CharacterCatalog['animations'][string]>;
 }
 
 function findModelFile(
@@ -192,6 +205,17 @@ function copyTextures(
   }
 }
 
+/** Clip file paths by lowercased clip name, across every folder under `anims_X`. */
+function indexAnimationFiles(files: ActiveFileMap): Map<string, string> {
+  const index = new Map<string, string>();
+  for (const { relPath, file } of files.under(ANIMS_PREFIX)) {
+    if (!relPath.endsWith('.x')) continue;
+    const name = relPath.slice(relPath.lastIndexOf('/') + 1, -'.x'.length);
+    if (!index.has(name)) index.set(name, file.path);
+  }
+  return index;
+}
+
 function convertAnimations(
   plan: AssetPlan,
   files: ActiveFileMap,
@@ -200,14 +224,15 @@ function convertAnimations(
   warnings: string[],
 ): void {
   mkdirSync(join(outDir, 'anims'), { recursive: true });
+  const index = indexAnimationFiles(files);
   for (const clip of [...plan.animations].sort()) {
-    const source = files.get(`media/anims_x/bob/${clip.toLowerCase()}.x`);
-    if (!source) {
-      warnings.push(`animation "${clip}" has no file under media/anims_X/Bob`);
+    const path = index.get(clip.toLowerCase());
+    if (!path) {
+      warnings.push(`animation "${clip}" has no file under media/anims_X`);
       continue;
     }
     try {
-      const result = convertAnimationFile(parseX(readFileSync(source.path, 'utf8')), {
+      const result = convertAnimationFile(parseX(readFileSync(path, 'utf8')), {
         clipName: () => clip,
       });
       for (const warning of result.warnings) warnings.push(`animation "${clip}": ${warning}`);
@@ -224,14 +249,25 @@ function convertAnimations(
   }
 }
 
-function assembleManifest(
+function bodyEntry(
+  writer: Writer,
+  model: string,
+  skins: readonly string[],
+  bodyHair: boolean,
+): CharacterCatalog['bodies'][Sex] {
+  return {
+    model,
+    skins: skins.filter((key) => writer.textures.has(key)),
+    bodyHair,
+  };
+}
+
+function assembleCharacterCatalog(
   catalog: GameCatalog,
   plan: AssetPlan,
   writer: Writer,
-  version: GameVersion,
-  mods: readonly DiscoveredMod[],
-): Manifest {
-  const bodyLocations: Manifest['bodyLocations'] = {};
+): CharacterCatalog {
+  const bodyLocations: CharacterCatalog['bodyLocations'] = {};
   catalog.bodyLocations.order.forEach((id, order) => {
     bodyLocations[id] = {
       order,
@@ -243,65 +279,95 @@ function assembleManifest(
     };
   });
 
-  const hair: Manifest['hair'] = { male: {}, female: {} };
+  const hair: CharacterCatalog['hair'] = { male: {}, female: {} };
+  const hairOrder: CharacterCatalog['hairOrder'] = { male: [], female: [] };
   for (const sex of ['male', 'female'] as const) {
     for (const style of catalog.hair[sex]) {
       hair[sex][style.name] = {
         ...(style.model ? { model: style.model } : {}),
         texture: style.texture,
         alternates: style.alternates,
+        ...(style.noChoose ? { noChoose: true } : {}),
       };
+      hairOrder[sex].push(style.name);
     }
   }
-  const beards: Manifest['beards'] = {};
+  // The game inserts an empty beard style at the head of its list.
+  const beards: CharacterCatalog['beards'] = { '': { texture: 'f_hair_white' } };
+  const beardOrder = [''];
   for (const style of catalog.beards) {
     beards[style.name] = { ...(style.model ? { model: style.model } : {}), texture: style.texture };
+    beardOrder.push(style.name);
   }
 
-  const bloodMasks: Manifest['bloodMasks'] = {};
+  const bloodMasks: CharacterCatalog['bloodMasks'] = {};
   for (const part of BODY_PARTS) {
     const key = `bloodtextures/bloodmask${BLOOD_MASK_NAMES[part]}`;
     if (writer.textures.has(key)) bloodMasks[part] = key;
   }
 
-  const skins = (sex: 'male' | 'female'): string[] =>
-    SKIN_TEXTURES[sex].filter((key) => writer.textures.has(key));
+  const zombieSkins: CharacterCatalog['zombieSkins'] = {
+    male: zombieSkinTextures('male').map((stage) =>
+      stage.filter((key) => writer.textures.has(key)),
+    ),
+    female: zombieSkinTextures('female').map((stage) =>
+      stage.filter((key) => writer.textures.has(key)),
+    ),
+  };
+  const skeletons: CharacterCatalog['skeletons'] = {
+    male: bodyEntry(writer, SKELETON_MODELS.male, SKELETON_TEXTURES, false),
+    female: bodyEntry(writer, SKELETON_MODELS.female, SKELETON_TEXTURES, false),
+  };
+
+  const bandageItems: CharacterCatalog['bandageItems'] = {};
+  for (const part of BODY_PARTS) {
+    if (plan.wearables[BANDAGE_ITEMS[part]]) bandageItems[part] = BANDAGE_ITEMS[part];
+  }
 
   return {
-    format: MANIFEST_FORMAT,
-    version: MANIFEST_VERSION,
-    gameVersion: formatGameVersion(version),
-    generatedAt: new Date().toISOString(),
-    mods: mods.map((mod) => mod.id),
     bodies: {
-      male: {
-        model: BODY_MODELS.male,
-        skins: skins('male'),
-        bodyHair: writer.textures.has('body/malebody01a'),
-      },
-      female: { model: BODY_MODELS.female, skins: skins('female'), bodyHair: false },
+      male: bodyEntry(
+        writer,
+        BODY_MODELS.male,
+        SKIN_TEXTURES.male,
+        writer.textures.has('body/malebody01a'),
+      ),
+      female: bodyEntry(writer, BODY_MODELS.female, SKIN_TEXTURES.female, false),
     },
+    ...(writer.models.has(SKELETON_MODELS.male) ? { skeletons } : {}),
+    zombieSkins,
     bodyAttachments: plan.bodyAttachments,
     models: Object.fromEntries([...writer.models].sort()),
     textures: Object.fromEntries([...writer.textures].sort()),
     animations: Object.fromEntries([...writer.animations].sort()),
     idle: catalog.idle,
+    stances: catalog.stances,
     clothingItems: plan.clothingItems,
     wearables: plan.wearables,
+    clothingItemToItem: plan.clothingItemToItem,
     heldItems: plan.heldItems,
     bodyLocations,
     attachedLocations: catalog.attachedLocations,
     hair,
+    hairOrder,
     beards,
+    beardOrder,
     bloodMasks,
     decals: Object.fromEntries(
       Object.entries(catalog.decals).filter(([, decal]) => writer.textures.has(decal.texture)),
     ),
     decalGroups: catalog.decalGroups,
+    outfits: catalog.outfits,
+    hairDefinitions: catalog.hairDefinitions,
+    defaultClothing: catalog.defaultClothing,
+    underwear: catalog.underwear,
+    attachedWeapons: catalog.attachedWeapons,
+    zombieDamageItems: plan.zombieDamageItems,
+    bandageItems,
   };
 }
 
-/** Runs a complete build: mods, catalog, conversion, and the manifest. */
+/** Runs a complete build: mods, catalog, conversion, the catalogs, and the manifest index. */
 export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport {
   const started = performance.now();
   const warnings: string[] = [];
@@ -335,18 +401,33 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
   convertAnimations(plan, files, config.outDir, writer, warnings);
   log.info(`${writer.animations.size} animations converted`);
 
-  const manifest = assembleManifest(catalog, plan, writer, version, mods);
-  writeFileSync(join(config.outDir, 'manifest.json'), JSON.stringify(manifest));
+  const index: ManifestIndex = {
+    format: MANIFEST_FORMAT,
+    version: MANIFEST_VERSION,
+    gameVersion: formatGameVersion(version),
+    generatedAt: new Date().toISOString(),
+    mods: mods.map((mod) => mod.id),
+    catalogs: {},
+  };
+  const outfits = catalog.outfits;
+  if (config.subjects.includes('characters')) {
+    const characters = JSON.stringify(assembleCharacterCatalog(catalog, plan, writer));
+    const file = `catalog-characters-${hashOf(characters)}.json`;
+    writeFileSync(join(config.outDir, file), characters);
+    index.catalogs.characters = file;
+  }
+  writeFileSync(join(config.outDir, 'manifest.json'), JSON.stringify(index));
   for (const warning of warnings) log.warn(warning);
 
   return {
-    gameVersion: manifest.gameVersion,
-    mods: manifest.mods,
+    gameVersion: index.gameVersion,
+    mods: index.mods,
     models: writer.models.size,
     textures: writer.textures.size,
     animations: writer.animations.size,
     wearables: Object.keys(plan.wearables).length,
     heldItems: Object.keys(plan.heldItems).length,
+    outfits: Object.keys(outfits.male).length + Object.keys(outfits.female).length,
     warnings,
     seconds: (performance.now() - started) / 1000,
     outDir: config.outDir,

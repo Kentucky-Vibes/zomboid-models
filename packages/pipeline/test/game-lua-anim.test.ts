@@ -76,6 +76,11 @@ describe('idle animation nodes', () => {
     expect(parseAnimNode(rifle)).toEqual({
       name: 'IdleRifle',
       animName: 'Bob_IdleRifle',
+      speed: 1,
+      speedRandom: undefined,
+      randomStart: undefined,
+      looped: true,
+      conditions: [{ name: 'Weapon', type: 'STRING', value: 'firearm' }],
       weapon: 'firearm',
     });
     expect(parseAnimNode('<other/>')).toBeUndefined();
@@ -83,8 +88,23 @@ describe('idle animation nodes', () => {
       .map((xml) => parseAnimNode(xml))
       .filter((n) => n !== undefined);
     expect(buildIdleClipTable(nodes)).toEqual({
-      default: 'Bob_Idle',
-      byWeaponType: { firearm: 'Bob_IdleRifle' },
+      default: { clip: 'Bob_Idle', speed: 1 },
+      byWeaponType: { firearm: { clip: 'Bob_IdleRifle', speed: 1 } },
+    });
+    const slow = parseAnimNode(
+      '<animNode><m_Name>Idle</m_Name><m_AnimName>Bob_Idle</m_AnimName><m_SpeedScale>0.48</m_SpeedScale><m_SpeedScaleRandomMultiplierMin>0.2</m_SpeedScaleRandomMultiplierMin><m_SpeedScaleRandomMultiplierMax>1.25</m_SpeedScaleRandomMultiplierMax><m_randomAdvanceFraction>0.5</m_randomAdvanceFraction><m_Looped>false</m_Looped></animNode>',
+    );
+    expect(slow).toMatchObject({
+      speed: 0.48,
+      speedRandom: [0.2, 1.25],
+      randomStart: 0.5,
+      looped: false,
+    });
+    expect(buildIdleClipTable(slow ? [slow] : []).default).toEqual({
+      clip: 'Bob_Idle',
+      speed: 0.48,
+      speedRandom: [0.2, 1.25],
+      randomStart: 0.5,
     });
   });
 

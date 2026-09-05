@@ -1,12 +1,31 @@
 /**
- * The manifest that the pipeline writes next to the converted assets. The renderer loads it
- * from `assetBaseUrl` and resolves every model, texture, and animation through it.
+ * The files the pipeline writes next to the converted assets. `manifest.json` is a small index;
+ * the data for each kind of subject lives in a catalog file the index names, so a page only
+ * downloads what it renders. The renderer resolves every model, texture, and animation through
+ * the catalog of the document it is showing.
  */
 
-import type { BodyPart, Sex } from './types.js';
+import type { BodyPart, Sex, Stance } from './types.js';
 
 export const MANIFEST_FORMAT = 'zomboid-models/manifest';
-export const MANIFEST_VERSION = 1;
+export const MANIFEST_VERSION = 2;
+
+/** Kinds of subject a build can contain, each with its own catalog file. */
+export type SubjectKind = 'characters' | 'vehicles' | 'animals' | 'items';
+
+export const SUBJECT_KINDS: readonly SubjectKind[] = ['characters', 'vehicles', 'animals', 'items'];
+
+export interface ManifestIndex {
+  format: typeof MANIFEST_FORMAT;
+  version: typeof MANIFEST_VERSION;
+  /** Game version the assets were converted from, for example `42.20.3`. */
+  gameVersion: string;
+  generatedAt: string;
+  /** Mod ids that contributed assets, in load order. */
+  mods: string[];
+  /** Catalog files relative to the manifest, by subject kind; absent kinds were not built. */
+  catalogs: Partial<Record<SubjectKind, string>>;
+}
 
 /** A converted mesh file; keyed by the game's model path, lowercased with forward slashes. */
 export interface ManifestModel {
@@ -54,7 +73,10 @@ export interface ManifestClothingItem {
   allowRandomHue: boolean;
   hatCategory?: string;
   decalGroup?: string;
-  spawnWith?: string;
+  /** Clothing item names (lowercased) the game adds along with this one, in XML order. */
+  spawnWith?: string[];
+  /** The game's GUID of the definition, as outfits reference it. */
+  guid?: string;
 }
 
 /** One inventory item that can be worn, keyed by its full type such as `Base.Trousers_Denim`. */
@@ -67,6 +89,8 @@ export interface ManifestWearable {
   bloodLocation: string[];
   fabric?: string;
   displayName?: string;
+  /** `CanHaveHoles = false` in the item script; absent means holes are allowed. */
+  canHaveHoles?: false;
 }
 
 export type ManifestWeaponType =
@@ -101,6 +125,8 @@ export interface ManifestHeldItem {
   /** Attachment points declared on the item's model, keyed by name. */
   attachments: Record<string, ManifestAttachment>;
   displayName?: string;
+  /** `ConditionMax` from the item script; the game rolls a zombie's weapon condition from it. */
+  conditionMax?: number;
 }
 
 export interface ManifestBodyLocation {
@@ -119,6 +145,8 @@ export interface ManifestHairStyle {
   texture: string;
   /** Replacement style per lowercased hat category, `default` for any hat. */
   alternates: Record<string, string>;
+  /** `noChoose` in the XML: the game never picks the style at random. */
+  noChoose?: boolean;
 }
 
 export interface ManifestBeardStyle {
@@ -126,9 +154,23 @@ export interface ManifestBeardStyle {
   texture: string;
 }
 
+/**
+ * A clip the game plays in some state, with the speed multiplier of its animation node. The
+ * random multiplier and the random start fraction are rolled once per character, as in the game.
+ */
+export interface ManifestClip {
+  clip: string;
+  /** `m_SpeedScale` of the node, 1 when absent. */
+  speed: number;
+  /** `m_SpeedScaleRandomMultiplierMin` and `Max`, when the node has them. */
+  speedRandom?: [number, number];
+  /** `m_randomAdvanceFraction`: the clip may start anywhere in this leading fraction. */
+  randomStart?: number;
+}
+
 export interface ManifestIdleClips {
-  default: string;
-  byWeaponType: Partial<Record<ManifestWeaponType, string>>;
+  default: ManifestClip;
+  byWeaponType: Partial<Record<ManifestWeaponType, ManifestClip>>;
 }
 
 /** A shirt decal: a texture drawn into a rectangle of the item texture's 256-unit space. */
@@ -140,15 +182,114 @@ export interface ManifestDecal {
   height: number;
 }
 
-export interface Manifest {
-  format: typeof MANIFEST_FORMAT;
-  version: typeof MANIFEST_VERSION;
-  /** Game version the assets were converted from, for example `42.20.3`. */
-  gameVersion: string;
-  generatedAt: string;
-  /** Mod ids that contributed assets, in load order. */
-  mods: string[];
+/** A colour with channels from 0 to 1. */
+export interface ManifestColor {
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** One entry of an outfit's item list, as `clothing.xml` nests them. */
+export interface ManifestOutfitItem {
+  /** Lowercased clothing item name, or absent when the GUID resolves to nothing. */
+  clothingItem?: string;
+  /** `probability`, 1 when absent. */
+  probability: number;
+  subItems: ManifestOutfitItem[];
+}
+
+/** One of the game's named outfits, from `clothing.xml`. */
+export interface ManifestOutfit {
+  name: string;
+  top: boolean;
+  pants: boolean;
+  allowPantsHue: boolean;
+  allowPantsTint: boolean;
+  allowTopTint: boolean;
+  allowTshirtDecal: boolean;
+  items: ManifestOutfitItem[];
+  /** Mod id when the outfit comes from a mod; the game prefixes item GUIDs with it. */
+  modId?: string;
+}
+
+/** A name with a percentage chance, as the hair and beard definitions list them. */
+export interface ManifestChance {
+  value: string;
+  chance: number;
+}
+
+/** `HairOutfitDefinitions.lua`: which styles and colours each outfit may get. */
+export interface ManifestHairDefinitions {
+  /** Styles restricted to some outfits, with the world age that unlocks them. */
+  restricted: { style: string; minWorldAge: number; onlyFor: string[] }[];
+  /** Per-outfit chances for a haircut, a beard, or a colour; the remainder is random. */
+  byOutfit: {
+    outfit: string;
+    haircut?: ManifestChance[];
+    femaleHaircut?: ManifestChance[];
+    maleHaircut?: ManifestChance[];
+    beard?: ManifestChance[];
+    haircutColor?: ManifestChance[];
+  }[];
+  /** The common hair colours, in the game's order. */
+  colors: ManifestColor[];
+}
+
+/** `DefaultClothing.lua`: the clothing item names the game uses for default pants and tops. */
+export interface ManifestDefaultClothing {
+  pants: { hue: string[]; texture: string[]; tint: string[] };
+  tShirt: { texture: string[]; tint: string[] };
+  tShirtDecal: { texture: string[]; tint: string[] };
+  vest: { texture: string[]; tint: string[] };
+}
+
+/** `UnderwearDefinition.lua`, in file order. */
+export interface ManifestUnderwear {
+  baseChance: number;
+  definitions: {
+    female: boolean;
+    chanceToSpawn: number;
+    /** Item name without module (the game resolves it with `FindItem`). */
+    bottom: string;
+    top?: ManifestChance[];
+  }[];
+}
+
+/** One entry of `AttachedWeaponDefinitions.lua`. */
+export interface ManifestAttachedWeapon {
+  id: string;
+  chance: number;
+  /** Outfits the entry is limited to; empty for any. */
+  outfit: string[];
+  /** Attached location names, sorted as the game sorts them. */
+  weaponLocation: string[];
+  bloodLocations: BodyPart[];
+  addHoles: boolean;
+  daySurvived: number;
+  ensureItem?: string;
+  /** Full item types, sorted. */
+  weapons: string[];
+}
+
+export interface ManifestAttachedWeapons {
+  /** Entries sorted by id, as the game keeps them. */
+  definitions: ManifestAttachedWeapon[];
+  /** Per-outfit overrides, in file order. */
+  byOutfit: {
+    outfit: string;
+    chance: number;
+    maxItems: number;
+    weapons: ManifestAttachedWeapon[];
+  }[];
+}
+
+/** Everything needed to render characters and zombies. */
+export interface CharacterCatalog {
   bodies: Record<Sex, ManifestBody>;
+  /** Skeleton bodies for skeleton zombies; `skins` lists burned, plain, and muscle in that order. */
+  skeletons?: Record<Sex, ManifestBody>;
+  /** Zombie skin texture keys per sex, by rot stage (index 0 is stage 1). */
+  zombieSkins?: Record<Sex, string[][]>;
   /** Attachment points of the body models, keyed by name, for held and attached items. */
   bodyAttachments: Record<string, ManifestAttachment>;
   models: Record<string, ManifestModel>;
@@ -156,18 +297,41 @@ export interface Manifest {
   textures: Record<string, string>;
   animations: Record<string, ManifestAnimation>;
   idle: ManifestIdleClips;
+  /** Clips per stance for players and zombies. */
+  stances: {
+    player: Partial<Record<Stance, ManifestClip>>;
+    zombie: Partial<Record<Stance, ManifestClip>>;
+  };
   clothingItems: Record<string, ManifestClothingItem>;
   wearables: Record<string, ManifestWearable>;
+  /** Item type for each lowercased clothing item name, the way the game maps them. */
+  clothingItemToItem: Record<string, string>;
   heldItems: Record<string, ManifestHeldItem>;
   bodyLocations: Record<string, ManifestBodyLocation>;
   /** Attached location display names to attachment names, for example `Rifle On Back`. */
   attachedLocations: Record<string, string>;
   hair: Record<Sex, Record<string, ManifestHairStyle>>;
+  /** Hair style names per sex in the game's list order, which the outfit randomiser indexes. */
+  hairOrder: Record<Sex, string[]>;
   beards: Record<string, ManifestBeardStyle>;
+  /** Beard style names in the game's list order; the first entry is the empty style. */
+  beardOrder: string[];
   /** Mask texture keys per body part for blood and holes. */
   bloodMasks: Partial<Record<BodyPart, string>>;
   /** Shirt decals by name. */
   decals: Record<string, ManifestDecal>;
   /** Decal names per decal group, as clothing items reference them. */
   decalGroups: Record<string, string[]>;
+  outfits: Record<Sex, Record<string, ManifestOutfit>>;
+  hairDefinitions: ManifestHairDefinitions;
+  defaultClothing: ManifestDefaultClothing;
+  underwear: ManifestUnderwear;
+  attachedWeapons: ManifestAttachedWeapons;
+  /** Item names the game may add as zombie wounds, in its iteration order (empty in vanilla). */
+  zombieDamageItems: string[];
+  /** Bandage item type per body part, the way the game names them (`Base.Bandage_Head`). */
+  bandageItems: Partial<Record<BodyPart, string>>;
 }
+
+/** @deprecated The name from manifest version 1; the character catalog carries the same data. */
+export type Manifest = CharacterCatalog;

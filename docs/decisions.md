@@ -52,7 +52,13 @@ Two modes exist. The viewer mode has orbit controls and zoom. The showcase mode 
 
 All worn meshes bind to one skeleton taken from the body mesh, matched by bone name. Textures are baked once per item into a render target with shaders ported from the game's own GLSL: blood, dirt, holes, patches, tint, hue, and the masks that hide skin under clothing. The rules from the game's data are followed as they are: render order and mutual exclusion of clothing slots, hair replaced by a flattened variant under hats, paired models, and shirt decals. The idle animation is chosen per held item, the way the game resolves it through its animation sets. Lighting is simple and there are no shadows, so the result looks like the game.
 
-The character description may name an outfit from the game's outfit data, with a seed, instead of listing items. Reason: demos and placeholders without hand-written item lists.
+The character description may name an outfit from the game's outfit data, with a seed, instead of listing items. The randomiser behind it is a port of the game's own, bit for bit: the generator (`LocationRNG`, a xoroshiro128+ seeded through SplitMix64), the single-precision arithmetic, and the order of every draw in `Outfit.Randomize`, `dressInOutfit`, the hair definitions, the underwear, attached weapon, wound, and bandage code of zombies. Reason: a seed then gives the same zombie as the game, which is the point of a renderer that follows the game's rules; a generator of our own would only look similar. The generator is checked against values dumped from the game's classes with a small Java program.
+
+Animations play at the speed the game's animation sets set for each node (`m_SpeedScale`), with the per-character random multiplier and starting point some nodes declare. Reason: the clip files run at 4800 ticks per second and, played as they are, the unarmed idle was twice too fast; the game slows it down through the animation set, not the file.
+
+Zombies share the player's body meshes, clothing, and texture compositing; they differ by skin texture (four bodies in three decay stages, or a skeleton), the absence of body hair, and their animation set. A `stance` field selects the clip for standing, crawling, lying on the back, sitting, and dead characters, for players and zombies alike.
+
+The manifest is an index plus one catalog file per subject kind. Reason: the character catalog alone is a few megabytes with outfits and definitions, and vehicles, animals, and items will add their own; a page should download only what it shows.
 
 ## Tooling
 
@@ -69,7 +75,16 @@ The game's Java classes are decompiled locally to understand model loading, text
 5. Mod scanning. Done; the outfit-by-name feature from the character format is still open.
 6. The reference exporter mod. Done as `mods/zomboid-models-exporter`, tested under a Lua interpreter in Node.js against mock game objects; a run inside the game is still owed.
 
-Later additions to the list: the Web Component and React packages exist (decided in the first session, delivered with milestone 4), and the playground deploys to GitHub Pages from every push to main.
+Later additions to the list: the Web Component and React packages exist (decided in the first session, delivered with milestone 4), and the playground deploys to GitHub Pages from every push to main. The mod has since been run on a dedicated server.
+
+After the first release the plan grew, in this order, each step a minor release:
+
+- 0.2: animation speed from the animation sets, zombies, outfits by name with the game's randomiser, stances, the manifest split into catalogs, the `document` option. Done.
+- 0.3: animals from Build 42 (`.x` meshes, whole-body breed textures, their own animation sets, the avatar camera framing the game defines).
+- 0.4: FBX for static meshes through the three.js loader, and an item document for showing one model on its own.
+- 0.5: vehicles with a live port of the game's vehicle shader (paint zones, rust, damage, blood, lights) and the game's text mesh format for wheels.
+
+Coverage of the game's subjects stops at things that are drawn in 3D. Tiles, buildings, and furniture are sprites and stay out.
 
 ## Credits
 

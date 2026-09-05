@@ -10,11 +10,11 @@ import { createViewer } from 'zomboid-models';
 const viewer = createViewer(document.querySelector('#hero'), {
   assetBaseUrl: '/assets/',
   mode: 'showcase',
-  character,
+  document: character,
 });
 
 // later
-viewer.setCharacter(otherCharacter);
+viewer.setDocument(otherCharacter);
 viewer.setAnimation('Bob_IdleRifle');
 const png = viewer.toImage({ width: 512, height: 768 });
 viewer.dispose();
@@ -26,8 +26,9 @@ Options:
 
 - `assetBaseUrl`: the folder that holds `manifest.json`.
 - `mode`: `viewer` (orbit controls, zoom) or `showcase` (no controls, transparent background by default, pauses when off screen and when the visitor prefers reduced motion).
-- `character`: the document to show.
-- `animation`: a clip name from the manifest, `null` for the bind pose, or omitted for the idle the game would play for the held item.
+- `document`: the document to show. `character` and `setCharacter()` mean the same and stay until 1.0.
+- `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it.
+- `animationSpeed`: multiplies the playback speed; 1 by default. `setAnimationSpeed()` changes it in place.
 - `poseTime`: freezes the clip at that time in seconds instead of playing it.
 - `background`: a CSS colour or `transparent`.
 - `autoRotate`, `maxPixelRatio`, `camera` (`fov`, `distance` as a multiple of the character's height, `yaw` and `pitch` in degrees, `targetHeight` as a fraction of the height).

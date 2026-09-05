@@ -6,6 +6,7 @@ export type {
   CharacterDescription,
   RigWarning,
   Viewer,
+  ViewerDocument,
   ViewerMode,
   ViewerOptions,
 } from 'zomboid-models';
@@ -43,10 +44,10 @@ export function ZomboidCharacter({ className, style, onReady, ...options }: Zomb
     // from `latest` at mount time and applied through the update effects below.
   }, [assetBaseUrl, mode, background, autoRotate, attribution, maxPixelRatio, cameraKey, onReady]);
 
-  const { character } = options;
+  const document = options.document ?? options.character;
   useEffect(() => {
-    if (viewer.current && character) void viewer.current.setCharacter(character);
-  }, [character]);
+    if (viewer.current && document) void viewer.current.setDocument(document);
+  }, [document]);
 
   const animation = 'animation' in options ? options.animation : undefined;
   useEffect(() => {
@@ -54,6 +55,13 @@ export function ZomboidCharacter({ className, style, onReady, ...options }: Zomb
       void viewer.current.setAnimation(animation ?? null);
     }
   }, [animation]);
+
+  const { animationSpeed } = options;
+  useEffect(() => {
+    if (viewer.current && animationSpeed !== undefined) {
+      viewer.current.setAnimationSpeed(animationSpeed);
+    }
+  }, [animationSpeed]);
 
   return (
     <div ref={host} className={className} style={{ width: '100%', height: '100%', ...style }} />

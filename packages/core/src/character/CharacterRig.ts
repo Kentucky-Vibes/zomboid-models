@@ -21,7 +21,7 @@ import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 
 import type { AssetCache } from '../assets/AssetCache.js';
 import type { Manifest, ManifestHeldItem } from '../format/manifest.js';
-import type { CharacterDescription, Sex } from '../format/types.js';
+
 import { attachmentNode } from './attachments.js';
 
 export interface RigWarning {
@@ -64,23 +64,22 @@ export class CharacterRig extends Group {
   }
 
   /** Loads the body for the description's sex and returns a rig with only the body attached. */
+  /** Loads the body model whose skeleton every other part binds to. */
   static async load(
     cache: AssetCache,
     manifest: Manifest,
-    description: CharacterDescription,
+    modelKey: string,
   ): Promise<CharacterRig> {
-    const sex: Sex = description.body.sex;
-    const body = manifest.bodies[sex];
-    const model = manifest.models[body.model];
+    const model = manifest.models[modelKey];
     if (!model) {
-      throw new Error(`manifest has no model "${body.model}" for the ${sex} body`);
+      throw new Error(`manifest has no model "${modelKey}" for the body`);
     }
     const gltf = await cache.loadGltf(model.file);
     const scene = cloneSkeleton(gltf.scene);
     scene.updateMatrixWorld(true);
     const bodyMesh = findSkinnedMesh(scene);
     if (!bodyMesh) {
-      throw new Error(`body model "${body.model}" contains no skinned mesh`);
+      throw new Error(`body model "${modelKey}" contains no skinned mesh`);
     }
     const rig = new CharacterRig(scene);
     rig.attachSkinned('body', bodyMesh);
@@ -267,7 +266,14 @@ export class CharacterRig extends Group {
   }
 
   /** Plays a clip, ignoring tracks that target bones this rig does not have. */
-  playClip(clip: AnimationClip | null): void {
+  /**
+   * Plays a clip in a loop. `timeScale` is the speed multiplier and `startFraction` the point of
+   * the clip to start from, both from the game's animation node when the clip is an idle.
+   */
+  playClip(
+    clip: AnimationClip | null,
+    options: { timeScale?: number; startFraction?: number } = {},
+  ): void {
     this.action?.stop();
     this.action = undefined;
     if (!clip) return;
@@ -279,7 +285,10 @@ export class CharacterRig extends Group {
         ? clip
         : new AnimationClip(clip.name, clip.duration, tracks);
     this.action = this.mixer.clipAction(usable);
-    this.action.reset().play();
+    this.action.reset();
+    this.action.timeScale = options.timeScale ?? 1;
+    this.action.time = (options.startFraction ?? 0) * usable.duration;
+    this.action.play();
   }
 
   /** Moves the animation to a time and stops there. */

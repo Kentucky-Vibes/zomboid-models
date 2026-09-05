@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 
+import { SUBJECT_KINDS, type SubjectKind } from 'zomboid-models/format';
+
 /** The configuration file as written on disk. Paths are relative to the file's folder. */
 export interface PipelineConfigFile {
   /** Folder of the game client or dedicated server, the one that holds `media`. */
@@ -17,6 +19,8 @@ export interface PipelineConfigFile {
   outDir: string;
   /** Extra animation clip names to convert on top of the idle set. */
   animations?: string[];
+  /** Kinds of subject to build catalogs for; every kind when absent. */
+  subjects?: SubjectKind[];
 }
 
 export interface PipelineConfig {
@@ -27,6 +31,7 @@ export interface PipelineConfig {
   serverIni: string | undefined;
   outDir: string;
   animations: string[];
+  subjects: SubjectKind[];
   /** Folder the paths were resolved against. */
   baseDir: string;
 }
@@ -81,8 +86,20 @@ export function resolveConfig(value: unknown, baseDir: string): PipelineConfig {
     serverIni: serverIni === undefined ? undefined : abs(serverIni),
     outDir: abs(stringField(record, 'outDir', true) as string),
     animations: stringList(record, 'animations') ?? [],
+    subjects: subjectList(record),
     baseDir,
   };
+}
+
+function subjectList(record: Record<string, unknown>): SubjectKind[] {
+  const value = stringList(record, 'subjects');
+  if (value === undefined) return [...SUBJECT_KINDS];
+  for (const kind of value) {
+    if (!SUBJECT_KINDS.includes(kind as SubjectKind)) {
+      throw new ConfigError(`"subjects" contains "${kind}"; expected ${SUBJECT_KINDS.join(', ')}`);
+    }
+  }
+  return value as SubjectKind[];
 }
 
 /** Reads and validates a configuration file. */

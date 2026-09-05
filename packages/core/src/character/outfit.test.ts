@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { MANIFEST_FORMAT, MANIFEST_VERSION, type Manifest } from '../format/manifest.js';
+import { emptyCharacterCatalog } from '../format/emptyCatalog.js';
+import type { Manifest } from '../format/manifest.js';
 import {
   CHARACTER_FORMAT,
   CHARACTER_FORMAT_VERSION,
@@ -10,11 +11,7 @@ import { resolveBeard, resolveHair, resolveOutfit } from './outfit.js';
 
 function manifest(): Manifest {
   return {
-    format: MANIFEST_FORMAT,
-    version: MANIFEST_VERSION,
-    gameVersion: '42.20.3',
-    generatedAt: '2026-09-04T00:00:00Z',
-    mods: [],
+    ...emptyCharacterCatalog(),
     bodies: {
       male: { model: 'skinned/malebody', skins: ['body/malebody01'], bodyHair: true },
       female: { model: 'skinned/femalebody', skins: ['body/femalebody01'], bodyHair: false },
@@ -23,7 +20,7 @@ function manifest(): Manifest {
     models: {},
     textures: {},
     animations: {},
-    idle: { default: 'Bob_Idle', byWeaponType: {} },
+    idle: { default: { clip: 'Bob_Idle', speed: 1 }, byWeaponType: {} },
     clothingItems: {
       trousers: {
         static: false,

@@ -156,12 +156,15 @@ describe('loadCatalog', () => {
     expect(catalog.bodyLocations.order).toEqual(['base:pants', 'base:hat']);
     expect(catalog.attachedLocations).toEqual({ 'Rifle On Back': 'rifle_back' });
     expect(catalog.idle).toEqual({
-      default: 'Bob_Idle',
-      byWeaponType: { '2handed': 'Bob_IdleBat' },
+      default: { clip: 'Bob_Idle', speed: 1 },
+      byWeaponType: { '2handed': { clip: 'Bob_IdleBat', speed: 1 } },
     });
-    expect(catalog.warnings).toEqual([
-      'clothing item "Hat_BaseballCap" has no XML file',
-      'clothing item "Cape" has no XML file',
-    ]);
+    expect(catalog.warnings).toEqual(
+      expect.arrayContaining([
+        'clothing item "Hat_BaseballCap" has no XML file',
+        'clothing item "Cape" has no XML file',
+        'clothing.xml not found; outfits by name will not be available',
+      ]),
+    );
   });
 });

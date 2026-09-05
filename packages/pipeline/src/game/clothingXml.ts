@@ -22,10 +22,11 @@ export interface ClothingItemXml {
   baseTextures: string[];
   hatCategory: string | undefined;
   decalGroup: string | undefined;
-  spawnWith: string | undefined;
+  /** GUIDs of clothing items the game puts on together with this one. */
+  spawnWith: string[];
 }
 
-const LIST_ELEMENTS = new Set(['m_Masks', 'textureChoices', 'm_BaseTextures']);
+const LIST_ELEMENTS = new Set(['m_Masks', 'textureChoices', 'm_BaseTextures', 'm_SpawnWith']);
 
 const parser = new XMLParser({
   ignoreAttributes: true,
@@ -72,6 +73,7 @@ export function normalizePath(path: string): string {
  */
 export function modelKeyFromReference(reference: string): string {
   let key = normalizePath(reference);
+  key = key.replace(/^x:/, '');
   key = key.replace(/^media\/models_x\//, '').replace(/^media\/models\//, '');
   key = key.replace(/\.(x|fbx|glb|gltf)$/, '');
   return key;
@@ -126,6 +128,6 @@ export function parseClothingItemXml(xml: string): ClothingItemXml {
     baseTextures: list(root, 'm_BaseTextures').map(textureKeyFromReference),
     hatCategory: text(root, 'm_HatCategory'),
     decalGroup: text(root, 'm_DecalGroup'),
-    spawnWith: text(root, 'm_SpawnWith'),
+    spawnWith: list(root, 'm_SpawnWith').filter((guid) => guid.toLowerCase() !== 'null'),
   };
 }

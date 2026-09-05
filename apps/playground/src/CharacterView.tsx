@@ -8,6 +8,7 @@ export interface CharacterViewProps {
   character: CharacterDescription;
   /** A clip name, null for the bind pose, or undefined to let the viewer pick the idle. */
   animation: string | null | undefined;
+  animationSpeed?: number;
   camera?: CameraOptions;
   width: number;
   height: number;
@@ -19,6 +20,7 @@ export function CharacterView({
   mode,
   character,
   animation,
+  animationSpeed,
   camera,
   width,
   height,
@@ -30,8 +32,9 @@ export function CharacterView({
       <ZomboidCharacter
         assetBaseUrl={assetBaseUrl}
         mode={mode}
-        character={character}
+        document={character}
         {...(animation === undefined ? {} : { animation })}
+        {...(animationSpeed === undefined ? {} : { animationSpeed })}
         {...(camera ? { camera } : {})}
         background={mode === 'viewer' ? '#1d1d1f' : 'transparent'}
         style={{ width, height, background: '#2a2a2e' }}

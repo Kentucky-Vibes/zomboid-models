@@ -60,7 +60,7 @@ describe('parseClothingItemXml', () => {
       baseTextures: [],
       hatCategory: undefined,
       decalGroup: undefined,
-      spawnWith: undefined,
+      spawnWith: [],
     });
   });
 
@@ -75,7 +75,7 @@ describe('parseClothingItemXml', () => {
     expect(hat.underlayMasksFolder).toBe('clothes/dress_textures/judgerobemask');
     expect(hat.baseTextures).toEqual(['clothes/hat/baseballcapred']);
     expect(hat.decalGroup).toBe('TShirtSpiffo');
-    expect(hat.spawnWith).toBe('ElbowPad_Right');
+    expect(hat.spawnWith).toEqual(['ElbowPad_Right']);
     expect(hat.masks).toEqual([]);
   });
 

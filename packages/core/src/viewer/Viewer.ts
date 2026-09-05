@@ -11,9 +11,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import { getAssetCache, type AssetCache } from '../assets/AssetCache.js';
 import { ATTRIBUTION_TEXT } from '../attribution.js';
-import { autoIdleClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
+import { autoClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
 import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
-import type { Manifest } from '../format/manifest.js';
+import type { CharacterCatalog } from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
@@ -33,16 +33,24 @@ export interface CameraOptions {
   targetHeight?: number;
 }
 
+/** Any document the viewer can show. */
+export type ViewerDocument = CharacterDescription;
+
 export interface ViewerOptions {
   /** URL of the folder that holds `manifest.json`, with or without a trailing slash. */
   assetBaseUrl: string;
   mode?: ViewerMode;
+  /** The document to show. */
+  document?: ViewerDocument;
+  /** The same as `document`; kept for the first releases. */
   character?: CharacterDescription;
   /**
-   * Clip name from the manifest, or null for the bind pose. When omitted, the idle clip the game
-   * would play for the held item is used.
+   * Clip name from the catalog, or null for the bind pose. When omitted, the clip the game
+   * would play for the document's stance and held item is used, at the game's speed.
    */
   animation?: string | null;
+  /** Multiplies the playback speed; 1 when absent. */
+  animationSpeed?: number;
   /** Freezes the animation at this time in seconds instead of playing it. */
   poseTime?: number;
   /** CSS colour, or `transparent`. */
@@ -71,8 +79,8 @@ const DEFAULT_CAMERA: Required<CameraOptions> = {
 };
 
 /**
- * One character on one canvas. The viewer owns its scene, camera, and character, and draws
- * through the renderer shared by every viewer on the page.
+ * One document on one canvas. The viewer owns its scene, camera, and rig, and draws through
+ * the renderer shared by every viewer on the page.
  */
 export class Viewer implements FrameListener {
   readonly element: HTMLElement;
@@ -87,7 +95,7 @@ export class Viewer implements FrameListener {
   private readonly reducedMotion: MediaQueryList;
   private readonly attribution: HTMLElement | undefined;
   private options: ViewerOptions;
-  private manifest: Manifest | undefined;
+  private catalog: CharacterCatalog | undefined;
   private rig: CharacterRig | undefined;
   private clip: AnimationClip | null = null;
   private visible = false;
@@ -149,22 +157,40 @@ export class Viewer implements FrameListener {
     void this.load();
   }
 
-  /** Replaces the character and rebuilds the rig. */
-  async setCharacter(character: CharacterDescription): Promise<void> {
-    this.options = { ...this.options, character };
+  /** The document being shown, whichever option it came through. */
+  get document(): ViewerDocument | undefined {
+    return this.options.document ?? this.options.character;
+  }
+
+  /** Replaces the document and rebuilds the rig. */
+  async setDocument(document: ViewerDocument): Promise<void> {
+    const options = { ...this.options, document };
+    delete options.character;
+    this.options = options;
     await this.load();
   }
 
+  /** The same as `setDocument`; kept for the first releases. */
+  setCharacter(character: CharacterDescription): Promise<void> {
+    return this.setDocument(character);
+  }
+
   /**
-   * Switches the animation: a clip name, null for the bind pose, or undefined for the idle the
-   * game would play for the held item.
+   * Switches the animation: a clip name, null for the bind pose, or undefined for the clip the
+   * game would play for the document.
    */
   async setAnimation(animation: string | null | undefined): Promise<void> {
     const options = { ...this.options };
     delete options.animation;
     this.options = animation === undefined ? options : { ...options, animation };
-    if (!this.manifest || !this.rig) return;
-    await this.applyAnimation(this.manifest, this.rig, this.generation);
+    if (!this.catalog || !this.rig) return;
+    await this.applyAnimation(this.catalog, this.rig, this.generation);
+  }
+
+  /** Changes the playback speed multiplier without rebuilding. */
+  setAnimationSpeed(speed: number): void {
+    this.options = { ...this.options, animationSpeed: speed };
+    if (this.catalog && this.rig) void this.applyAnimation(this.catalog, this.rig, this.generation);
   }
 
   play(): void {
@@ -224,14 +250,14 @@ export class Viewer implements FrameListener {
   private async load(): Promise<void> {
     const generation = ++this.generation;
     try {
-      const manifest = await this.cache.loadManifest();
+      const catalog = await this.cache.loadCharacterCatalog();
       if (generation !== this.generation) return;
-      this.manifest = manifest;
-      const character = this.options.character;
-      if (!character) return;
+      this.catalog = catalog;
+      const document = this.document;
+      if (!document) return;
       const built = await buildCharacter(
-        { cache: this.cache, manifest, composer: this.shared.composer },
-        character,
+        { cache: this.cache, manifest: catalog, composer: this.shared.composer },
+        document,
       );
       if (generation !== this.generation) {
         built.rig.dispose();
@@ -243,7 +269,7 @@ export class Viewer implements FrameListener {
       this.rig = built.rig;
       this.scene.add(this.rig);
       this.frameCharacter();
-      await this.applyAnimation(manifest, this.rig, generation);
+      await this.applyAnimation(catalog, this.rig, generation);
     } catch (error) {
       if (generation !== this.generation) return;
       this.options.onError?.(error instanceof Error ? error : new Error(String(error)));
@@ -251,22 +277,28 @@ export class Viewer implements FrameListener {
   }
 
   private async applyAnimation(
-    manifest: Manifest,
+    catalog: CharacterCatalog,
     rig: CharacterRig,
     generation: number,
   ): Promise<void> {
-    const character = this.options.character;
-    const name =
-      this.options.animation === undefined && character
-        ? autoIdleClip(manifest, character)
-        : this.options.animation;
+    const document = this.document;
+    const speed = this.options.animationSpeed ?? 1;
+    let name: string | null | undefined = this.options.animation;
+    let timeScale = speed;
+    let startFraction = 0;
+    if (name === undefined && document) {
+      const auto = autoClip(catalog, document);
+      name = auto.clip;
+      timeScale = auto.timeScale * speed;
+      startFraction = auto.startFraction;
+    }
     const clip =
       name === null || name === undefined
         ? null
-        : await loadClip(this.cache, manifest, name, rig.warnings);
+        : await loadClip(this.cache, catalog, name, rig.warnings);
     if (generation !== this.generation) return;
     this.clip = clip;
-    rig.playClip(clip);
+    rig.playClip(clip, { timeScale, startFraction });
     if (this.options.poseTime !== undefined) rig.freezeAt(this.options.poseTime);
     this.needsRender = true;
     this.syncLoop();

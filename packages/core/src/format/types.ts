@@ -53,8 +53,29 @@ export interface RgbColor {
   b: number;
 }
 
+/** Poses a character or zombie can be shown in; each maps to a clip of the game's animation sets. */
+export const STANCES = ['standing', 'crawling', 'onBack', 'sitting', 'corpse'] as const;
+
+export type Stance = (typeof STANCES)[number];
+
+export type SkeletonKind = 'burned' | 'plain' | 'muscle';
+
+/** Marks the body as a zombie: rotten skin, no body hair, the zombie animation set. */
+export interface ZombieDescription {
+  /** Decay stage of the skin texture, 1 to 3; rolled from the seed when absent. */
+  rot?: 1 | 2 | 3;
+  /** Renders the skeleton body instead of the skin; the value picks its texture. */
+  skeleton?: SkeletonKind;
+  /**
+   * Seed for whatever the document leaves to chance: rot stage, skin, blood, and the idle
+   * animation's speed and starting point. The same seed gives the same zombie.
+   */
+  seed?: number;
+}
+
 export interface BodyDescription {
   sex: Sex;
+  zombie?: ZombieDescription;
   /** Index into the skin textures of the sex (0-based), as the game's HumanVisual stores it. */
   skin?: number;
   /** Explicit skin texture name such as `MaleBody03`; takes precedence over `skin`. */
@@ -121,11 +142,18 @@ export interface BodyPartDamageDescription {
   bleeding?: boolean;
 }
 
-/** Picks worn items from one of the game's named outfits instead of listing them. */
+/**
+ * Dresses the character from one of the game's named outfits with the game's own randomiser,
+ * so the same seed gives the same clothes, hair, and colours as in the game. Items listed in
+ * `worn` are put on afterwards. For a zombie the game's extras apply too: underwear, an attached
+ * weapon, wounds, and bandages.
+ */
 export interface OutfitReference {
   name: string;
-  /** Seed for the game's outfit randomiser; the same seed gives the same items. */
+  /** Seed of the game's outfit randomiser (`OutfitRNG`); 0 when absent. */
   seed?: number;
+  /** Age of the world in days, which unlocks some hair styles and attached weapons; 0 when absent. */
+  worldAge?: number;
 }
 
 export interface CharacterDescription {
@@ -134,6 +162,8 @@ export interface CharacterDescription {
   body: BodyDescription;
   worn?: WornItemDescription[];
   outfit?: OutfitReference;
+  /** Pose; `standing` when absent. Ignored when the viewer is told which clip to play. */
+  stance?: Stance;
   held?: {
     primary?: HeldItemDescription;
     secondary?: HeldItemDescription;

@@ -1,18 +1,25 @@
 import { LinearFilter, NoColorSpace, SRGBColorSpace, TextureLoader, type Texture } from 'three';
 import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
-import { MANIFEST_FORMAT, type Manifest } from '../format/manifest.js';
+import {
+  MANIFEST_FORMAT,
+  MANIFEST_VERSION,
+  type CharacterCatalog,
+  type ManifestIndex,
+  type SubjectKind,
+} from '../format/manifest.js';
 
 /**
- * Loads and caches the manifest, GLB files, and textures of one asset folder. Every viewer on
- * a page that uses the same `assetBaseUrl` shares one cache.
+ * Loads and caches the manifest index, the catalogs, the GLB files, and the textures of one
+ * asset folder. Every viewer on a page that uses the same `assetBaseUrl` shares one cache.
  */
 export class AssetCache {
   private readonly gltfLoader = new GLTFLoader();
   private readonly textureLoader = new TextureLoader();
   private readonly gltfs = new Map<string, Promise<GLTF>>();
   private readonly textures = new Map<string, Promise<Texture>>();
-  private manifest: Promise<Manifest> | undefined;
+  private readonly catalogs = new Map<SubjectKind, Promise<unknown>>();
+  private manifest: Promise<ManifestIndex> | undefined;
 
   constructor(readonly baseUrl: string) {}
 
@@ -21,15 +28,26 @@ export class AssetCache {
     return new URL(relativePath, this.baseUrl).href;
   }
 
-  loadManifest(): Promise<Manifest> {
-    this.manifest ??= fetch(this.url('manifest.json'), { cache: 'no-cache' })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`could not load manifest from ${response.url}: ${response.status}`);
-        }
-        const manifest = (await response.json()) as Manifest;
+  private async fetchJson(relativePath: string): Promise<unknown> {
+    const response = await fetch(this.url(relativePath), { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`could not load ${relativePath} from ${response.url}: ${response.status}`);
+    }
+    return response.json();
+  }
+
+  /** Loads `manifest.json`, the index that names the catalog files. */
+  loadManifest(): Promise<ManifestIndex> {
+    this.manifest ??= this.fetchJson('manifest.json')
+      .then((value) => {
+        const manifest = value as ManifestIndex;
         if (manifest.format !== MANIFEST_FORMAT) {
           throw new Error(`unexpected manifest format "${String(manifest.format)}"`);
+        }
+        if (manifest.version !== MANIFEST_VERSION) {
+          throw new Error(
+            `manifest version ${String(manifest.version)} is not supported; rebuild the assets with a matching pipeline`,
+          );
         }
         return manifest;
       })
@@ -38,6 +56,31 @@ export class AssetCache {
         throw error;
       });
     return this.manifest;
+  }
+
+  /** Loads the catalog of one subject kind, once. */
+  private loadCatalog<T>(kind: SubjectKind): Promise<T> {
+    let promise = this.catalogs.get(kind);
+    if (!promise) {
+      promise = this.loadManifest()
+        .then((manifest) => {
+          const file = manifest.catalogs[kind];
+          if (file === undefined) {
+            throw new Error(`the asset folder has no ${kind} catalog; build it with the pipeline`);
+          }
+          return this.fetchJson(file);
+        })
+        .catch((error: unknown) => {
+          this.catalogs.delete(kind);
+          throw error;
+        });
+      this.catalogs.set(kind, promise);
+    }
+    return promise as Promise<T>;
+  }
+
+  loadCharacterCatalog(): Promise<CharacterCatalog> {
+    return this.loadCatalog<CharacterCatalog>('characters');
   }
 
   loadGltf(relativePath: string): Promise<GLTF> {
@@ -86,6 +129,7 @@ export class AssetCache {
     }
     this.textures.clear();
     this.gltfs.clear();
+    this.catalogs.clear();
     this.manifest = undefined;
   }
 }

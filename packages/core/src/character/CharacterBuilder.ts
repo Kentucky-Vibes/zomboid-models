@@ -1,13 +1,20 @@
 import { Color, type AnimationClip, type Texture } from 'three';
 
 import type { AssetCache } from '../assets/AssetCache.js';
-import type { Manifest } from '../format/manifest.js';
+import type { CharacterCatalog, ManifestClip } from '../format/manifest.js';
 import {
   BODY_PARTS,
   type BodyPart,
   type CharacterDescription,
+  type PartAmounts,
   type RgbColor,
+  type Sex,
+  type SkeletonKind,
+  type Stance,
+  type WornItemDescription,
 } from '../format/types.js';
+import { generateOutfit, randomBodyBlood, rollRotStage } from '../outfit/generate.js';
+import { OutfitRng } from '../outfit/rng.js';
 import {
   isPlainItemTexture,
   planBodyTexture,
@@ -32,34 +39,199 @@ export const BODY_KEY = 'body';
 export const PRIMARY_PROP = 'Bip01_Prop1';
 export const SECONDARY_PROP = 'Bip01_Prop2';
 
-/** The idle clip the game would play: by the primary item's weapon type, else the default. */
-export function autoIdleClip(manifest: Manifest, description: CharacterDescription): string {
-  const primary = description.held?.primary?.item;
-  const weaponType = primary === undefined ? undefined : manifest.heldItems[primary]?.weaponType;
-  const byType = weaponType === undefined ? undefined : manifest.idle.byWeaponType[weaponType];
-  return byType ?? manifest.idle.default;
+const SKELETON_INDEX: Record<SkeletonKind, number> = { burned: 0, plain: 1, muscle: 2 };
+/** Separates the animation draws from the outfit stream when both come from one seed. */
+const ANIMATION_SEED_SALT = 0x2a11c1d5n;
+
+/**
+ * The document with everything the game leaves to chance filled in: the outfit's items, hair,
+ * and colours, and for zombies the rot stage, skin, and blood.
+ */
+export interface PreparedCharacter {
+  description: CharacterDescription;
+  zombie: boolean;
+  skeleton: SkeletonKind | undefined;
+  /** Rot stage of a zombie's skin, 1 to 3. */
+  rot: 1 | 2 | 3;
+  /** Blood on the attached weapon the outfit generator added, when it added one. */
+  attachedBlood: number | undefined;
+  warnings: string[];
 }
 
-/** Picks the texture key for the body skin from the description. */
-export function bodyTextureKey(
-  manifest: Manifest,
+function seedOf(description: CharacterDescription): bigint {
+  const seed = description.body.zombie?.seed ?? description.outfit?.seed ?? 0;
+  return BigInt(Math.trunc(seed));
+}
+
+/**
+ * Resolves a named outfit and the zombie rolls into an explicit description. Items listed in
+ * `worn` are put on after the outfit, like clothes a player picked up later.
+ */
+export function prepareCharacter(
+  catalog: CharacterCatalog,
   description: CharacterDescription,
-): string | undefined {
-  const body = manifest.bodies[description.body.sex];
+): PreparedCharacter {
+  const zombie = description.body.zombie !== undefined;
+  const skeleton = description.body.zombie?.skeleton;
+  const sex = description.body.sex;
+  const warnings: string[] = [];
+  const body = { ...description.body };
+  let worn: WornItemDescription[] = [...(description.worn ?? [])];
+  let attached = [...(description.attached ?? [])];
+  let rot: 1 | 2 | 3 | undefined = description.body.zombie?.rot;
+  let attachedBlood: number | undefined;
+  let bodyBlood: PartAmounts | undefined;
+
+  if (description.outfit) {
+    const outfitSeed = BigInt(Math.trunc(description.outfit.seed ?? 0));
+    const generated = generateOutfit({
+      catalog,
+      sex,
+      name: description.outfit.name,
+      seed: outfitSeed,
+      ...(description.outfit.worldAge !== undefined
+        ? { worldAge: description.outfit.worldAge }
+        : {}),
+      zombie,
+      skeleton: skeleton !== undefined,
+    });
+    warnings.push(...generated.warnings);
+    worn = [...generated.bodyVisuals, ...generated.worn, ...worn];
+    attached = [...generated.attached, ...attached];
+    if (body.hair === undefined && generated.hair !== undefined) body.hair = generated.hair;
+    if (body.beard === undefined && generated.beard !== undefined) body.beard = generated.beard;
+    if (body.hairColor === undefined && generated.hairColor !== undefined) {
+      body.hairColor = generated.hairColor;
+    }
+    if (body.skin === undefined && generated.skin !== undefined) body.skin = generated.skin;
+    rot ??= generated.rot;
+    attachedBlood = generated.attachedBlood;
+    bodyBlood = generated.bodyBlood;
+  }
+
+  if (zombie) {
+    const rng = new OutfitRng(seedOf(description));
+    if (rot === undefined) rot = skeleton === undefined ? rollRotStage(rng, 0) : 1;
+    if (body.skin === undefined) {
+      const skins =
+        skeleton === undefined
+          ? (catalog.zombieSkins?.[sex][rot - 1] ?? [])
+          : (catalog.skeletons?.[sex].skins ?? []);
+      body.skin = skins.length > 0 ? rng.next(skins.length) : 0;
+    }
+    if (body.blood === undefined) {
+      const random = randomBodyBlood(seedOf(description));
+      const merged: PartAmounts = { ...random };
+      for (const part of BODY_PARTS) {
+        const extra = bodyBlood?.[part];
+        if (extra !== undefined) merged[part] = Math.min((merged[part] ?? 0) + extra, 1);
+      }
+      body.blood = merged;
+    }
+    delete body.bodyHair;
+    if (skeleton !== undefined) {
+      delete body.hair;
+      delete body.beard;
+      body.skin = SKELETON_INDEX[skeleton];
+    }
+  }
+
+  return {
+    description: { ...description, body, worn, attached },
+    zombie,
+    skeleton,
+    rot: rot ?? 1,
+    attachedBlood,
+    warnings,
+  };
+}
+
+/** The clip the game would play, with its speed and starting point for this character. */
+export interface AutoClip {
+  clip: string;
+  timeScale: number;
+  startFraction: number;
+}
+
+function clipParameters(clip: ManifestClip, seed: bigint): AutoClip {
+  const rng = new OutfitRng(seed ^ ANIMATION_SEED_SALT);
+  let timeScale = clip.speed;
+  if (clip.speedRandom) timeScale *= rng.nextFloat(clip.speedRandom[0], clip.speedRandom[1]);
+  const startFraction = clip.randomStart === undefined ? 0 : rng.nextFloat(0, clip.randomStart);
+  return { clip: clip.clip, timeScale, startFraction };
+}
+
+/**
+ * The clip the game plays for the document: the stance's clip for zombies and for posed
+ * players, else the idle for the primary item's weapon type.
+ */
+export function autoClip(catalog: CharacterCatalog, description: CharacterDescription): AutoClip {
+  const stance: Stance = description.stance ?? 'standing';
+  const zombie = description.body.zombie !== undefined;
+  const seed = seedOf(description);
+  if (zombie) {
+    const clip = catalog.stances.zombie[stance] ?? catalog.stances.zombie.standing;
+    if (clip) return clipParameters(clip, seed);
+  } else if (stance !== 'standing') {
+    const clip = catalog.stances.player[stance];
+    if (clip) return clipParameters(clip, seed);
+  }
+  const primary = description.held?.primary?.item;
+  const weaponType = primary === undefined ? undefined : catalog.heldItems[primary]?.weaponType;
+  const byType = weaponType === undefined ? undefined : catalog.idle.byWeaponType[weaponType];
+  return clipParameters(byType ?? catalog.idle.default, seed);
+}
+
+/** The idle clip name the game would play; kept from the first releases. */
+export function autoIdleClip(catalog: CharacterCatalog, description: CharacterDescription): string {
+  return autoClip(catalog, description).clip;
+}
+
+/** The body model and skin texture key for a prepared character. */
+export function bodyModelAndSkin(
+  catalog: CharacterCatalog,
+  prepared: PreparedCharacter,
+): { model: string; skin: string | undefined } {
+  const { description, zombie, skeleton, rot } = prepared;
+  const sex = description.body.sex;
   if (description.body.skinTexture) {
-    return `body/${description.body.skinTexture.toLowerCase()}`;
+    const model =
+      skeleton !== undefined ? catalog.skeletons?.[sex].model : catalog.bodies[sex].model;
+    return {
+      model: model ?? catalog.bodies[sex].model,
+      skin: `body/${description.body.skinTexture.toLowerCase()}`,
+    };
   }
   const index = description.body.skin ?? 0;
-  const skin = body.skins[Math.min(Math.max(index, 0), body.skins.length - 1)];
-  if (!skin) return undefined;
+  const pick = (skins: readonly string[]): string | undefined =>
+    skins[Math.min(Math.max(index, 0), skins.length - 1)];
+  if (skeleton !== undefined && catalog.skeletons) {
+    return { model: catalog.skeletons[sex].model, skin: pick(catalog.skeletons[sex].skins) };
+  }
+  const body = catalog.bodies[sex];
+  if (zombie) {
+    const skins = catalog.zombieSkins?.[sex][rot - 1] ?? [];
+    return { model: body.model, skin: pick(skins) ?? pick(body.skins) };
+  }
+  const skin = pick(body.skins);
+  if (skin === undefined) return { model: body.model, skin: undefined };
   const hairy = `${skin}a`;
-  return description.body.bodyHair && body.bodyHair && manifest.textures[hairy] ? hairy : skin;
+  const useHairy = description.body.bodyHair && body.bodyHair && catalog.textures[hairy];
+  return { model: body.model, skin: useHairy ? hairy : skin };
+}
+
+/** Picks the texture key for the body skin from the description; kept from the first releases. */
+export function bodyTextureKey(
+  catalog: CharacterCatalog,
+  description: CharacterDescription,
+): string | undefined {
+  return bodyModelAndSkin(catalog, prepareCharacter(catalog, description)).skin;
 }
 
 /** Everything a build needs besides the description. */
 export interface BuildContext {
   cache: AssetCache;
-  manifest: Manifest;
+  manifest: CharacterCatalog;
   /** When absent, textures are used as they are and blood, masks, and holes are skipped. */
   composer?: TextureComposer;
 }
@@ -162,16 +334,21 @@ async function addHairPart(
 
 /**
  * Builds a rig from a character description: the body with its composed skin, every worn item
- * the game's slot rules keep, held items, hair, and beard. Skinned items bind to the body
- * skeleton; static ones sit on their bone.
+ * the game's slot rules keep, held and attached items, hair, and beard. Skinned items bind to
+ * the body skeleton; static ones sit on their bone.
  */
 export async function buildCharacter(
   context: BuildContext,
-  description: CharacterDescription,
+  original: CharacterDescription,
 ): Promise<BuiltCharacter> {
   const { cache, manifest } = context;
-  const rig = await CharacterRig.load(cache, manifest, description);
-  const sex = description.body.sex;
+  const prepared = prepareCharacter(manifest, original);
+  const description = prepared.description;
+  const sex: Sex = description.body.sex;
+  const bodyChoice = bodyModelAndSkin(manifest, prepared);
+  const rig = await CharacterRig.load(cache, manifest, bodyChoice.model);
+  for (const warning of prepared.warnings)
+    rig.warnings.push({ code: 'missing-item', message: warning });
 
   const damageWarnings: string[] = [];
   const damageItems = damageWornItems(manifest, sex, description.damage, damageWarnings);
@@ -189,7 +366,7 @@ export async function buildCharacter(
     .map((worn) => textureChoice(worn))
     .filter((key): key is string => key !== undefined);
 
-  const skin = bodyTextureKey(manifest, description);
+  const skin = bodyChoice.skin;
   if (skin === undefined) {
     rig.warnings.push({ code: 'missing-texture', message: 'no skin texture for the body' });
   } else {
@@ -284,28 +461,30 @@ export async function buildCharacter(
     if (held.texture) await applyPlainTexture(context, rig, key, held.texture);
   }
 
-  const hair = resolveHair(manifest, sex, description.body.hair, outfit.hatCategory);
-  const beard = resolveBeard(manifest, description.body.beard, outfit.hatCategory);
-  for (const warning of [...hair.warnings, ...beard.warnings]) {
-    rig.warnings.push({ code: 'missing-item', message: warning });
+  if (prepared.skeleton === undefined) {
+    const hair = resolveHair(manifest, sex, description.body.hair, outfit.hatCategory);
+    const beard = resolveBeard(manifest, description.body.beard, outfit.hatCategory);
+    for (const warning of [...hair.warnings, ...beard.warnings]) {
+      rig.warnings.push({ code: 'missing-item', message: warning });
+    }
+    await addHairPart(context, rig, HAIR_KEY, hair.model, hair.texture, description.body.hairColor);
+    await addHairPart(
+      context,
+      rig,
+      BEARD_KEY,
+      beard.model,
+      beard.texture,
+      description.body.beardColor ?? description.body.hairColor,
+    );
   }
-  await addHairPart(context, rig, HAIR_KEY, hair.model, hair.texture, description.body.hairColor);
-  await addHairPart(
-    context,
-    rig,
-    BEARD_KEY,
-    beard.model,
-    beard.texture,
-    description.body.beardColor ?? description.body.hairColor,
-  );
 
   return { rig, warnings: rig.warnings };
 }
 
-/** Loads a clip by manifest name; resolves to null and records a warning when it is unknown. */
+/** Loads a clip by catalog name; resolves to null and records a warning when it is unknown. */
 export async function loadClip(
   cache: AssetCache,
-  manifest: Manifest,
+  manifest: CharacterCatalog,
   name: string,
   warnings: RigWarning[],
 ): Promise<AnimationClip | null> {

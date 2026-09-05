@@ -59,8 +59,20 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
     setWorn(worn.map((w) => (w.item === type ? { ...w, textureChoice } : w)));
 
   const hairStyles = Object.keys(manifest.hair[sex]).sort();
-  const beards = Object.keys(manifest.beards).sort();
-  const skins = manifest.bodies[sex].skins;
+  const beards = Object.keys(manifest.beards)
+    .filter((name) => name !== '')
+    .sort();
+  const zombie = character.body.zombie;
+  const skins =
+    zombie === undefined
+      ? manifest.bodies[sex].skins
+      : zombie.skeleton !== undefined
+        ? (manifest.skeletons?.[sex].skins ?? [])
+        : (manifest.zombieSkins?.[sex][(zombie.rot ?? 1) - 1] ?? []);
+  const outfits = Object.keys(manifest.outfits[sex]).sort();
+  const updateZombie = (
+    patch: Partial<NonNullable<CharacterDescription['body']['zombie']>>,
+  ): void => updateBody({ zombie: { ...zombie, ...patch } });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: 320, fontSize: 12 }}>
@@ -73,6 +85,142 @@ export function OutfitEditor({ manifest, character, onChange }: OutfitEditorProp
         >
           <option value="male">male</option>
           <option value="female">female</option>
+        </select>
+      </Field>
+      <Field label="Zombie">
+        <label>
+          <input
+            type="checkbox"
+            checked={zombie !== undefined}
+            onChange={(e) =>
+              update({
+                body: e.target.checked
+                  ? { ...character.body, zombie: { rot: 1, seed: 1 } }
+                  : without(character.body, 'zombie'),
+              })
+            }
+          />{' '}
+          zombie
+        </label>
+        {zombie && (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            rot
+            <select
+              value={zombie.rot ?? ''}
+              onChange={(e) =>
+                updateBody({
+                  zombie:
+                    e.target.value === ''
+                      ? without(zombie, 'rot')
+                      : { ...zombie, rot: Number(e.target.value) as 1 | 2 | 3 },
+                })
+              }
+            >
+              <option value="">seeded</option>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+            </select>
+            skeleton
+            <select
+              value={zombie.skeleton ?? ''}
+              onChange={(e) =>
+                updateBody({
+                  zombie:
+                    e.target.value === ''
+                      ? without(zombie, 'skeleton')
+                      : { ...zombie, skeleton: e.target.value as 'burned' | 'plain' | 'muscle' },
+                })
+              }
+            >
+              <option value="">no</option>
+              <option value="burned">burned</option>
+              <option value="plain">plain</option>
+              <option value="muscle">muscle</option>
+            </select>
+            seed
+            <input
+              type="number"
+              style={{ width: 80 }}
+              value={zombie.seed ?? 0}
+              onChange={(e) => updateZombie({ seed: Number(e.target.value) })}
+            />
+          </div>
+        )}
+      </Field>
+      <Field label={`Outfit by name (${outfits.length})`}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select
+            value={character.outfit?.name ?? ''}
+            onChange={(e) =>
+              update(
+                e.target.value === ''
+                  ? without(character, 'outfit')
+                  : {
+                      outfit: { ...character.outfit, name: e.target.value },
+                      worn: [],
+                      body: without(without(without(character.body, 'hair'), 'beard'), 'hairColor'),
+                    },
+              )
+            }
+          >
+            <option value="">none (explicit items)</option>
+            {outfits.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+          {character.outfit && (
+            <>
+              seed
+              <input
+                type="number"
+                style={{ width: 80 }}
+                value={character.outfit.seed ?? 0}
+                onChange={(e) =>
+                  update({
+                    outfit: {
+                      ...character.outfit,
+                      name: character.outfit?.name ?? '',
+                      seed: Number(e.target.value),
+                    },
+                  })
+                }
+              />
+              world age
+              <input
+                type="number"
+                style={{ width: 60 }}
+                value={character.outfit.worldAge ?? 0}
+                onChange={(e) =>
+                  update({
+                    outfit: {
+                      ...character.outfit,
+                      name: character.outfit?.name ?? '',
+                      worldAge: Number(e.target.value),
+                    },
+                  })
+                }
+              />
+            </>
+          )}
+        </div>
+      </Field>
+      <Field label="Stance">
+        <select
+          value={character.stance ?? 'standing'}
+          onChange={(e) => {
+            const rest = without(character, 'stance');
+            const stance = e.target.value as NonNullable<CharacterDescription['stance']>;
+            onChange(stance === 'standing' ? rest : { ...rest, stance });
+          }}
+        >
+          {['standing', 'crawling', 'onBack', 'sitting', 'corpse'].map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
         </select>
       </Field>
       <Field label={`Skin (${skins.length})`}>

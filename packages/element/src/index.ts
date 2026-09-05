@@ -15,6 +15,7 @@ const OBSERVED = [
   'asset-base-url',
   'mode',
   'animation',
+  'animation-speed',
   'src',
   'background',
   'auto-rotate',
@@ -29,7 +30,8 @@ const OBSERVED = [
  * - `asset-base-url` (required): folder that holds `manifest.json`.
  * - `src`: URL of a character JSON document; or assign the `character` property.
  * - `mode`: `viewer` (default) or `showcase`.
- * - `animation`: clip name, `none` for the bind pose; omit for the idle the game would play.
+ * - `animation`: clip name, `none` for the bind pose; omit for the clip the game would play.
+ * - `animation-speed`: playback speed multiplier, 1 by default.
  * - `pose-time`: seconds into the clip to freeze at.
  * - `background`: CSS colour or `transparent` (default).
  * - `auto-rotate`, `attribution`: boolean attributes (`attribution="false"` hides the wording).
@@ -64,15 +66,24 @@ export class ZomboidCharacterElement extends HTMLElement {
     root.append(style, this.host);
   }
 
-  /** The character to show; takes precedence over `src` once assigned. */
+  /** The document to show; takes precedence over `src` once assigned. */
+  get document(): CharacterDescription | undefined {
+    return this.characterValue;
+  }
+
+  set document(value: CharacterDescription | undefined) {
+    this.characterValue = value;
+    if (value && this.viewer) void this.viewer.setDocument(value);
+    else if (this.isConnected) this.mount();
+  }
+
+  /** The same as `document`; kept for the first releases. */
   get character(): CharacterDescription | undefined {
     return this.characterValue;
   }
 
   set character(value: CharacterDescription | undefined) {
-    this.characterValue = value;
-    if (value && this.viewer) void this.viewer.setCharacter(value);
-    else if (this.isConnected) this.mount();
+    this.document = value;
   }
 
   /** The underlying viewer, available after the element is connected. */
@@ -98,6 +109,10 @@ export class ZomboidCharacterElement extends HTMLElement {
       void this.viewer.setAnimation(this.animationOption());
       return;
     }
+    if (name === 'animation-speed' && this.viewer) {
+      this.viewer.setAnimationSpeed(this.animationSpeedOption() ?? 1);
+      return;
+    }
     this.mount();
   }
 
@@ -120,6 +135,13 @@ export class ZomboidCharacterElement extends HTMLElement {
     return value === 'none' ? null : value;
   }
 
+  private animationSpeedOption(): number | undefined {
+    const value = Number(this.getAttribute('animation-speed'));
+    return this.hasAttribute('animation-speed') && Number.isFinite(value) && value > 0
+      ? value
+      : undefined;
+  }
+
   private options(): ViewerOptions | undefined {
     const assetBaseUrl = this.getAttribute('asset-base-url');
     if (!assetBaseUrl) return undefined;
@@ -134,6 +156,8 @@ export class ZomboidCharacterElement extends HTMLElement {
     };
     const animation = this.animationOption();
     if (animation !== undefined) options.animation = animation;
+    const animationSpeed = this.animationSpeedOption();
+    if (animationSpeed !== undefined) options.animationSpeed = animationSpeed;
     const poseTime = Number(this.getAttribute('pose-time'));
     if (this.hasAttribute('pose-time') && Number.isFinite(poseTime)) options.poseTime = poseTime;
     const camera = this.getAttribute('camera');
@@ -146,7 +170,7 @@ export class ZomboidCharacterElement extends HTMLElement {
         );
       }
     }
-    if (this.characterValue) options.character = this.characterValue;
+    if (this.characterValue) options.document = this.characterValue;
     return options;
   }
 
@@ -175,7 +199,7 @@ export class ZomboidCharacterElement extends HTMLElement {
       if (!result.ok) throw new Error(`invalid character document: ${result.errors.join('; ')}`);
       if (generation !== this.loadGeneration) return;
       this.characterValue = result.value;
-      if (this.viewer) await this.viewer.setCharacter(result.value);
+      if (this.viewer) await this.viewer.setDocument(result.value);
       else this.mount();
     } catch (error) {
       if (generation !== this.loadGeneration) return;

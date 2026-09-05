@@ -17,9 +17,11 @@
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "seed": { "type": "integer" }
+        "seed": { "type": "integer" },
+        "worldAge": { "type": "number", "minimum": 0 }
       }
     },
+    "stance": { "enum": ["standing", "crawling", "onBack", "sitting", "corpse"] },
     "held": {
       "type": "object",
       "additionalProperties": false,
@@ -103,7 +105,16 @@
         "hairColor": { "$ref": "#/$defs/color" },
         "beardColor": { "$ref": "#/$defs/color" },
         "blood": { "$ref": "#/$defs/partAmounts" },
-        "dirt": { "$ref": "#/$defs/partAmounts" }
+        "dirt": { "$ref": "#/$defs/partAmounts" },
+        "zombie": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rot": { "enum": [1, 2, 3] },
+            "skeleton": { "enum": ["burned", "plain", "muscle"] },
+            "seed": { "type": "integer" }
+          }
+        }
       }
     },
     "wornItem": {

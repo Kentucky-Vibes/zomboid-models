@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { ATTRIBUTION_TEXT, type CameraOptions, type CharacterDescription } from 'zomboid-models';
+import {
+  ATTRIBUTION_TEXT,
+  validateCharacterDescription,
+  type CameraOptions,
+  type CharacterDescription,
+} from 'zomboid-models';
 
 import { CharacterView } from './CharacterView.js';
 import { OutfitEditor } from './OutfitEditor.js';
@@ -61,7 +66,24 @@ export function App() {
   const { manifest, error } = useManifest(assetBaseUrl);
   const [character, setCharacter] = useState<CharacterDescription>(INITIAL_CHARACTER);
   const [animation, setAnimation] = useState<string | null | undefined>(undefined);
+  const [animationSpeed, setAnimationSpeed] = useState(1);
   const [preset, setPreset] = useState('full');
+  const [jsonDraft, setJsonDraft] = useState('');
+  const [jsonError, setJsonError] = useState<string | undefined>(undefined);
+
+  const importJson = (): void => {
+    try {
+      const result = validateCharacterDescription(JSON.parse(jsonDraft));
+      if (!result.ok) {
+        setJsonError(result.errors.join('; '));
+        return;
+      }
+      setJsonError(undefined);
+      setCharacter(result.value);
+    } catch (error) {
+      setJsonError(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const applyAssetDraft = () => {
     const next = withTrailingSlash(assetDraft);
@@ -136,6 +158,18 @@ export function App() {
                 </option>
               ))}
             </select>
+          </label>{' '}
+          <label style={{ fontSize: 12 }}>
+            Speed:{' '}
+            <input
+              type="range"
+              min={0.1}
+              max={3}
+              step={0.1}
+              value={animationSpeed}
+              onChange={(e) => setAnimationSpeed(Number(e.target.value))}
+            />{' '}
+            {animationSpeed.toFixed(1)}
           </label>
           <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
             <CharacterView
@@ -143,6 +177,7 @@ export function App() {
               mode="viewer"
               character={character}
               animation={animation}
+              animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
               width={420}
               height={600}
@@ -152,6 +187,7 @@ export function App() {
               mode="showcase"
               character={character}
               animation={animation}
+              animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
               width={260}
               height={360}
@@ -165,6 +201,22 @@ export function App() {
       <details style={{ marginTop: 12, fontSize: 12 }}>
         <summary>character JSON</summary>
         <pre style={{ fontSize: 11 }}>{JSON.stringify(character, null, 2)}</pre>
+      </details>
+      <details style={{ marginTop: 8, fontSize: 12 }}>
+        <summary>import JSON</summary>
+        <textarea
+          rows={8}
+          style={{ width: '100%', fontFamily: 'monospace', fontSize: 11 }}
+          value={jsonDraft}
+          onChange={(e) => setJsonDraft(e.target.value)}
+          placeholder="Paste a character document and press Apply"
+        />
+        <div>
+          <button type="button" onClick={importJson}>
+            Apply
+          </button>{' '}
+          {jsonError && <span style={{ color: '#f66' }}>{jsonError}</span>}
+        </div>
       </details>
       <footer style={{ marginTop: 12, fontSize: 11, opacity: 0.7 }}>{ATTRIBUTION_TEXT}</footer>
     </main>

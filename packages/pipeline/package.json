@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "fast-xml-parser": "5.11.1",
+    "fengari": "0.1.4",
     "zomboid-models": "0.1.0"
   },
   "keywords": [
