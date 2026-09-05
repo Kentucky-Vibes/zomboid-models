@@ -29,7 +29,7 @@ jobs:
           PLAYGROUND_BASE: /zomboid-models/
       # The API reference is served next to the playground, under /api/.
       - run: npm run docs:api
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/playground/dist
 
