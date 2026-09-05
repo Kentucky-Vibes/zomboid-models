@@ -1,6 +1,6 @@
 {
   "name": "zomboid-models-react",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "React component for the zomboid-models Project Zomboid character viewer",
   "license": "MIT",
   "type": "module",
@@ -24,14 +24,14 @@
   "peerDependencies": {
     "react": ">=18",
     "three": ">=0.170.0",
-    "zomboid-models": "0.2.0"
+    "zomboid-models": "1.0.0"
   },
   "devDependencies": {
     "@types/react": "19.2.18",
     "@types/three": "0.185.4",
     "react": "19.2.8",
     "three": "0.185.1",
-    "zomboid-models": "0.2.0"
+    "zomboid-models": "1.0.0"
   },
   "keywords": [
     "project-zomboid",
