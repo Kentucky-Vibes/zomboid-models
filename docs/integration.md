@@ -27,7 +27,7 @@ Options:
 - `assetBaseUrl`: the folder that holds `manifest.json`.
 - `mode`: `viewer` (orbit controls, zoom) or `showcase` (no controls, transparent background by default, pauses when off screen and when the visitor prefers reduced motion).
 - `document`: the document to show: a character, an animal, an item, a vehicle, or a scene (see [format.md](format.md)). `character` and `setCharacter()` mean the same and stay until 1.0.
-- `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it. Items and vehicles have no clips; in a scene each subject carries its own `animation`.
+- `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the document's action, the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it. Items and vehicles have no clips; in a scene each subject carries its own `animation`.
 - `animationSpeed`: multiplies the playback speed; 1 by default. `setAnimationSpeed()` changes it in place.
 - `poseTime`: freezes the clip at that time in seconds instead of playing it.
 - `shadow`: draws the game's blob shadows under characters, animals, and vehicles; on by default.

@@ -22,6 +22,23 @@
       }
     },
     "stance": { "enum": ["standing", "crawling", "onBack", "sitting", "corpse"] },
+    "action": {
+      "enum": [
+        "walk",
+        "sneak",
+        "run",
+        "sprint",
+        "aim",
+        "attack",
+        "sitChair",
+        "sleep",
+        "lieAwake",
+        "eat",
+        "drink",
+        "drive",
+        "lunge"
+      ]
+    },
     "held": {
       "type": "object",
       "additionalProperties": false,

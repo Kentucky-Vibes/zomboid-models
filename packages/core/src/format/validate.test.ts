@@ -95,6 +95,32 @@ describe('validateCharacterDescription', () => {
     });
   });
 
+  it('reports a stance and an action the game does not have', () => {
+    const result = validateCharacterDescription({
+      format: 'zomboid-models/character',
+      version: 1,
+      body: { sex: 'male' },
+      stance: 'flying',
+      action: 'fly',
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContain(
+      'stance: must be one of standing, crawling, onBack, sitting, corpse',
+    );
+    expect(result.errors.some((e) => e.startsWith('action: must be one of walk, sneak, run'))).toBe(
+      true,
+    );
+    expect(
+      validateCharacterDescription({
+        format: 'zomboid-models/character',
+        version: 1,
+        body: { sex: 'male' },
+        action: 'sitChair',
+      }).ok,
+    ).toBe(true);
+  });
+
   it('reports bad damage entries', () => {
     const result = validateCharacterDescription({
       ...minimal(),

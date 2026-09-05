@@ -28,6 +28,8 @@ const DOCUMENTS: unknown[] = [
     meta: {},
   },
   { format: 'zomboid-models/animal', version: 1, type: 'cow', variant: 'wet' },
+  { format: 'zomboid-models/animal', version: 1, type: 'cow', action: 'eat' },
+  { format: 'zomboid-models/animal', version: 1, type: 'cow', action: 'fly' },
   { format: 'zomboid-models/animal', version: 1, type: 'cow', size: -1 },
   { format: 'zomboid-models/animal', version: 1, type: 'cow', extra: true },
   { format: 'zomboid-models/character', version: 1, type: 'cow' },

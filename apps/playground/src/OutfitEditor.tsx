@@ -8,6 +8,8 @@ import {
   type NamesCatalog,
   type Sex,
   type WornItemDescription,
+  CHARACTER_ACTIONS,
+  type CharacterAction,
 } from 'zomboid-models';
 
 export interface OutfitEditorProps {
@@ -223,6 +225,23 @@ export function OutfitEditor({ manifest, character, onChange, names }: OutfitEdi
           }}
         >
           {['standing', 'crawling', 'onBack', 'sitting', 'corpse'].map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Action">
+        <select
+          value={character.action ?? ''}
+          onChange={(e) => {
+            const rest = without(character, 'action');
+            const action = e.target.value as CharacterAction;
+            onChange(e.target.value === '' ? rest : { ...rest, action });
+          }}
+        >
+          <option value="">idle</option>
+          {CHARACTER_ACTIONS.map((name) => (
             <option key={name} value={name}>
               {name}
             </option>

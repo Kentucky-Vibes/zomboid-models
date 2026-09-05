@@ -11,6 +11,7 @@ import type {
   Stance,
 } from 'zomboid-models/format';
 
+import { buildActionTables, type ActionTables } from './actions.js';
 import {
   buildIdleClipTable,
   parseAnimNode,
@@ -98,6 +99,8 @@ export interface GameCatalog {
   bodyLocations: BodyLocationsData;
   attachedLocations: Record<string, string>;
   idle: IdleClipTable;
+  /** The clips of the actions a document can ask for, from the animation sets. */
+  actions: ActionTables;
   stances: StanceTable;
   /** The clip of a character seated in a vehicle, from `player-vehicle/idle`. */
   vehicleIdle: ManifestClip | undefined;
@@ -344,19 +347,32 @@ function loadDecals(
   return { decals, decalGroups };
 }
 
-/** The nodes of one animation state folder, in file order. */
+/**
+ * The nodes of one animation state folder, in file order, each with the file it extends
+ * merged in; `recursive` includes the subfolders, which some states are split into.
+ */
 function loadStateNodes(
   files: ActiveFileMap,
   animSet: string,
   state: string,
   warnings: string[],
+  recursive = false,
 ): { fileName: string; node: AnimNode }[] {
   const prefix = `media/animsets/${animSet}/${state}/`;
+  const entries = [...files.under(prefix)].filter(
+    ({ relPath }) =>
+      relPath.endsWith('.xml') && (recursive || !relPath.slice(prefix.length).includes('/')),
+  );
+  const byPath = new Map(entries.map((entry) => [entry.relPath.toLowerCase(), entry.file]));
+  const parentLoader = (from: string) => (name: string) => {
+    const folder = from.slice(0, from.lastIndexOf('/') + 1);
+    const parent = byPath.get((folder + name).toLowerCase());
+    return parent ? readFileSync(parent.path, 'utf8') : undefined;
+  };
   const out: { fileName: string; node: AnimNode }[] = [];
-  for (const { relPath, file } of files.under(prefix)) {
-    if (!relPath.endsWith('.xml') || relPath.slice(prefix.length).includes('/')) continue;
+  for (const { relPath, file } of entries) {
     try {
-      const node = parseAnimNode(readFileSync(file.path, 'utf8'));
+      const node = parseAnimNode(readFileSync(file.path, 'utf8'), parentLoader(relPath));
       if (node) out.push({ fileName: relPath.slice(prefix.length, -'.xml'.length), node });
     } catch (error) {
       warnings.push(`${relPath}: ${error instanceof Error ? error.message : String(error)}`);
@@ -566,6 +582,10 @@ export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): 
       : { order: [], exclusive: [], hides: [], alt: [], multiItem: [] },
     attachedLocations: attachedLua ? parseAttachedLocationsLua(attachedLua) : {},
     idle: loadIdleTable(files, warnings),
+    actions: buildActionTables(
+      (animSet, state, recursive) => loadStateNodes(files, animSet, state, warnings, recursive),
+      warnings,
+    ),
     stances: loadStances(files, warnings),
     vehicleIdle: loadVehicleIdle(files, warnings),
     outfits: loadOutfits(files, byGuid, warnings),

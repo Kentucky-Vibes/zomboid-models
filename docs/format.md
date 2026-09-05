@@ -58,6 +58,12 @@ The JSON Schema is published as `schema/character.schema.json` in the `zomboid-m
 
 `standing` (the default), `crawling`, `onBack`, `sitting`, or `corpse`. Each maps to a clip of the game's animation sets: for players the sitting and dead body clips, for zombies the idle, crawler, floor, wall, and corpse clips, at the speed the game plays them. A viewer told to play a named clip ignores the stance.
 
+## action
+
+What the character is doing, as a looped clip from the game's animation sets; the idle of the stance when absent. Players have `walk`, `sneak`, `run`, `sprint`, `aim`, `attack`, `sitChair`, `sleep`, `lieAwake`, `eat`, `drink`, and `drive`; zombies have `walk`, `sprint`, `lunge`, `attack`, and `eat` while standing and `walk` while crawling. An action the kind lacks is reported as a warning and the idle plays instead.
+
+The clip is the node the game's state machine would reach for a healthy, uninjured character, picked from the animation set the way the game picks it, with the primary held item deciding the variant: the weapon type for walking, running, aiming, attacking, and sitting (a rifle is carried and swung differently from a bat), and the item's eat type for eating and drinking (a can, a bowl, a bottle). Where the game blends clips, the document gets the same blend: a healthy walker mixes the slow walk into the walk at one to four, as the game's `WalkSpeed` of 0.8 does. Speeds follow the animation sets, including the variables the sets name: the attack speed is the game's combat speed formula for a fresh character (the weapon's base speed, 0.8 of that for an axe, a roll between 1.1 and 1.2, 1.2 for a heavy weapon), the aim pose all but stands still at the game's idle speed of 0.01, and a zombie eats at a speed rolled between 0.64 and 0.96. A zombie's gait comes from the seed the way the game rolls a walk type at spawn: one of five walks for the fast shamblers a new game has, one of five sprints for a sprinter, and one of two crawls. `sitChair`, `sleep`, and `lieAwake` bring their own pose and take precedence over `stance`. A viewer told to play a named clip ignores the action, as it ignores the stance.
+
 ## worn
 
 Each entry is an item the character wears. The order is the order they were put on; the renderer applies the game's rules from there: an item replaces what was worn at the same location (unless the location holds several items), removes items at exclusive locations, and everything draws in the render order the game data declares.
@@ -123,6 +129,7 @@ Build 42 animals have their own document, `zomboid-models/animal`:
 - `size`: the size factor the game grows an animal through, between the type's `minSize` and `maxSize`; the grown size when absent. Animals scale relative to a human exactly by this factor, as in the game.
 - `tint`, `hue`: the `TintColour` and `HueChange` of the game's animal shader.
 - `stance`: `standing` (the idle loop), `sitting`, or `corpse`, from the type's animation set.
+- `action`: `walk`, `run`, or `eat`, the looped clips of the type's animation set (the walk of a rabbit is its hop, and its run a faster hop); the stance's idle when absent.
 - `seed`: for the texture choice.
 
 The pipeline writes the animal catalog when `subjects` includes `animals`; the viewer loads it for animal documents. The JSON Schema is `schema/animal.schema.json`, and `validateAnimalDescription()` checks a document at runtime.

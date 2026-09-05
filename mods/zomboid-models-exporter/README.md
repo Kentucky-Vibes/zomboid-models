@@ -4,7 +4,7 @@ A small Project Zomboid (Build 42) mod that writes the appearance of players as 
 
 ## What it writes
 
-`Zomboid/Lua/zomboid-models/<username>.json`, one file per player, containing the body (sex, skin, body hair, hair and beard with colours, blood and dirt per body part), every worn item with its texture choice, tint, hue, decal, blood, dirt, holes, and patches, the items in both hands, the attached items, and the bandage and wound state of every body part.
+`Zomboid/Lua/zomboid-models/<username>.json`, one file per player, containing the body (sex, skin, body hair, hair and beard with colours, blood and dirt per body part), every worn item with its texture choice, tint, hue, decal, blood, dirt, holes, and patches, the items in both hands, the attached items, the bandage and wound state of every body part, and what the player was doing: the stance (sitting on the ground) and the action (driving, sleeping or lying awake, sitting on furniture, eating or drinking, attacking, aiming, or the gait while moving), read from the game's flags and animation variables.
 
 `Zomboid/Lua/zomboid-models/players.json`, the index: every player exported so far with the file name, the time of the last export in Unix seconds, whether the player was online at that time, and the vehicle they sat in. A player sitting in a vehicle also gets `vehicle-<script>-<id>.json` written, and their document links to it through `meta.vehicleId` and `meta.vehicleFile`.
 

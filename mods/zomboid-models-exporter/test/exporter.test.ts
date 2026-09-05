@@ -318,6 +318,51 @@ describe('ZomboidModels.export', () => {
     const minimal = JSON.parse(evalString(L, "written['zomboid-models/a_b_c.json']")) as unknown;
     expect(validateCharacterDescription(minimal).ok).toBe(true);
   });
+
+  it('records the stance and the action from the flags and animation variables', () => {
+    const L = newState();
+    const exported = (setup: string): CharacterDescription => {
+      run(L, `local p = makePlayer(false); ${setup}; ZomboidModels.export(p)`);
+      return JSON.parse(
+        evalString(L, "written['zomboid-models/tlagx.json']"),
+      ) as CharacterDescription;
+    };
+    const idle = exported('');
+    expect(idle.action).toBeUndefined();
+    expect(idle.stance).toBeUndefined();
+    expect(exported('p.isSitOnGround = function() return true end').stance).toBe('sitting');
+    expect(
+      exported(
+        'p.isPlayerMoving = function() return true end; p.isRunning = function() return true end',
+      ).action,
+    ).toBe('run');
+    expect(
+      exported(
+        'p.isPlayerMoving = function() return true end; p.isSneaking = function() return true end',
+      ).action,
+    ).toBe('sneak');
+    expect(exported('p.isPlayerMoving = function() return true end').action).toBe('walk');
+    expect(exported('p.isAiming = function() return true end').action).toBe('aim');
+    expect(exported('p.isAsleep = function() return true end').action).toBe('sleep');
+    expect(
+      exported(
+        "p.getVariableString = function(self, name) if name == 'PerformingAction' then return 'drink' end return nil end",
+      ).action,
+    ).toBe('drink');
+    expect(
+      exported(
+        "p.getVariableString = function(self, name) if name == 'SitOnFurnitureAnim' then return 'Idle' end return nil end",
+      ).action,
+    ).toBe('sitChair');
+    expect(
+      exported('p.getVehicle = function() return { isDriver = function() return true end } end')
+        .action,
+    ).toBe('drive');
+    expect(
+      exported('p.getVehicle = function() return { isDriver = function() return false end } end')
+        .action,
+    ).toBeUndefined();
+  });
 });
 
 describe('ZomboidModels.exportVehicle', () => {

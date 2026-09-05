@@ -1,6 +1,11 @@
-import type { AnimalCatalog, ManifestAnimal, ManifestClip } from 'zomboid-models/format';
+import type {
+  AnimalAction,
+  AnimalCatalog,
+  ManifestAnimal,
+  ManifestClip,
+} from 'zomboid-models/format';
 
-import { clipOf, pickStanceNode, type AnimNode } from '../game/animSets.js';
+import { clipOf, pickNode, pickStanceNode, type AnimNode } from '../game/animSets.js';
 import type { AnimalDefinition } from '../game/animals.js';
 import { resolveModel, type GameCatalog } from '../game/catalog.js';
 import type { ActiveFileMap } from '../game/fileMap.js';
@@ -27,6 +32,19 @@ const ANIMAL_STANCE_SOURCES: Record<
   standing: { state: 'idle', node: 'idle1' },
   sitting: { state: 'idle', node: 'idleSit' },
   corpse: { state: 'deadbody', node: 'deadbody' },
+};
+
+/**
+ * The actions of an animal: the state folder and the variables the game holds while it walks
+ * (`animalRunning` off), runs, or eats (`idleAction` set to `eat`, no eating variant).
+ */
+const ANIMAL_ACTION_SOURCES: Record<
+  AnimalAction,
+  { state: string; variables: Record<string, string> }
+> = {
+  walk: { state: 'walk', variables: { animalRunning: 'false' } },
+  run: { state: 'walk', variables: { animalRunning: 'true' } },
+  eat: { state: 'eating', variables: { idleAction: 'eat' } },
 };
 
 /**
@@ -132,6 +150,17 @@ export function planAnimalAssets(
         `animal ${definition.type}: no idle clip in AnimSets/${definition.animSet}/idle`,
       );
     }
+    const actions: NonNullable<ManifestAnimal['actions']> = {};
+    for (const [action, source] of Object.entries(ANIMAL_ACTION_SOURCES) as [
+      AnimalAction,
+      { state: string; variables: Record<string, string> },
+    ][]) {
+      const node = pickNode(loadStateNodes(definition.animSet, source.state), source.variables);
+      if (node?.animName === undefined) continue;
+      const clip = clipOf(node, node.animName);
+      actions[action] = clip;
+      plan.animations.add(clip.clip);
+    }
 
     plan.animals[definition.type] = {
       group: definition.group,
@@ -141,6 +170,7 @@ export function planAnimalAssets(
       textures,
       animSet: definition.animSet,
       stances,
+      ...(Object.keys(actions).length > 0 ? { actions } : {}),
       minSize: definition.minSize,
       maxSize: definition.maxSize,
       breeds,

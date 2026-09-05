@@ -5,7 +5,8 @@
  * the catalog of the document it is showing.
  */
 
-import type { BodyPart, Sex, Stance } from './types.js';
+import type { AnimalAction } from './animal.js';
+import type { BodyPart, CharacterAction, Sex, Stance } from './types.js';
 
 export const MANIFEST_FORMAT = 'zomboid-models/manifest';
 export const MANIFEST_VERSION = 2;
@@ -129,6 +130,12 @@ export interface ManifestHeldItem {
   displayName?: string;
   /** `ConditionMax` from the item script; the game rolls a zombie's weapon condition from it. */
   conditionMax?: number;
+  /** `BaseSpeed` from the item script, a factor of the attack speed; 1 when absent. */
+  baseSpeed?: number;
+  /** The item is an axe: the game chops with it at 0.8 of the attack speed. */
+  axe?: true;
+  /** `EatType` from the item script: how the character holds it while eating or drinking. */
+  eatType?: string;
 }
 
 export interface ManifestBodyLocation {
@@ -160,10 +167,27 @@ export interface ManifestBeardStyle {
  * A clip the game plays in some state, with the speed multiplier of its animation node. The
  * random multiplier and the random start fraction are rolled once per character, as in the game.
  */
-export interface ManifestClip {
+/** One clip of a blended node with the share it gets; the shares add up to one. */
+export interface ManifestClipBlend {
   clip: string;
+  weight: number;
+}
+
+export interface ManifestClip {
+  /** The clip, or the heaviest clip of the blend. */
+  clip: string;
+  /**
+   * The clips the game blends at the state's point of the node's 2D blend, played together in
+   * step at these weights; absent for a plain clip.
+   */
+  blend?: ManifestClipBlend[];
   /** `m_SpeedScale` of the node, 1 when absent. */
   speed: number;
+  /**
+   * The variable `m_SpeedScale` names instead of a number (`CombatSpeed`, `IdleSpeed`,
+   * `EatSpeed`...); the viewer resolves it as the game would for a healthy character.
+   */
+  speedVariable?: string;
   /** `m_SpeedScaleRandomMultiplierMin` and `Max`, when the node has them. */
   speedRandom?: [number, number];
   /** `m_randomAdvanceFraction`: the clip may start anywhere in this leading fraction. */
@@ -173,6 +197,20 @@ export interface ManifestClip {
 export interface ManifestIdleClips {
   default: ManifestClip;
   byWeaponType: Partial<Record<ManifestWeaponType, ManifestClip>>;
+}
+
+/**
+ * The clips of one action: the plain one, and the variants the game's animation sets give it
+ * by weapon type (players), by food type (eating and drinking), or by gait (zombies, whose
+ * walk type the seed picks).
+ */
+export interface ManifestActionClips {
+  default?: ManifestClip;
+  byWeaponType?: Partial<Record<ManifestWeaponType, ManifestClip>>;
+  /** Keyed by the game's `FoodType` value in lower case; the held item's `eatType` maps to it. */
+  byFoodType?: Record<string, ManifestClip>;
+  /** One clip per gait the game rolls, in the game's order; the seed picks the index. */
+  byGait?: ManifestClip[];
 }
 
 /** A shirt decal: a texture drawn into a rectangle of the item texture's 256-unit space. */
@@ -305,6 +343,12 @@ export interface CharacterCatalog {
   shadowTexture?: string;
   /** Texture keys of the blood overlay and its mask for held weapons. */
   weaponBlood?: { overlay: string; mask: string };
+  /** Clips per action for players, standing zombies, and crawling zombies. */
+  actions?: {
+    player: Partial<Record<CharacterAction, ManifestActionClips>>;
+    zombie: Partial<Record<CharacterAction, ManifestActionClips>>;
+    crawler: Partial<Record<CharacterAction, ManifestActionClips>>;
+  };
   /** Clips per stance for players and zombies. */
   stances: {
     player: Partial<Record<Stance, ManifestClip>>;
@@ -389,6 +433,8 @@ export interface ManifestAnimal {
   animSet: string;
   /** Clips per stance from the type's animation set. */
   stances: Partial<Record<'standing' | 'sitting' | 'corpse', ManifestClip>>;
+  /** Clips per action, from the animal's animation set. */
+  actions?: Partial<Record<AnimalAction, ManifestClip>>;
   minSize: number;
   maxSize: number;
   breeds: Record<string, ManifestAnimalBreed>;

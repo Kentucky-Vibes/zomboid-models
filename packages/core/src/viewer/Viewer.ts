@@ -12,7 +12,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { autoAnimalClip, buildAnimal } from '../animal/AnimalBuilder.js';
 import { getAssetCache, type AssetCache } from '../assets/AssetCache.js';
 import { ATTRIBUTION_TEXT } from '../attribution.js';
-import { autoClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
+import { autoClip, buildCharacter, loadClipSet } from '../character/CharacterBuilder.js';
 import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
 import { ANIMAL_FORMAT, type AnimalDescription } from '../format/animal.js';
 import type { SubjectDescription } from '../format/document.js';
@@ -22,6 +22,7 @@ import type {
   AnimalCatalog,
   CharacterCatalog,
   ItemCatalog,
+  ManifestClip,
   VehicleCatalog,
 } from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
@@ -432,30 +433,31 @@ export class Viewer implements FrameListener {
   ): Promise<void> {
     const document = this.document;
     const speed = this.options.animationSpeed ?? 1;
-    let name: string | null | undefined = this.options.animation;
+    const name: string | null | undefined = this.options.animation;
+    let entry: Pick<ManifestClip, 'clip' | 'blend'> | null = name ? { clip: name } : null;
     let timeScale = speed;
     let startFraction = 0;
     if (document && (isItem(document) || isVehicle(document) || isScene(document))) {
-      name = null;
+      entry = null;
     } else if (name === undefined && document) {
       if (isAnimal(document)) {
         const auto = autoAnimalClip(catalog as AnimalCatalog, document);
-        name = auto?.clip ?? null;
+        entry = auto ?? null;
         timeScale = (auto?.speed ?? 1) * speed;
       } else {
         const auto = autoClip(catalog as CharacterCatalog, document);
-        name = auto.clip;
+        entry = auto;
         timeScale = auto.timeScale * speed;
         startFraction = auto.startFraction;
       }
     }
-    const clip =
-      name === null || name === undefined || !('animations' in catalog)
-        ? null
-        : await loadClip(this.cache, catalog, name, rig.warnings);
+    const clips =
+      entry === null || !('animations' in catalog)
+        ? []
+        : await loadClipSet(this.cache, catalog, entry, rig.warnings);
     if (generation !== this.generation) return;
-    this.clip = clip;
-    rig.playClip(clip, { timeScale, startFraction });
+    this.clip = clips[0]?.clip ?? null;
+    rig.playClips(clips, { timeScale, startFraction });
     if (this.options.poseTime !== undefined) rig.freezeAt(this.options.poseTime);
     // Pose the skeleton once so the framing sees a lying or sitting body as it is, not the bind pose.
     rig.update(0);

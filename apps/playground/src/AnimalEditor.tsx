@@ -1,9 +1,11 @@
 import {
+  ANIMAL_ACTIONS,
   ANIMAL_STANCES,
   ANIMAL_VARIANTS,
   displayName,
   type AnimalCatalog,
   type AnimalDescription,
+  type AnimalAction,
   type AnimalStance,
   type AnimalVariant,
   type NamesCatalog,
@@ -185,6 +187,25 @@ export function AnimalEditor({ catalog, animal, onChange, names }: AnimalEditorP
           {ANIMAL_STANCES.map((stance) => (
             <option key={stance} value={stance}>
               {stance}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Action">
+        <select
+          value={animal.action ?? ''}
+          onChange={(e) =>
+            onChange(
+              e.target.value === ''
+                ? without(animal, 'action')
+                : { ...animal, action: e.target.value as AnimalAction },
+            )
+          }
+        >
+          <option value="">idle</option>
+          {ANIMAL_ACTIONS.map((action) => (
+            <option key={action} value={action}>
+              {action}
             </option>
           ))}
         </select>

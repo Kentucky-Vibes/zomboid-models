@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildIdleClipTable, parseAnimNode, weaponTypeOf } from '../src/game/animSets.js';
+import {
+  blendWeights,
+  blendedClipOf,
+  buildIdleClipTable,
+  clipOf,
+  conditionsHold,
+  parseAnimNode,
+  pickNode,
+  weaponTypeOf,
+  type AnimNode,
+} from '../src/game/animSets.js';
 import {
   bodyLocationId,
   parseAttachedLocationsLua,
@@ -82,6 +92,12 @@ describe('idle animation nodes', () => {
       looped: true,
       conditions: [{ name: 'Weapon', type: 'STRING', value: 'firearm' }],
       weapon: 'firearm',
+      scalarX: undefined,
+      scalarY: undefined,
+      blends: [],
+      triangles: [],
+      speedVariable: undefined,
+      priority: 0,
     });
     expect(parseAnimNode('<other/>')).toBeUndefined();
     const nodes = [idle, rifle, sneak]
@@ -106,6 +122,130 @@ describe('idle animation nodes', () => {
       speedRandom: [0.2, 1.25],
       randomStart: 0.5,
     });
+  });
+
+  it('reads 2D blends and weighs the clips at a point', () => {
+    const walk = parseAnimNode(
+      '<animNode><m_Name>defaultWalk</m_Name><m_AnimName>Bob_Walk</m_AnimName><m_SpeedScale>1.04</m_SpeedScale><m_Scalar>WalkInjury</m_Scalar><m_Scalar2>WalkSpeed</m_Scalar2><m_2DBlends><m_AnimName>Bob_WalkLightLimpR</m_AnimName><m_XPos>0.50</m_XPos><m_YPos>1.00</m_YPos></m_2DBlends><m_2DBlends><m_AnimName>Bob_Walk</m_AnimName><m_XPos>0.00</m_XPos><m_YPos>1.00</m_YPos></m_2DBlends><m_2DBlends><m_AnimName>Bob_WalkSlow</m_AnimName><m_XPos>0.00</m_XPos><m_YPos>0.00</m_YPos></m_2DBlends><m_2DBlendTri><node1>3</node1><node2>1</node2><node3>2</node3></m_2DBlendTri></animNode>',
+    );
+    expect(walk).toMatchObject({
+      scalarX: 'WalkInjury',
+      scalarY: 'WalkSpeed',
+      blends: [
+        { animName: 'Bob_WalkLightLimpR', x: 0.5, y: 1 },
+        { animName: 'Bob_Walk', x: 0, y: 1 },
+        { animName: 'Bob_WalkSlow', x: 0, y: 0 },
+      ],
+      triangles: [[2, 0, 1]],
+    });
+    if (!walk) return;
+    expect(blendWeights(walk, 0, 0.8)).toEqual([
+      { clip: 'Bob_Walk', weight: expect.closeTo(0.8, 6) as number },
+      { clip: 'Bob_WalkSlow', weight: expect.closeTo(0.2, 6) as number },
+    ]);
+    expect(blendWeights(walk, 0.25, 1)).toEqual([
+      { clip: 'Bob_WalkLightLimpR', weight: expect.closeTo(0.5, 6) as number },
+      { clip: 'Bob_Walk', weight: expect.closeTo(0.5, 6) as number },
+    ]);
+    // Outside every triangle the nearest entry plays alone.
+    expect(blendWeights(walk, -1, 1)).toEqual([{ clip: 'Bob_Walk', weight: 1 }]);
+    expect(blendedClipOf(walk, 0, 0.8)).toEqual({
+      clip: 'Bob_Walk',
+      speed: 1.04,
+      blend: [
+        { clip: 'Bob_Walk', weight: expect.closeTo(0.8, 6) as number },
+        { clip: 'Bob_WalkSlow', weight: expect.closeTo(0.2, 6) as number },
+      ],
+    });
+    expect(blendedClipOf(walk, 0, 1)).toEqual({ clip: 'Bob_Walk', speed: 1.04 });
+  });
+
+  it('merges an extended node over its parent and keeps a speed variable', () => {
+    const files: Record<string, string> = {
+      'defaultWalktoward.xml': `<animNode><m_Name>defaultWalktoward</m_Name><m_SpeedScale>0.80</m_SpeedScale>
+        <m_randomAdvanceFraction>0.25</m_randomAdvanceFraction>
+        <m_Conditions x_name="a"><m_Name>intrees</m_Name><m_Type>BOOL</m_Type><m_Value>false</m_Value></m_Conditions>
+        <m_2DBlends><m_AnimName>Base_A</m_AnimName><m_XPos>0</m_XPos><m_YPos>0</m_YPos></m_2DBlends>
+        <m_2DBlends><m_AnimName>Base_B</m_AnimName><m_XPos>0</m_XPos><m_YPos>1</m_YPos></m_2DBlends></animNode>`,
+      'walktoward1.xml': `<animNode x_extends="defaultWalktoward.xml"><m_Name>walktoward1</m_Name><m_AnimName>Zombie_Walk</m_AnimName>
+        <m_SpeedScale>0.92</m_SpeedScale>
+        <m_Conditions x_name="b"><m_Name>zombieWalkType</m_Name><m_Type>STRING</m_Type><m_Value>1</m_Value></m_Conditions>
+        <m_2DBlends><m_AnimName>Child_A</m_AnimName></m_2DBlends></animNode>`,
+      'sprintWalk1.xml': `<animNode x_extends="walktoward1.xml"><m_Name>sprintWalk1</m_Name>
+        <m_Conditions x_name="b"><m_Name>zombieWalkType</m_Name><m_Type>STRING</m_Type><m_Value>sprint1</m_Value></m_Conditions></animNode>`,
+      'eating.xml': `<animNode><m_Name>eating</m_Name><m_AnimName>Zombie_IdleEating</m_AnimName><m_SpeedScale>EatSpeed</m_SpeedScale></animNode>`,
+    };
+    const load = (name: string): string | undefined => files[name];
+    const walk = parseAnimNode(files['walktoward1.xml'] as string, load);
+    expect(walk).toMatchObject({
+      name: 'walktoward1',
+      animName: 'Zombie_Walk',
+      speed: 0.92,
+      randomStart: 0.25,
+      conditions: [
+        { name: 'intrees', type: 'BOOL', value: 'false' },
+        { name: 'zombieWalkType', type: 'STRING', value: '1' },
+      ],
+      // Blend entries without a name replace the parent's entries at the same position.
+      blends: [
+        { animName: 'Child_A', x: 0, y: 0 },
+        { animName: 'Base_B', x: 0, y: 1 },
+      ],
+    });
+    const sprintWalk = parseAnimNode(files['sprintWalk1.xml'] as string, load);
+    expect(sprintWalk?.conditions).toEqual([
+      { name: 'intrees', type: 'BOOL', value: 'false' },
+      { name: 'zombieWalkType', type: 'STRING', value: 'sprint1' },
+    ]);
+    expect(sprintWalk?.speed).toBe(0.92);
+    const eating = parseAnimNode(files['eating.xml'] as string, load);
+    expect(eating?.speed).toBe(1);
+    expect(eating?.speedVariable).toBe('EatSpeed');
+    expect(clipOf(eating as AnimNode, 'Zombie_IdleEating')).toEqual({
+      clip: 'Zombie_IdleEating',
+      speed: 1,
+      speedVariable: 'EatSpeed',
+    });
+  });
+
+  it('evaluates conditions as the game does and picks the most specific node', () => {
+    const node = (name: string, conditions: string): AnimNode =>
+      parseAnimNode(
+        `<animNode><m_Name>${name}</m_Name><m_AnimName>${name}</m_AnimName>${conditions}</animNode>`,
+      ) as AnimNode;
+    const cond = (name: string, type: string, value: string): string =>
+      `<m_Conditions><m_Name>${name}</m_Name><m_Type>${type}</m_Type><m_Value>${value}</m_Value></m_Conditions>`;
+    const plain = node('plain', cond('intrees', 'BOOL', 'false'));
+    const walk3 = node(
+      'walk3',
+      cond('intrees', 'BOOL', 'false') + cond('zombieWalkType', 'STRING', '3'),
+    );
+    const far = node('far', cond('targetSeenTime', 'GTR', '0.5'));
+    const notKnife = node(
+      'notKnife',
+      cond('Weapon', 'STRNEQ', 'knife') + cond('Weapon', 'STRING', ''),
+    );
+    const either = node(
+      'either',
+      cond('Weapon', 'STRING', '') +
+        cond('Aim', 'BOOL', 'false') +
+        cond('', 'OR', '') +
+        cond('Weapon', 'STRING', '1handed') +
+        cond('Aim', 'BOOL', 'false'),
+    );
+    // Unset variables read as false and as the empty string; numeric tests need a value.
+    expect(conditionsHold(plain, {})).toBe(true);
+    expect(conditionsHold(walk3, { ZombieWalkType: '3' })).toBe(true);
+    expect(conditionsHold(far, {})).toBe(false);
+    expect(conditionsHold(far, { targetSeenTime: '1' })).toBe(true);
+    expect(conditionsHold(notKnife, {})).toBe(true);
+    expect(conditionsHold(notKnife, { Weapon: 'knife' })).toBe(false);
+    expect(conditionsHold(either, { Weapon: '1handed' })).toBe(true);
+    expect(conditionsHold(either, { Weapon: '2handed' })).toBe(false);
+    const nodes = [plain, walk3, far].map((n) => ({ fileName: n.name, node: n }));
+    expect(pickNode(nodes, { intrees: 'false', zombieWalkType: '3' })?.name).toBe('walk3');
+    expect(pickNode(nodes, { intrees: 'false', zombieWalkType: '1' })?.name).toBe('plain');
+    expect(pickNode(nodes, { intrees: 'true' })).toBeUndefined();
   });
 
   it('derives weapon types from item scripts', () => {

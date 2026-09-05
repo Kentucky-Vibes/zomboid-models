@@ -239,6 +239,72 @@ function M.describeDamage(character)
 end
 
 --- The whole document as a Lua table.
+--- The pose the game draws the character in when it is not standing: sitting on the ground.
+function M.describeStance(character)
+    if try(character, 'isSitOnGround') == true then
+        return 'sitting'
+    end
+    return nil
+end
+
+--- The animation variable of the character in lower case, or an empty string.
+local function animVariable(character, name)
+    local value = try(character, 'getVariableString', name)
+    if value == nil then
+        return ''
+    end
+    return string.lower(tostring(value))
+end
+
+--- What the character is doing, as the document's `action`, or nil when it stands idle. Read
+--- from the flags the game keeps and the animation variables its states set: driving, sleeping
+--- and lying on a bed, sitting on furniture, eating and drinking, attacking, aiming, and the
+--- gait while moving.
+function M.describeAction(character)
+    local vehicle = try(character, 'getVehicle')
+    if vehicle ~= nil then
+        if try(vehicle, 'isDriver', character) == true then
+            return 'drive'
+        end
+        return nil
+    end
+    if try(character, 'isAsleep') == true then
+        return 'sleep'
+    end
+    if animVariable(character, 'OnBedAnim') == 'awake' then
+        return 'lieAwake'
+    end
+    if animVariable(character, 'SitOnFurnitureAnim') == 'idle' then
+        return 'sitChair'
+    end
+    local performing = animVariable(character, 'PerformingAction')
+    if performing == 'eat' then
+        return 'eat'
+    end
+    if performing == 'drink' or performing == 'drink_tap' then
+        return 'drink'
+    end
+    if try(character, 'isAttacking') == true then
+        return 'attack'
+    end
+    if try(character, 'isAiming') == true then
+        return 'aim'
+    end
+    if try(character, 'isPlayerMoving') == true then
+        if try(character, 'isSprinting') == true then
+            return 'sprint'
+        end
+        if try(character, 'isRunning') == true then
+            return 'run'
+        end
+        if try(character, 'isSneaking') == true then
+            return 'sneak'
+        end
+        return 'walk'
+    end
+    return nil
+end
+
 function M.describe(character)
     return {
         format = M.FORMAT,
@@ -248,6 +314,8 @@ function M.describe(character)
         held = M.describeHeld(character),
         attached = M.describeAttached(character),
         damage = M.describeDamage(character),
+        stance = M.describeStance(character),
+        action = M.describeAction(character),
         meta = {
             exporter = 'ZomboidModelsExporter',
             username = try(character, 'getUsername'),

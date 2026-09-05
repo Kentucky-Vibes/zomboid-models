@@ -5,6 +5,7 @@ import {
   STANCES,
   type BodyPart,
   type CharacterDescription,
+  CHARACTER_ACTIONS,
 } from './types.js';
 
 export type ValidationResult =
@@ -27,6 +28,7 @@ const DAMAGE_FLAGS = [
 ];
 const BODY_PART_SET: ReadonlySet<string> = new Set(BODY_PARTS);
 const STANCE_SET: ReadonlySet<string> = new Set(STANCES);
+const ACTION_SET: ReadonlySet<string> = new Set(CHARACTER_ACTIONS);
 const SKELETON_KINDS = new Set(['burned', 'plain', 'muscle']);
 
 class Checker {
@@ -227,6 +229,12 @@ function checkStance(c: Checker, value: unknown): void {
   }
 }
 
+function checkAction(c: Checker, value: unknown): void {
+  if (value !== undefined && (typeof value !== 'string' || !ACTION_SET.has(value))) {
+    c.fail('action', `must be one of ${CHARACTER_ACTIONS.join(', ')}`);
+  }
+}
+
 /** Checks that a parsed JSON value is a character description and narrows its type. */
 export function validateCharacterDescription(value: unknown): ValidationResult {
   const c = new Checker();
@@ -244,6 +252,7 @@ export function validateCharacterDescription(value: unknown): ValidationResult {
   c.optionalArray(doc['worn'], 'worn', (entry, path) => checkWornItem(c, entry, path));
   checkOutfit(c, doc['outfit']);
   checkStance(c, doc['stance']);
+  checkAction(c, doc['action']);
   const held = c.optionalRecord(doc['held'], 'held');
   if (held) {
     checkHeldItem(c, held['primary'], 'held.primary');

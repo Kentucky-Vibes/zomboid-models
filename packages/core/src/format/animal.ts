@@ -31,6 +31,11 @@ export const ANIMAL_STANCES = ['standing', 'sitting', 'corpse'] as const;
 
 export type AnimalStance = (typeof ANIMAL_STANCES)[number];
 
+/** What an animal is doing, as a looped clip from its animation set; idle when absent. */
+export const ANIMAL_ACTIONS = ['walk', 'run', 'eat'] as const;
+
+export type AnimalAction = (typeof ANIMAL_ACTIONS)[number];
+
 export interface AnimalDescription {
   format: typeof ANIMAL_FORMAT;
   version: typeof ANIMAL_FORMAT_VERSION;
@@ -51,6 +56,8 @@ export interface AnimalDescription {
   /** Hue shift from -1 to 1, as the game's `HueChange`. */
   hue?: number;
   stance?: AnimalStance;
+  /** What the animal is doing; the idle of the stance when absent. */
+  action?: AnimalAction;
   /** Seed for the texture choice when `texture` is absent. */
   seed?: number;
   /** Free-form data for the producer of the document; the renderer ignores it. */
@@ -62,6 +69,7 @@ export type AnimalValidationResult =
 
 const VARIANT_SET: ReadonlySet<string> = new Set(ANIMAL_VARIANTS);
 const STANCE_SET: ReadonlySet<string> = new Set(ANIMAL_STANCES);
+const ACTION_SET: ReadonlySet<string> = new Set(ANIMAL_ACTIONS);
 
 function unit(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
@@ -122,6 +130,10 @@ export function validateAnimalDescription(value: unknown): AnimalValidationResul
   const stance = doc['stance'];
   if (stance !== undefined && (typeof stance !== 'string' || !STANCE_SET.has(stance))) {
     errors.push(`stance: must be one of ${ANIMAL_STANCES.join(', ')}`);
+  }
+  const action = doc['action'];
+  if (action !== undefined && (typeof action !== 'string' || !ACTION_SET.has(action))) {
+    errors.push(`action: must be one of ${ANIMAL_ACTIONS.join(', ')}`);
   }
   if (doc['seed'] !== undefined && !Number.isInteger(doc['seed'])) {
     errors.push('seed: must be an integer');

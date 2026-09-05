@@ -1,5 +1,6 @@
 import type {
   BodyPart,
+  ManifestActionClips,
   ManifestAttachment,
   ManifestClothingItem,
   ManifestHeldItem,
@@ -13,7 +14,7 @@ import type { ClothingItemXml } from '../game/clothingXml.js';
 import { textureKeyFromReference } from '../game/clothingXml.js';
 import type { ActiveFileMap } from '../game/fileMap.js';
 import { javaHashMapOrder } from '../game/javaOrder.js';
-import { entryValue, entryValues } from '../game/scripts.js';
+import { entryValue, entryValues, type ScriptBlock } from '../game/scripts.js';
 import { mirrorAttachmentZ } from '../x/mirror.js';
 
 export const BODY_MODELS = { male: 'skinned/malebody', female: 'skinned/femalebody' } as const;
@@ -190,6 +191,11 @@ export function planAssets(
     ...Object.values(catalog.stances.player),
     ...Object.values(catalog.stances.zombie),
   ].map((clip) => clip.clip);
+  const actionClips = [
+    ...Object.values(catalog.actions.player),
+    ...Object.values(catalog.actions.zombie),
+    ...Object.values(catalog.actions.crawler),
+  ].flatMap((clips) => actionClipNames(clips));
   const plan: AssetPlan = {
     models: new Set([
       BODY_MODELS.male,
@@ -202,6 +208,7 @@ export function planAssets(
       catalog.idle.default.clip,
       ...Object.values(catalog.idle.byWeaponType).map((clip) => clip.clip),
       ...stanceClips,
+      ...actionClips,
       ...(catalog.vehicleIdle ? [catalog.vehicleIdle.clip] : []),
       ...extraAnimations,
     ]),
@@ -292,6 +299,7 @@ export function planAssets(
       const held: ManifestHeldItem = {
         model: model.mesh,
         weaponType: weaponTypeOf(item.block),
+        ...combatFields(item.block),
         scale: model.scale,
         attachments: manifestAttachments(model),
       };
@@ -317,4 +325,33 @@ export function planAssets(
   for (const decal of Object.values(catalog.decals)) plan.textures.add(decal.texture);
 
   return plan;
+}
+
+/**
+ * The script values the attack and eating clips depend on: `BaseSpeed`, the axe category
+ * (`Categories` lists `Axe`), and `EatType`.
+ */
+function combatFields(block: ScriptBlock): Pick<ManifestHeldItem, 'baseSpeed' | 'axe' | 'eatType'> {
+  const fields: Pick<ManifestHeldItem, 'baseSpeed' | 'axe' | 'eatType'> = {};
+  const baseSpeed = Number(entryValue(block, 'BaseSpeed'));
+  if (Number.isFinite(baseSpeed) && baseSpeed > 0 && baseSpeed !== 1) fields.baseSpeed = baseSpeed;
+  // Categories are resource ids such as `base:axe`; the module prefix is not part of the name.
+  const categories = (entryValue(block, 'Categories') ?? '')
+    .split(';')
+    .map((c) => (c.trim().toLowerCase().split(':').pop() ?? '').trim());
+  if (categories.includes('axe')) fields.axe = true;
+  const eatType = entryValue(block, 'EatType')?.trim();
+  if (eatType) fields.eatType = eatType;
+  return fields;
+}
+
+/** Every clip an action entry can play, blends included. */
+function actionClipNames(clips: ManifestActionClips): string[] {
+  const entries = [
+    ...(clips.default ? [clips.default] : []),
+    ...Object.values(clips.byWeaponType ?? {}),
+    ...Object.values(clips.byFoodType ?? {}),
+    ...(clips.byGait ?? []),
+  ];
+  return entries.flatMap((clip) => [clip.clip, ...(clip.blend ?? []).map((b) => b.clip)]);
 }

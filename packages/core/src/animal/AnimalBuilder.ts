@@ -1,6 +1,7 @@
 import { Color, type Texture } from 'three';
 
 import type { AssetCache } from '../assets/AssetCache.js';
+import { resolveSpeedVariable } from '../character/CharacterBuilder.js';
 import { CharacterRig, type RigWarning } from '../character/CharacterRig.js';
 import { GAME_MODEL_SCALE } from '../character/scale.js';
 import { characterShadowParams, createCharacterShadow } from '../character/shadow.js';
@@ -147,7 +148,13 @@ export function autoAnimalClip(
   const animal = catalog.animals[description.type];
   if (!animal) return undefined;
   const stance: AnimalStance = description.stance ?? 'standing';
-  return animal.stances[stance] ?? animal.stances.standing;
+  const action =
+    description.action === undefined ? undefined : animal.actions?.[description.action];
+  const clip = action ?? animal.stances[stance] ?? animal.stances.standing;
+  if (clip?.speedVariable === undefined) return clip;
+  // The game reads the variable at play time; an animal on its own has the default value.
+  const { speed } = resolveSpeedVariable(clip.speedVariable, undefined);
+  return { ...clip, speed: clip.speed * speed };
 }
 
 async function composeHue(

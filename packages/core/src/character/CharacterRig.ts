@@ -29,6 +29,18 @@ export interface RigWarning {
   message: string;
 }
 
+/** How a clip or a blend of clips plays: the speed multiplier and where in the cycle to start. */
+export interface ClipPlayback {
+  timeScale?: number;
+  startFraction?: number;
+}
+
+/** One clip of a blend and its share of the mix. */
+export interface ClipBlendEntry {
+  clip: AnimationClip;
+  weight: number;
+}
+
 export interface RigPart {
   /** Full item type for worn items, `body`, `hair`, or `beard`. */
   key: string;
@@ -52,7 +64,8 @@ export class CharacterRig extends Group {
   private readonly attachmentNodes = new Map<string, Object3D[]>();
   private readonly ownedTextures: Texture[] = [];
   private readonly childRigs: CharacterRig[] = [];
-  private action: AnimationAction | undefined;
+  /** The clips playing, with the factor that keeps each in step with the blend's shared time. */
+  private actions: { action: AnimationAction; ratio: number }[] = [];
   private shadow: Object3D | undefined;
   /** Rebuilds the shadow for the current pose; installed by the builders, called after posing. */
   shadowUpdater: (() => void) | undefined;
@@ -279,7 +292,7 @@ export class CharacterRig extends Group {
 
   /** Whether this rig or any child plays a clip. */
   get animated(): boolean {
-    return this.action !== undefined || this.childRigs.some((rig) => rig.animated);
+    return this.actions.length > 0 || this.childRigs.some((rig) => rig.animated);
   }
 
   /** Advances every clip of this rig and its children by the time in seconds. */
@@ -317,45 +330,71 @@ export class CharacterRig extends Group {
     this.attachmentNodes.delete(key);
   }
 
-  /** Plays a clip, ignoring tracks that target bones this rig does not have. */
   /**
-   * Plays a clip in a loop. `timeScale` is the speed multiplier and `startFraction` the point of
-   * the clip to start from, both from the game's animation node when the clip is an idle.
+   * Plays a clip in a loop, ignoring tracks that target bones this rig does not have.
+   * `timeScale` is the speed multiplier and `startFraction` the point of the clip to start
+   * from, both from the game's animation node when the clip is an idle.
    */
-  playClip(
-    clip: AnimationClip | null,
-    options: { timeScale?: number; startFraction?: number } = {},
-  ): void {
-    this.action?.stop();
-    this.action = undefined;
-    if (!clip) return;
-    const tracks = clip.tracks.filter((track) =>
-      this.bones.has(track.name.slice(0, track.name.lastIndexOf('.'))),
+  playClip(clip: AnimationClip | null, options: ClipPlayback = {}): void {
+    this.playClips(clip ? [{ clip, weight: 1 }] : [], options);
+  }
+
+  /**
+   * Plays several clips together in a loop, each at its weight, the way the game's 2D blends
+   * mix a walk with a limp or a slower walk. The clips run in step: a cycle takes the weighted
+   * mean of their lengths, and every clip is stretched to it.
+   */
+  playClips(entries: readonly ClipBlendEntry[], options: ClipPlayback = {}): void {
+    for (const { action } of this.actions) action.stop();
+    this.actions = [];
+    const usable = entries
+      .filter((entry) => entry.weight > 0)
+      .map((entry) => ({ clip: this.usableClip(entry.clip), weight: entry.weight }));
+    if (usable.length === 0) return;
+    const total = usable.reduce((sum, entry) => sum + entry.weight, 0);
+    const cycle = usable.reduce(
+      (sum, entry) => sum + (entry.weight / total) * entry.clip.duration,
+      0,
     );
-    const usable =
-      tracks.length === clip.tracks.length
-        ? clip
-        : new AnimationClip(clip.name, clip.duration, tracks);
-    this.action = this.mixer.clipAction(usable);
-    this.action.reset();
-    this.action.timeScale = options.timeScale ?? 1;
-    this.action.time = (options.startFraction ?? 0) * usable.duration;
-    this.action.play();
+    const timeScale = options.timeScale ?? 1;
+    const startFraction = options.startFraction ?? 0;
+    for (const entry of usable) {
+      const ratio = cycle > 0 ? entry.clip.duration / cycle : 1;
+      const action = this.mixer.clipAction(entry.clip);
+      action.reset();
+      action.setEffectiveWeight(entry.weight / total);
+      action.timeScale = timeScale * ratio;
+      action.time = startFraction * entry.clip.duration;
+      action.play();
+      this.actions.push({ action, ratio });
+    }
   }
 
   /** Moves the animation to a time and stops there, in this rig and its children. */
   freezeAt(seconds: number): void {
     for (const rig of this.childRigs) rig.freezeAt(seconds);
-    if (!this.action) return;
-    this.action.paused = false;
-    this.action.time = seconds;
+    if (this.actions.length === 0) return;
+    for (const { action, ratio } of this.actions) {
+      action.paused = false;
+      action.time = seconds * ratio;
+    }
     this.mixer.update(0);
-    this.action.paused = true;
+    for (const { action } of this.actions) action.paused = true;
   }
 
   resume(): void {
     for (const rig of this.childRigs) rig.resume();
-    if (this.action) this.action.paused = false;
+    for (const { action } of this.actions) action.paused = false;
+  }
+
+  /** The clip without the tracks that target bones this rig does not have. */
+  private usableClip(clip: AnimationClip): AnimationClip {
+    const tracks = clip.tracks.filter((track) =>
+      this.bones.has(track.name.slice(0, track.name.lastIndexOf('.'))),
+    );
+    return tracks.length === clip.tracks.length
+      ? clip
+      : new AnimationClip(clip.name, clip.duration, tracks);
   }
 
   /** Bounding box of the visible meshes in the rig's local space. */

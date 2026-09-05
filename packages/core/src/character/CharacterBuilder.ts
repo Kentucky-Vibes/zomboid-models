@@ -1,10 +1,16 @@
 import { Color, type AnimationClip, type Texture } from 'three';
 
 import type { AssetCache } from '../assets/AssetCache.js';
-import type { CharacterCatalog, ManifestClip } from '../format/manifest.js';
+import type {
+  CharacterCatalog,
+  ManifestClip,
+  ManifestClipBlend,
+  ManifestHeldItem,
+} from '../format/manifest.js';
 import {
   BODY_PARTS,
   type BodyPart,
+  type CharacterAction,
   type CharacterDescription,
   type PartAmounts,
   type RgbColor,
@@ -23,7 +29,7 @@ import {
 } from '../texture/characterTextures.js';
 import { BLOOD_DARK, planTextureKeys, type CompositePlan } from '../texture/plan.js';
 import type { TextureComposer } from '../texture/TextureComposer.js';
-import { CharacterRig, type RigWarning } from './CharacterRig.js';
+import { CharacterRig, type ClipBlendEntry, type RigWarning } from './CharacterRig.js';
 import { GAME_MODEL_SCALE } from './scale.js';
 import { characterShadowParams, createCharacterShadow } from './shadow.js';
 import { damageWornItems } from './damage.js';
@@ -151,16 +157,128 @@ export function prepareCharacter(
 /** The clip the game would play, with its speed and starting point for this character. */
 export interface AutoClip {
   clip: string;
+  /** The clips mixed with their shares when the game's node blends several; absent otherwise. */
+  blend?: ManifestClipBlend[];
   timeScale: number;
   startFraction: number;
+  /** Why the document's action could not be shown, when it could not. */
+  warning?: string;
 }
 
-function clipParameters(clip: ManifestClip, seed: bigint): AutoClip {
+/** A speed variable's value for a healthy character: a factor and the range the game rolls in. */
+export interface SpeedVariableValue {
+  speed: number;
+  random?: [number, number];
+}
+
+/**
+ * The value the game gives a speed variable a node names, for a healthy character with no
+ * moodles and level 0 in the weapon's skill. Unknown names give 1, the game's own fallback.
+ */
+export function resolveSpeedVariable(
+  name: string,
+  held: ManifestHeldItem | undefined,
+): SpeedVariableValue {
+  switch (name.toLowerCase()) {
+    case 'combatspeed': {
+      // IsoPlayer.calculateCombatSpeed: 0.8 times the weapon's base speed, 0.8 of that for an
+      // axe, plus 0.02 per fitness level (five by default), times a roll between 1.1 and 1.2,
+      // clamped to 0.8 to 1.6, then 1.2 for a heavy two-handed weapon.
+      const base = 0.8 * (held?.baseSpeed ?? 1) * (held?.axe ? 0.8 : 1) + 0.1;
+      const clamp = (value: number): number => Math.min(1.6, Math.max(0.8, value));
+      const heavy = held?.weaponType === 'heavy' ? 1.2 : 1;
+      return { speed: 1, random: [clamp(base * 1.1) * heavy, clamp(base * 1.2) * heavy] };
+    }
+    case 'idlespeed':
+      // 0.01 plus the endurance moodle; the aim pose all but stands still in the game.
+      return { speed: 0.01 };
+    case 'singleshootspeed':
+      return { speed: 0.8 };
+    case 'autoshootspeed':
+    case 'sneaklimpspeedscale':
+    case 'animalspeed':
+      return { speed: 1 };
+    case 'strafespeed':
+      return { speed: 0.72 };
+    case 'eatspeed':
+      // IsoZombie.setEatBodyTarget rolls it once per meal.
+      return { speed: 1, random: [0.64, 0.96] };
+    default:
+      return { speed: 1 };
+  }
+}
+
+function clipParameters(
+  clip: ManifestClip,
+  seed: bigint,
+  held?: ManifestHeldItem,
+  warning?: string,
+): AutoClip {
   const rng = new OutfitRng(seed ^ ANIMATION_SEED_SALT);
   let timeScale = clip.speed;
+  if (clip.speedVariable !== undefined) {
+    const variable = resolveSpeedVariable(clip.speedVariable, held);
+    timeScale *= variable.speed;
+    if (variable.random) timeScale *= rng.nextFloat(variable.random[0], variable.random[1]);
+  }
   if (clip.speedRandom) timeScale *= rng.nextFloat(clip.speedRandom[0], clip.speedRandom[1]);
   const startFraction = clip.randomStart === undefined ? 0 : rng.nextFloat(0, clip.randomStart);
-  return { clip: clip.clip, timeScale, startFraction };
+  return {
+    clip: clip.clip,
+    ...(clip.blend ? { blend: clip.blend } : {}),
+    timeScale,
+    startFraction,
+    ...(warning === undefined ? {} : { warning }),
+  };
+}
+
+/** The seed's pick of a zombie's gait, as `IsoZombie` rolls its walk type at spawn. */
+const GAIT_SEED_SALT = 0x6761697474n;
+
+/**
+ * `ISEatFoodAction`: the `FoodType` variable an item's `EatType` sets while it is eaten.
+ * Everything else passes through as it is.
+ */
+const EAT_FOOD_TYPES: Record<string, string> = {
+  '2handbowl': 'bowl',
+  plate: 'nospoon',
+  candrink: 'can',
+};
+
+/** The clip of a document's action for its kind, stance, held item, and seed, or nothing. */
+function actionClip(
+  catalog: CharacterCatalog,
+  description: CharacterDescription,
+  action: CharacterAction,
+  held: ManifestHeldItem | undefined,
+  seed: bigint,
+): { clip: ManifestClip | undefined; warning?: string } {
+  const stance: Stance = description.stance ?? 'standing';
+  const zombie = description.body.zombie !== undefined;
+  const tables = catalog.actions;
+  if (!tables)
+    return { clip: undefined, warning: 'the catalog has no action clips; rebuild the assets' };
+  if (zombie) {
+    const table =
+      stance === 'crawling' ? tables.crawler : stance === 'standing' ? tables.zombie : undefined;
+    const entry = table?.[action];
+    if (!entry) return { clip: undefined, warning: `a ${stance} zombie has no "${action}" action` };
+    if (entry.byGait && entry.byGait.length > 0) {
+      const gait = new OutfitRng(seed ^ GAIT_SEED_SALT).next(entry.byGait.length);
+      return { clip: entry.byGait[gait] };
+    }
+    return { clip: entry.default };
+  }
+  const entry = tables.player[action];
+  if (!entry) return { clip: undefined, warning: `players have no "${action}" action` };
+  if ((action === 'eat' || action === 'drink') && held?.eatType !== undefined) {
+    const raw = held.eatType.toLowerCase();
+    const foodType = action === 'eat' ? (EAT_FOOD_TYPES[raw] ?? raw) : raw;
+    const byFood = entry.byFoodType?.[foodType];
+    if (byFood) return { clip: byFood };
+  }
+  const byWeapon = held === undefined ? undefined : entry.byWeaponType?.[held.weaponType];
+  return { clip: byWeapon ?? entry.default };
 }
 
 /**
@@ -171,17 +289,23 @@ export function autoClip(catalog: CharacterCatalog, description: CharacterDescri
   const stance: Stance = description.stance ?? 'standing';
   const zombie = description.body.zombie !== undefined;
   const seed = seedOf(description);
+  const primary = description.held?.primary?.item;
+  const held = primary === undefined ? undefined : catalog.heldItems[primary];
+  let warning: string | undefined;
+  if (description.action !== undefined) {
+    const found = actionClip(catalog, description, description.action, held, seed);
+    if (found.clip) return clipParameters(found.clip, seed, held);
+    warning = found.warning;
+  }
   if (zombie) {
     const clip = catalog.stances.zombie[stance] ?? catalog.stances.zombie.standing;
-    if (clip) return clipParameters(clip, seed);
+    if (clip) return clipParameters(clip, seed, held, warning);
   } else if (stance !== 'standing') {
     const clip = catalog.stances.player[stance];
-    if (clip) return clipParameters(clip, seed);
+    if (clip) return clipParameters(clip, seed, held, warning);
   }
-  const primary = description.held?.primary?.item;
-  const weaponType = primary === undefined ? undefined : catalog.heldItems[primary]?.weaponType;
-  const byType = weaponType === undefined ? undefined : catalog.idle.byWeaponType[weaponType];
-  return clipParameters(byType ?? catalog.idle.default, seed);
+  const byType = held === undefined ? undefined : catalog.idle.byWeaponType[held.weaponType];
+  return clipParameters(byType ?? catalog.idle.default, seed, held, warning);
 }
 
 /** The idle clip name the game would play; kept from the first releases. */
@@ -533,6 +657,25 @@ export async function buildCharacter(
 }
 
 /** Loads a clip by catalog name; resolves to null and records a warning when it is unknown. */
+/**
+ * Loads the clips of a catalog entry with their shares: the blend when the entry has one, else
+ * the one clip whole. Clips the manifest lacks are reported and left out.
+ */
+export async function loadClipSet(
+  cache: AssetCache,
+  manifest: Pick<CharacterCatalog, 'animations'>,
+  entry: Pick<ManifestClip, 'clip' | 'blend'>,
+  warnings: RigWarning[],
+): Promise<ClipBlendEntry[]> {
+  const wanted = entry.blend ?? [{ clip: entry.clip, weight: 1 }];
+  const loaded: ClipBlendEntry[] = [];
+  for (const { clip: name, weight } of wanted) {
+    const clip = await loadClip(cache, manifest, name, warnings);
+    if (clip) loaded.push({ clip, weight });
+  }
+  return loaded;
+}
+
 export async function loadClip(
   cache: AssetCache,
   manifest: Pick<CharacterCatalog, 'animations'>,

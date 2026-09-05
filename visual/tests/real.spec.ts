@@ -100,7 +100,17 @@ const LIT: Record<string, { document: object; lighting: string | object }> = {
   },
 };
 
-for (const [name, document] of Object.entries(DOCUMENTS)) {
+/** The same subjects caught in the middle of an action, at the clip's first frame. */
+const ACTING: Record<string, object> = {
+  'survivor-walk': { ...DOCUMENTS['survivor'], action: 'walk' },
+  'survivor-attack': { ...DOCUMENTS['survivor'], action: 'attack' },
+  'survivor-sit': { ...DOCUMENTS['survivor'], action: 'sitChair' },
+  'zombie-sprint': { ...DOCUMENTS['zombie'], action: 'sprint' },
+  'zombie-eat': { ...DOCUMENTS['zombie'], action: 'eat' },
+  'cow-eat': { ...DOCUMENTS['cow'], action: 'eat' },
+};
+
+for (const [name, document] of Object.entries({ ...DOCUMENTS, ...ACTING })) {
   test(`${name} renders the same frame as before`, async ({ page }) => {
     const warnings = await openDocument(page, '/dev-assets/', document);
     // Models on attachment points are a known gap; anything else is a regression.

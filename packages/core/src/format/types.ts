@@ -58,6 +58,29 @@ export const STANCES = ['standing', 'crawling', 'onBack', 'sitting', 'corpse'] a
 
 export type Stance = (typeof STANCES)[number];
 
+/**
+ * What a character is doing, as a looped clip from the game's animation sets. Players have all
+ * of them but `lunge`; zombies have `walk`, `sprint`, `lunge`, `attack`, and `eat`. The held
+ * item picks the variant (the weapon type for aiming and attacking).
+ */
+export const CHARACTER_ACTIONS = [
+  'walk',
+  'sneak',
+  'run',
+  'sprint',
+  'aim',
+  'attack',
+  'sitChair',
+  'sleep',
+  'lieAwake',
+  'eat',
+  'drink',
+  'drive',
+  'lunge',
+] as const;
+
+export type CharacterAction = (typeof CHARACTER_ACTIONS)[number];
+
 export type SkeletonKind = 'burned' | 'plain' | 'muscle';
 
 /** Marks the body as a zombie: rotten skin, no body hair, the zombie animation set. */
@@ -164,6 +187,12 @@ export interface CharacterDescription {
   outfit?: OutfitReference;
   /** Pose; `standing` when absent. Ignored when the viewer is told which clip to play. */
   stance?: Stance;
+  /**
+   * What the character is doing; the idle of the stance when absent. An action that needs its
+   * own pose (sitting on a chair, lying on a bed) takes precedence over `stance`. Ignored when
+   * the viewer is told which clip to play.
+   */
+  action?: CharacterAction;
   held?: {
     primary?: HeldItemDescription;
     secondary?: HeldItemDescription;

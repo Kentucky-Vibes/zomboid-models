@@ -6,11 +6,11 @@ import { type Box3, CircleGeometry, Color, Mesh, MeshBasicMaterial, Vector3 } fr
 
 import { autoAnimalClip, buildAnimal } from '../animal/AnimalBuilder.js';
 import type { AssetCache } from '../assets/AssetCache.js';
-import { autoClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
+import { autoClip, buildCharacter, loadClipSet } from '../character/CharacterBuilder.js';
 import { CharacterRig, type RigWarning } from '../character/CharacterRig.js';
 import { ANIMAL_FORMAT } from '../format/animal.js';
 import { ITEM_FORMAT } from '../format/item.js';
-import type { ManifestVehicle, ScriptVector } from '../format/manifest.js';
+import type { ManifestClip, ManifestVehicle, ScriptVector } from '../format/manifest.js';
 import type { SceneDescription, SceneSubject } from '../format/scene.js';
 import { VEHICLE_FORMAT } from '../format/vehicle.js';
 import { buildItem } from '../item/ItemBuilder.js';
@@ -97,9 +97,14 @@ async function buildOne(
     );
     rig = built.rig;
     const auto = subject.animation === undefined ? autoAnimalClip(catalog, document) : undefined;
-    const name = subject.animation === undefined ? (auto?.clip ?? null) : subject.animation;
-    const clip = name === null ? null : await loadClip(cache, catalog, name, rig.warnings);
-    rig.playClip(clip, speedOf(auto?.speed ?? 1));
+    const entry: Pick<ManifestClip, 'clip' | 'blend'> | null =
+      subject.animation === undefined
+        ? (auto ?? null)
+        : subject.animation === null
+          ? null
+          : { clip: subject.animation };
+    const clips = entry === null ? [] : await loadClipSet(cache, catalog, entry, rig.warnings);
+    rig.playClips(clips, speedOf(auto?.speed ?? 1));
   } else if (document.format === ITEM_FORMAT) {
     const catalog = await cache.loadItemCatalog();
     rig = (
@@ -122,20 +127,20 @@ async function buildOne(
     );
     rig = built.rig;
     const seated = subject.seat !== undefined;
-    let name: string | null;
+    let entry: Pick<ManifestClip, 'clip' | 'blend'> | null;
     let options = speedOf(1);
     if (subject.animation !== undefined) {
-      name = subject.animation;
+      entry = subject.animation === null ? null : { clip: subject.animation };
     } else if (seated && catalog.vehicleIdle) {
-      name = catalog.vehicleIdle.clip;
+      entry = catalog.vehicleIdle;
       options = speedOf(catalog.vehicleIdle.speed);
     } else {
       const auto = autoClip(catalog, document);
-      name = auto.clip;
+      entry = auto;
       options = { timeScale: auto.timeScale, startFraction: auto.startFraction };
     }
-    const clip = name === null ? null : await loadClip(cache, catalog, name, rig.warnings);
-    rig.playClip(clip, options);
+    const clips = entry === null ? [] : await loadClipSet(cache, catalog, entry, rig.warnings);
+    rig.playClips(clips, options);
   }
   warnings.push(...rig.warnings);
   rig.update(0);
