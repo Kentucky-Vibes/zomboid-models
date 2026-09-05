@@ -38,3 +38,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+          # Shows npm's trusted publishing exchange in the log while the setup is being checked.
+          NPM_CONFIG_LOGLEVEL: verbose
