@@ -28,8 +28,6 @@ jobs:
       - run: npm install -g npm@latest && npm --version
       - run: npm ci
       - run: npm run build
-      # Temporary: shows what npm answers to the trusted publishing token exchange.
-      - run: node .github/check-oidc.mjs
       - name: Create version pull request or publish
         uses: changesets/action@v1
         with:
@@ -40,5 +38,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
-          # Shows npm's trusted publishing exchange in the log while the setup is being checked.
-          NPM_CONFIG_LOGLEVEL: verbose
