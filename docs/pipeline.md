@@ -1,6 +1,6 @@
 # Asset pipeline
 
-`zomboid-models-pipeline` converts the character assets of a Project Zomboid (Build 42) install into files a browser can load: one glTF binary per mesh and per animation, the PNG textures, a small `manifest.json` index, and one catalog file per kind of subject that describes bodies, clothing, held items, hair, outfits, animations, and the rules the game applies to them.
+`zomboid-models-pipeline` converts the assets of a Project Zomboid (Build 42) install into files a browser can load: one glTF binary per mesh and per animation, the PNG textures, a small `manifest.json` index, and one catalog file per kind of subject (characters, animals, items, vehicles) that describes bodies, clothing, held items, hair, outfits, animations, animal breeds, item models, vehicle scripts, and the rules the game applies to them.
 
 The tool reads the game's own files. Both the Steam client and the dedicated server ship the `media` folder it needs, so it can run on a development machine or on the server host. The output contains copies of The Indie Stone's assets and of any mod's assets you include; hosting it is subject to their terms (see the repository README).
 
@@ -30,7 +30,7 @@ Fields:
 - `mods`: ordered ids to enable; every discovered mod when omitted. `serverIni` reads the order from a server's `Mods=` line instead.
 - `outDir`: where the assets go. It is recreated on every build.
 - `animations`: extra clip names from any folder under `anims_X` to convert on top of the idle and stance clips.
-- `subjects`: which catalogs to build, from `characters`, `vehicles`, `animals`, and `items`; all of them when omitted. `characters`, `animals`, and `items` exist in this version.
+- `subjects`: which catalogs to build, from `characters`, `vehicles`, `animals`, and `items`; all of them when omitted.
 
 `zomboid-models doctor` checks the configuration, the install, the mod folders, and the output folder, and lists the mods it found with the version folder it picked for each.
 
@@ -40,9 +40,9 @@ Fields:
 npx zomboid-models build
 ```
 
-The build discovers mods, orders them with their `require` entries like the game, and overlays their files on the game's `media` (a later mod replaces an earlier file at the same relative path). It then reads the scripts, clothing XML, the outfit list, hair styles, body locations, attachment points, animation sets, and decals, runs the Lua definition files behind outfit randomisation (default clothing, hair pools, underwear, attached weapons) in a sandboxed Lua interpreter, converts every mesh and animation it needs, copies the textures, and writes the catalogs and the index. A vanilla build takes under a minute; the output for the vanilla game is about 60 MB.
+The build discovers mods, orders them with their `require` entries like the game, and overlays their files on the game's `media` (a later mod replaces an earlier file at the same relative path). It then reads the scripts (items, models, and vehicles with their templates), clothing XML, the outfit list, hair styles, body locations, attachment points, animation sets, and decals, runs the Lua definition files behind outfit randomisation (default clothing, hair pools, underwear, attached weapons) and the animal definitions in a sandboxed Lua interpreter, converts every mesh and animation it needs, copies the textures, and writes the catalogs and the index. A vanilla build with every subject takes under a minute and produces about 150 MB.
 
-Warnings list what could not be converted. Meshes stored as FBX (items on the ground, vehicles, a few held items) go through the three.js FBX loader; their skinned parts (the doors of three cars) are written in their bind pose.
+Warnings list what could not be converted. Meshes stored as FBX (items on the ground, vehicles, a few held items) go through the three.js FBX loader; their skinned parts (the doors, hood, and trunk of three cars) are baked in their closed state, the last frame of the closing animation the game holds them at. The wheels of vehicles are stored in the game's own text mesh format under `media/models`; the pipeline reads that format too and mirrors those meshes like the `.x` files.
 
 ## Output layout
 
@@ -52,12 +52,15 @@ assets-out/
   catalog-characters-<hash>.json
   catalog-animals-<hash>.json
   catalog-items-<hash>.json
+  catalog-vehicles-<hash>.json
   models/<key>-<hash>.glb
   textures/<key>-<hash>.png
   anims/<clip>-<hash>.glb
 ```
 
 `manifest.json` is the index: the format version, the game version, the mod ids, and the catalog file of each subject kind that was built. The renderer loads only the catalog of the document it shows. Keys are the game's own paths, lowercased. Every file name carries a content hash, so a web server can cache them for a long time; only `manifest.json` changes in place.
+
+The vehicle catalog carries each vehicle script as the game loads it: the body model with its scale and offset, the skins with their texture sets, the wheels, and the parts that have models or that the vehicle shader reads (doors, windows, the hood, the trunk, the lights). Offsets and rotations stay as the scripts write them, in the game's frame; the renderer composes them the way the game does and mirrors the result into its own space.
 
 The character catalog also carries what the outfit randomiser needs, so that a page can dress a character from an outfit name without the game: the outfits of `clothing.xml`, the hair and beard style lists in the game's order, the hair definitions and colours, the default clothing names, the underwear and attached weapon definitions, and the speed of every idle and stance clip as the game's animation sets set it.
 

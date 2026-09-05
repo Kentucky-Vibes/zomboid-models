@@ -6,5 +6,7 @@ export type {
 } from './convert/animationToGltf.js';
 export { convertMeshFile } from './convert/meshToGltf.js';
 export type { MeshConversionOptions, MeshConversionResult } from './convert/meshToGltf.js';
+export { convertTextMeshFile, parseTextMesh } from './convert/textMeshToGltf.js';
+export type { TextMesh, TextMeshConversionOptions } from './convert/textMeshToGltf.js';
 export { parseX } from './x/parser.js';
 export type { XFile } from './x/types.js';

@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { AnimalCatalog, CharacterCatalog, ItemCatalog, ManifestIndex } from 'zomboid-models';
+import type {
+  AnimalCatalog,
+  CharacterCatalog,
+  ItemCatalog,
+  ManifestIndex,
+  VehicleCatalog,
+} from 'zomboid-models';
 
 export interface ManifestState {
   manifest: CharacterCatalog | undefined;
   animals: AnimalCatalog | undefined;
   items: ItemCatalog | undefined;
+  vehicles: VehicleCatalog | undefined;
   index: ManifestIndex | undefined;
   error: string | undefined;
 }
@@ -13,6 +20,7 @@ const EMPTY: ManifestState = {
   manifest: undefined,
   animals: undefined,
   items: undefined,
+  vehicles: undefined,
   index: undefined,
   error: undefined,
 };
@@ -40,8 +48,13 @@ export function useManifest(assetBaseUrl: string): ManifestState {
       const manifest = await load<CharacterCatalog>(index.catalogs.characters);
       const animals = await load<AnimalCatalog>(index.catalogs.animals);
       const items = await load<ItemCatalog>(index.catalogs.items);
-      if (!manifest && !animals && !items) throw new Error('the asset folder has no catalogs');
-      if (!cancelled) setState({ manifest, animals, items, index, error: undefined });
+      const vehicles = await load<VehicleCatalog>(index.catalogs.vehicles);
+      if (!manifest && !animals && !items && !vehicles) {
+        throw new Error('the asset folder has no catalogs');
+      }
+      if (!cancelled) {
+        setState({ manifest, animals, items, vehicles, index, error: undefined });
+      }
     })().catch((error: unknown) => {
       if (!cancelled) {
         setState({ ...EMPTY, error: error instanceof Error ? error.message : String(error) });

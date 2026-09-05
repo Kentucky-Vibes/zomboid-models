@@ -9,6 +9,7 @@ import {
   type ItemCatalog,
   type ManifestIndex,
   type SubjectKind,
+  type VehicleCatalog,
 } from '../format/manifest.js';
 
 /**
@@ -91,6 +92,10 @@ export class AssetCache {
 
   loadItemCatalog(): Promise<ItemCatalog> {
     return this.loadCatalog<ItemCatalog>('items');
+  }
+
+  loadVehicleCatalog(): Promise<VehicleCatalog> {
+    return this.loadCatalog<VehicleCatalog>('vehicles');
   }
 
   loadGltf(relativePath: string): Promise<GLTF> {

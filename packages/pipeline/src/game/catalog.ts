@@ -41,6 +41,7 @@ import {
 import { readAnimalDefinitions, type AnimalDefinition } from './animals.js';
 import { parseOutfitsXml, type OutfitItemXml } from './outfitsXml.js';
 import { entryValue, parseScript, type ScriptBlock, type ScriptEntry } from './scripts.js';
+import { VehicleScriptLoader, type VehicleScript } from './vehicleScripts.js';
 
 export interface ItemDefinition {
   /** `Module.Name`, for example `Base.Trousers_Denim`. */
@@ -65,13 +66,17 @@ export interface ModelDefinition {
   fullName: string;
   module: string;
   name: string;
-  /** Model key: lowercased mesh path under `models_X` without extension. */
+  /** Model key: lowercased mesh path under `models_X` (or `models` for text meshes) without extension. */
   mesh: string | undefined;
+  /** Mesh name inside the file when the script picks one with `file|mesh`. */
+  subMesh: string | undefined;
   texture: string | undefined;
   scale: number;
   static: boolean;
   shader: string | undefined;
   animationsMesh: string | undefined;
+  /** `invertX = true`: the game mirrors the mesh on X. */
+  invertX: boolean;
   attachments: Record<string, ModelAttachment>;
 }
 
@@ -103,6 +108,8 @@ export interface GameCatalog {
   attachedWeapons: ManifestAttachedWeapons;
   /** Animal types from the Build 42 definitions, sorted by type name. */
   animals: AnimalDefinition[];
+  /** Vehicle scripts by full name, with their templates applied. */
+  vehicles: Map<string, VehicleScript>;
   /** The nodes of one animation state folder, for callers that pick clips. */
   stateNodes: (animSet: string, state: string) => { fileName: string; node: AnimNode }[];
   warnings: string[];
@@ -173,16 +180,21 @@ function readModel(
   previous: ModelDefinition | undefined,
 ): ModelDefinition {
   const mesh = entryValue(block, 'mesh');
+  const pipe = mesh === undefined ? -1 : mesh.indexOf('|');
+  const meshFile = mesh === undefined ? undefined : pipe < 0 ? mesh : mesh.slice(0, pipe);
+  const subMesh = mesh === undefined || pipe < 0 ? undefined : mesh.slice(pipe + 1).trim();
   const model: ModelDefinition = {
     fullName: `${module}.${block.name}`,
     module,
     name: block.name,
-    mesh: mesh === undefined ? undefined : normalizeModelPath(mesh),
+    mesh: meshFile === undefined ? undefined : normalizeModelPath(meshFile),
+    subMesh: subMesh === undefined || subMesh.length === 0 ? undefined : subMesh,
     texture: entryValue(block, 'texture'),
     scale: number(entryValue(block, 'scale'), 1),
     static: (entryValue(block, 'static') ?? 'true').trim().toLowerCase() !== 'false',
     shader: entryValue(block, 'shader'),
     animationsMesh: entryValue(block, 'animationsMesh'),
+    invertX: (entryValue(block, 'invertX') ?? '').trim().toLowerCase() === 'true',
     attachments: { ...previous?.attachments },
   };
   if ((entryValue(block, 'undoCoreScale') ?? '').trim().toLowerCase() === 'true') {
@@ -211,14 +223,23 @@ export function normalizeModelPath(mesh: string): string {
   return key.replace(/\.(x|fbx|glb|gltf|txt)$/, '');
 }
 
-/** Reads every script file into item and model definitions with the game's merge rules. */
+/**
+ * Reads every script file into item, model, and vehicle definitions with the game's merge
+ * rules. Vehicle templates are collected from every file before the vehicles are loaded.
+ */
 export function loadScripts(
   files: ActiveFileMap,
   modOrder: readonly string[],
   warnings: string[],
-): { items: Map<string, ItemDefinition>; models: Map<string, ModelDefinition> } {
+): {
+  items: Map<string, ItemDefinition>;
+  models: Map<string, ModelDefinition>;
+  vehicles: Map<string, VehicleScript>;
+} {
   const items = new Map<string, ItemDefinition>();
   const models = new Map<string, ModelDefinition>();
+  const loader = new VehicleScriptLoader();
+  const vehicleBlocks: { module: string; block: ScriptBlock; source: string }[] = [];
   for (const script of orderedScriptFiles(files, modOrder)) {
     let modules: ScriptBlock[];
     try {
@@ -243,11 +264,17 @@ export function loadScripts(
         } else if (block.type === 'model') {
           const fullName = `${module.name}.${block.name}`;
           models.set(fullName, readModel(block, module.name, models.get(fullName)));
+        } else if (block.type === 'vehicle') {
+          vehicleBlocks.push({ module: module.name, block, source: script.source });
+        } else if (block.type === 'template' && /^vehicle\s/.test(block.name)) {
+          loader.addTemplate(block);
         }
       }
     }
   }
-  return { items, models };
+  for (const { module, block, source } of vehicleBlocks) loader.addVehicle(module, block, source);
+  for (const warning of loader.warnings) warnings.push(`vehicle scripts: ${warning}`);
+  return { items, models, vehicles: loader.vehicles };
 }
 
 /** Resolves a model reference from an item (`Foo` or `Module.Foo`) the way the game does. */
@@ -498,7 +525,7 @@ function loadAnimals(files: ActiveFileMap, warnings: string[]): AnimalDefinition
 /** Reads everything the build needs from the active file map. */
 export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): GameCatalog {
   const warnings: string[] = [];
-  const { items, models } = loadScripts(files, modOrder, warnings);
+  const { items, models, vehicles } = loadScripts(files, modOrder, warnings);
   const { clothingItems, byGuid } = loadClothingItems(files, warnings);
   for (const item of items.values()) {
     const name = entryValue(item.block, 'ClothingItem')?.trim();
@@ -533,6 +560,7 @@ export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): 
     outfits: loadOutfits(files, byGuid, warnings),
     ...loadDefinitions(files, warnings),
     animals: loadAnimals(files, warnings),
+    vehicles,
     stateNodes: (animSet, state) => loadStateNodes(files, animSet, state, warnings),
     warnings,
   };

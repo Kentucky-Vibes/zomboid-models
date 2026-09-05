@@ -1,6 +1,6 @@
 # zomboid-models exporter mod
 
-A small Project Zomboid (Build 42) mod that writes the appearance of players as zomboid-models character documents (see [docs/format.md](../../docs/format.md)). It is the reference exporter for the renderer: any website that wants to show real characters can read these files, and other mods can call `ZomboidModels.export(character)` or `ZomboidModels.describe(character)` themselves.
+A small Project Zomboid (Build 42) mod that writes the appearance of players as zomboid-models character documents (see [docs/format.md](../../docs/format.md)). It is the reference exporter for the renderer: any website that wants to show real characters can read these files, and other mods can call `ZomboidModels.export(character)` or `ZomboidModels.describe(character)` themselves. Vehicles are described on request: `ZomboidModels.describeVehicle(vehicle)` returns a vehicle document as a table and `ZomboidModels.exportVehicle(vehicle)` writes it to `Zomboid/Lua/zomboid-models/vehicle-<script>-<id>.json`; nothing exports vehicles on its own.
 
 ## What it writes
 

@@ -34,7 +34,7 @@ Code is licensed under MIT.
 
 ## Input formats and conversion
 
-Character, clothing, hair, and weapon meshes in Build 42 are ASCII DirectX `.x` files, each carrying its own copy of the skeleton and its skin weights. The 2209 animations are `.x` files too. Textures are 256 by 256 PNG. FBX (binary for items lying on the ground, ASCII for vehicles) is read with the three.js loader running in Node; as the game flips every import into its left-handed frame and FBX data is right-handed to begin with, FBX meshes are written to glTF as they are while `.x` meshes are mirrored.
+Character, clothing, hair, and weapon meshes in Build 42 are ASCII DirectX `.x` files, each carrying its own copy of the skeleton and its skin weights. The 2209 animations are `.x` files too. Textures are 256 by 256 PNG. FBX (binary for items lying on the ground, ASCII for vehicles) is read with the three.js loader running in Node; as the game flips every import into its left-handed frame and FBX data is right-handed to begin with, FBX meshes are written to glTF as they are while `.x` meshes are mirrored. The vehicle wheels are stored in the game's own text mesh format (`# Project Zomboid Mesh`, one line per vertex attribute, then the faces), which the pipeline reads with a small parser of its own and mirrors like the `.x` files, since those files hold the game's in-memory, left-handed data.
 
 The pipeline parses `.x` with its own TypeScript parser. Reason: the format is text, the subset the game uses is small, and a dependency on Assimp or Blender would make the tool harder to install. Assimp, which the game itself uses through jassimp, may be used as an optional cross-check in local tests.
 
@@ -57,6 +57,8 @@ The character description may name an outfit from the game's outfit data, with a
 Animations play at the speed the game's animation sets set for each node (`m_SpeedScale`), with the per-character random multiplier and starting point some nodes declare. Reason: the clip files run at 4800 ticks per second and, played as they are, the unarmed idle was twice too fast; the game slows it down through the animation set, not the file.
 
 Zombies share the player's body meshes, clothing, and texture compositing; they differ by skin texture (four bodies in three decay stages, or a skeleton), the absence of body hair, and their animation set. A `stance` field selects the clip for standing, crawling, lying on the back, sitting, and dead characters, for players and zombies alike.
+
+Vehicles are drawn with a port of the game's vehicle shader, line by line: the mask texture cuts the body into 27 zones, four pairs of matrices switch the lights, the two damage textures, the uninstalled shade, and the blood per zone, the paint recolours the shell through HSV, and rust and damage come from a second UV set. The document stores the game's state (the parts with their condition, whether they are missing or open, the lights, the blood per side, the paint, the rust, the skin) rather than the zone switches. Reason: an exporter copies plain fields from `BaseVehicle`, and the zone logic of `checkDamage`, `updateLights`, and `doBloodOverlay` is ported once, index by index, in the transposed matrix layout the game uploads. The body, the wheels, and the part models are placed as `updateTransform` places them, composed in the game's frame and mirrored as a whole. What differs from the game: the sky box it reflects in the windows is a soft gradient, the sphere map uses eye-space vectors, the lighting is ambient plus one fixed light, doors and hoods are drawn closed (the three cars with door meshes have no animation yet), and models placed on attachment points (one hood ornament) are skipped.
 
 The manifest is an index plus one catalog file per subject kind. Reason: the character catalog alone is a few megabytes with outfits and definitions, and vehicles, animals, and items will add their own; a page should download only what it shows.
 
@@ -82,7 +84,9 @@ After the first release the plan grew, in this order, each step a minor release:
 - 0.2: animation speed from the animation sets, zombies, outfits by name with the game's randomiser, stances, the manifest split into catalogs, the `document` option. Done.
 - 0.3: animals from Build 42: the thirty types of the definitions with their breeds and textures, the body variants (rotten, skinned, skeleton, headless, fleece), the size as the game scales it, tint and hue from the animal shader, and the idle, sitting, and corpse clips of each animation set. Done.
 - 0.4: FBX through the three.js loader in Node, for the ground models of items, the held items that were skipped, and the vehicle bodies; an item document that shows one item on its own, on the ground or in the hand. Done.
-- 0.5: vehicles with a live port of the game's vehicle shader (paint zones, rust, damage, blood, lights) and the game's text mesh format for wheels.
+- 0.5: vehicles with a live port of the game's vehicle shader (paint zones, rust, damage, blood, lights) and the game's text mesh format for wheels. Done; the document stores the parts' state as the game keeps it, and the exporter mod describes vehicles on request.
+
+Open after 0.5: the door, hood, and trunk animations of the three cars with separate door meshes, models placed on attachment points, and a vehicle example exported from a server.
 
 Coverage of the game's subjects stops at things that are drawn in 3D. Tiles, buildings, and furniture are sprites and stay out.
 

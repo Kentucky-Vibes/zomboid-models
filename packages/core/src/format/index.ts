@@ -1,6 +1,8 @@
 export * from './animal.js';
+export * from './document.js';
 export * from './item.js';
 export { emptyCharacterCatalog } from './emptyCatalog.js';
 export * from './manifest.js';
 export * from './types.js';
 export { isBodyPart, validateCharacterDescription, type ValidationResult } from './validate.js';
+export * from './vehicle.js';

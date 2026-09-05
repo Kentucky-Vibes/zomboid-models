@@ -1,6 +1,6 @@
 # Integrating the viewer
 
-Three packages show a character, an animal, or an item on a page. All of them need a folder of converted assets (see [pipeline.md](pipeline.md)) reachable by URL, and a document (see [format.md](format.md)).
+Three packages show a character, an animal, an item, or a vehicle on a page. All of them need a folder of converted assets (see [pipeline.md](pipeline.md)) reachable by URL, and a document (see [format.md](format.md)).
 
 ## Plain JavaScript
 
@@ -26,8 +26,8 @@ Options:
 
 - `assetBaseUrl`: the folder that holds `manifest.json`.
 - `mode`: `viewer` (orbit controls, zoom) or `showcase` (no controls, transparent background by default, pauses when off screen and when the visitor prefers reduced motion).
-- `document`: the document to show: a character, an animal, or an item (see [format.md](format.md)). `character` and `setCharacter()` mean the same and stay until 1.0.
-- `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it.
+- `document`: the document to show: a character, an animal, an item, or a vehicle (see [format.md](format.md)). `character` and `setCharacter()` mean the same and stay until 1.0.
+- `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it. Items and vehicles have no clips.
 - `animationSpeed`: multiplies the playback speed; 1 by default. `setAnimationSpeed()` changes it in place.
 - `poseTime`: freezes the clip at that time in seconds instead of playing it.
 - `background`: a CSS colour or `transparent`.
@@ -52,7 +52,7 @@ Every viewer on a page shares one WebGL context, so a list of twenty characters 
 ></zomboid-character>
 ```
 
-The element bundles three.js. Attributes map to the options above (`asset-base-url`, `mode`, `animation`, `animation-speed`, `pose-time`, `background`, `auto-rotate`, `attribution`, `camera` as JSON), `src` loads a document by URL, and the `document` property (or `character`, its alias) takes an object. It dispatches `ready`, `warning`, and `error` events and has `toImage()`, `play()`, and `pause()` methods. Give it a size with CSS.
+The element bundles three.js. Attributes map to the options above (`asset-base-url`, `mode`, `animation`, `animation-speed`, `pose-time`, `background`, `auto-rotate`, `attribution`, `camera` as JSON), `src` loads a document of any kind by URL, and the `document` property (or `character`, its alias) takes an object. It dispatches `ready`, `warning`, and `error` events and has `toImage()`, `play()`, and `pause()` methods. Give it a size with CSS.
 
 ## React
 

@@ -17,6 +17,7 @@ import type { PipelineConfig } from '../config.js';
 import { convertAnimationFile } from '../convert/animationToGltf.js';
 import { convertFbxFile } from '../convert/fbxToGltf.js';
 import { convertMeshFile } from '../convert/meshToGltf.js';
+import { convertTextMeshFile } from '../convert/textMeshToGltf.js';
 import { loadCatalog, type GameCatalog } from '../game/catalog.js';
 import { buildActiveFileMap, type ActiveFileMap } from '../game/fileMap.js';
 import {
@@ -35,6 +36,7 @@ import {
 import { parseX } from '../x/parser.js';
 import { assembleAnimalCatalog, planAnimalAssets, type AnimalPlan } from './animals.js';
 import { assembleItemCatalog, planItemAssets, type ItemPlan } from './items.js';
+import { assembleVehicleCatalog, planVehicleAssets, type VehiclePlan } from './vehicles.js';
 import {
   BANDAGE_ITEMS,
   BODY_MODELS,
@@ -62,6 +64,7 @@ export interface BuildReport {
   outfits: number;
   animals: number;
   items: number;
+  vehicles: number;
   warnings: string[];
   seconds: number;
   outDir: string;
@@ -152,6 +155,9 @@ function findModelFile(
     const file = files.get(`media/models_x/${key}${extension}`);
     if (file) return { path: file.path, extension };
   }
+  // The game's text meshes (the vehicle wheels) live under `media/models`.
+  const text = files.get(`media/models/${key}.txt`);
+  if (text) return { path: text.path, extension: '.txt' };
   return undefined;
 }
 
@@ -177,7 +183,9 @@ function convertModels(
       const result =
         source.extension === '.fbx'
           ? convertFbxFile(readFileSync(source.path))
-          : convertMeshFile(parseX(readFileSync(source.path, 'utf8')));
+          : source.extension === '.txt'
+            ? convertTextMeshFile(readFileSync(source.path, 'utf8'))
+            : convertMeshFile(parseX(readFileSync(source.path, 'utf8')));
       for (const warning of result.warnings) warnings.push(`model "${key}": ${warning}`);
       if (result.meshes.length === 0) continue;
       const file = `models/${slug(key)}-${hashOf(result.glb)}.glb`;
@@ -421,15 +429,23 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     warnings.push(...itemPlan.warnings);
     log.info(`${Object.keys(itemPlan.items).length} items with models`);
   }
+  let vehiclePlan: VehiclePlan | undefined;
+  if (config.subjects.includes('vehicles')) {
+    vehiclePlan = planVehicleAssets(catalog);
+    warnings.push(...vehiclePlan.warnings);
+    log.info(`${Object.keys(vehiclePlan.vehicles).length} vehicles`);
+  }
   const models = new Set<string>([
     ...(buildCharacters ? plan.models : []),
     ...(animalPlan?.models ?? []),
     ...(itemPlan?.models ?? []),
+    ...(vehiclePlan?.models ?? []),
   ]);
   const textures = new Set<string>([
     ...(buildCharacters ? plan.textures : []),
     ...(animalPlan?.textures ?? []),
     ...(itemPlan?.textures ?? []),
+    ...(vehiclePlan?.textures ?? []),
   ]);
   const animations = new Set<string>([
     ...(buildCharacters ? plan.animations : []),
@@ -481,6 +497,14 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     writeFileSync(join(config.outDir, file), items);
     index.catalogs.items = file;
   }
+  if (vehiclePlan) {
+    const vehicles = JSON.stringify(
+      assembleVehicleCatalog(vehiclePlan, writer.models, writer.textures),
+    );
+    const file = `catalog-vehicles-${hashOf(vehicles)}.json`;
+    writeFileSync(join(config.outDir, file), vehicles);
+    index.catalogs.vehicles = file;
+  }
   writeFileSync(join(config.outDir, 'manifest.json'), JSON.stringify(index));
   for (const warning of warnings) log.warn(warning);
 
@@ -495,6 +519,7 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     outfits: Object.keys(outfits.male).length + Object.keys(outfits.female).length,
     animals: animalPlan ? Object.keys(animalPlan.animals).length : 0,
     items: itemPlan ? Object.keys(itemPlan.items).length : 0,
+    vehicles: vehiclePlan ? Object.keys(vehiclePlan.vehicles).length : 0,
     warnings,
     seconds: (performance.now() - started) / 1000,
     outDir: config.outDir,

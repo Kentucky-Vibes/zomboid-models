@@ -56,7 +56,8 @@ export function addSkeletonNodes(builder: GltfBuilder, skeleton: XSkeleton): num
   return nodeIds;
 }
 
-function addMaterials(
+/** Adds the materials of a mesh and returns their indices in material order. */
+export function addMaterials(
   builder: GltfBuilder,
   data: MeshData,
   options: MeshConversionOptions,
@@ -94,7 +95,8 @@ function addMaterials(
   });
 }
 
-function addPrimitives(
+/** Adds the vertex and index accessors of a mesh, one primitive per material group. */
+export function addPrimitives(
   builder: GltfBuilder,
   data: MeshData,
   materialIds: number[],

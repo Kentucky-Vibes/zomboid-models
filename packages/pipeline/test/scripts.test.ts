@@ -44,6 +44,9 @@ module Base
 }
 `;
 
+/** Entries carry the line they start on; the tests below do not care which. */
+const anyLine = expect.any(Number) as number;
+
 describe('parseScript', () => {
   it('parses modules, blocks, entries, nested blocks, and comments', () => {
     const blocks = parseScript(SAMPLE);
@@ -59,7 +62,7 @@ describe('parseScript', () => {
     ]);
 
     const imports = module?.blocks[0];
-    expect(imports?.entries).toEqual([{ key: 'Base', value: '' }]);
+    expect(imports?.entries).toEqual([{ key: 'Base', value: '', line: anyLine }]);
 
     const item = module?.blocks[1];
     expect(item?.line).toBe(9);
@@ -76,12 +79,14 @@ describe('parseScript', () => {
     ]);
 
     const recipe = module?.blocks[3];
-    expect(recipe?.blocks[0]?.entries).toEqual([{ key: 'item 1 Base.Log', value: '' }]);
+    expect(recipe?.blocks[0]?.entries).toEqual([
+      { key: 'item 1 Base.Log', value: '', line: anyLine },
+    ]);
   });
 
   it('tolerates a byte order mark and missing trailing commas', () => {
     const blocks = parseScript(String.fromCharCode(0xfeff) + 'module M { item A { X = 1 } }');
-    expect(blocks[0]?.blocks[0]?.entries).toEqual([{ key: 'X', value: '1' }]);
+    expect(blocks[0]?.blocks[0]?.entries).toEqual([{ key: 'X', value: '1', line: anyLine }]);
   });
 
   it('reports unterminated blocks and missing braces', () => {

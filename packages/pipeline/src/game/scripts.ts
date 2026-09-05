@@ -8,6 +8,8 @@ export interface ScriptEntry {
   /** Key before the `=`, or the whole line when there is no `=` (recipe lines). */
   key: string;
   value: string;
+  /** Line the entry starts on, to order entries and child blocks the way the file has them. */
+  line: number;
 }
 
 export interface ScriptBlock {
@@ -96,10 +98,10 @@ function parseHeader(header: string, line: number): { type: string; name: string
   return { type: trimmed.slice(0, space), name: trimmed.slice(space + 1).trim() };
 }
 
-function parseEntry(text: string): ScriptEntry {
+function parseEntry(text: string, line: number): ScriptEntry {
   const eq = text.indexOf('=');
-  if (eq < 0) return { key: text.trim(), value: '' };
-  return { key: text.slice(0, eq).trim(), value: text.slice(eq + 1).trim() };
+  if (eq < 0) return { key: text.trim(), value: '', line };
+  return { key: text.slice(0, eq).trim(), value: text.slice(eq + 1).trim(), line };
 }
 
 function parseBody(reader: Reader, block: ScriptBlock): void {
@@ -124,7 +126,7 @@ function parseBody(reader: Reader, block: ScriptBlock): void {
     } else {
       if (stop === ',') reader.advance();
       const trimmed = text.trim();
-      if (trimmed.length > 0) block.entries.push(parseEntry(trimmed));
+      if (trimmed.length > 0) block.entries.push(parseEntry(trimmed, startLine));
     }
   }
 }

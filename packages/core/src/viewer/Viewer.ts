@@ -15,10 +15,18 @@ import { ATTRIBUTION_TEXT } from '../attribution.js';
 import { autoClip, buildCharacter, loadClip } from '../character/CharacterBuilder.js';
 import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
 import { ANIMAL_FORMAT, type AnimalDescription } from '../format/animal.js';
+import type { SubjectDescription } from '../format/document.js';
 import { ITEM_FORMAT, type ItemDescription } from '../format/item.js';
-import type { AnimalCatalog, CharacterCatalog, ItemCatalog } from '../format/manifest.js';
+import type {
+  AnimalCatalog,
+  CharacterCatalog,
+  ItemCatalog,
+  VehicleCatalog,
+} from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
+import { VEHICLE_FORMAT, type VehicleDescription } from '../format/vehicle.js';
 import { buildItem } from '../item/ItemBuilder.js';
+import { buildVehicle } from '../vehicle/VehicleBuilder.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
 
@@ -38,7 +46,7 @@ export interface CameraOptions {
 }
 
 /** Any document the viewer can show. */
-export type ViewerDocument = CharacterDescription | AnimalDescription | ItemDescription;
+export type ViewerDocument = SubjectDescription;
 
 function isAnimal(document: ViewerDocument): document is AnimalDescription {
   return document.format === ANIMAL_FORMAT;
@@ -46,6 +54,10 @@ function isAnimal(document: ViewerDocument): document is AnimalDescription {
 
 function isItem(document: ViewerDocument): document is ItemDescription {
   return document.format === ITEM_FORMAT;
+}
+
+function isVehicle(document: ViewerDocument): document is VehicleDescription {
+  return document.format === VEHICLE_FORMAT;
 }
 
 export interface ViewerOptions {
@@ -90,6 +102,15 @@ const DEFAULT_CAMERA: Required<CameraOptions> = {
   targetHeight: 0.5,
 };
 
+/** Vehicles are long and low: a three-quarter view from the front left, from a little above. */
+const VEHICLE_CAMERA: Required<CameraOptions> = {
+  fov: 30,
+  distance: 2,
+  yaw: -145,
+  pitch: 18,
+  targetHeight: 0.5,
+};
+
 /** Camera yaw for the compass direction an animal faces in the game's own avatar pictures. */
 const AVATAR_DIRECTION_YAW: Record<string, number> = {
   S: 0,
@@ -120,7 +141,7 @@ export class Viewer implements FrameListener {
   private readonly attribution: HTMLElement | undefined;
   private options: ViewerOptions;
   /** The catalog of the document being shown; each kind of subject has its own. */
-  private catalog: CharacterCatalog | AnimalCatalog | ItemCatalog | undefined;
+  private catalog: CharacterCatalog | AnimalCatalog | ItemCatalog | VehicleCatalog | undefined;
   private rig: CharacterRig | undefined;
   private clip: AnimationClip | null = null;
   private visible = false;
@@ -277,12 +298,7 @@ export class Viewer implements FrameListener {
     const generation = ++this.generation;
     try {
       const document = this.document;
-      const catalog =
-        document && isAnimal(document)
-          ? await this.cache.loadAnimalCatalog()
-          : document && isItem(document)
-            ? await this.cache.loadItemCatalog()
-            : await this.cache.loadCharacterCatalog();
+      const catalog = await this.loadCatalogFor(document);
       if (generation !== this.generation) return;
       this.catalog = catalog;
       if (!document) return;
@@ -297,14 +313,19 @@ export class Viewer implements FrameListener {
           )
         : isItem(document)
           ? await buildItem({ cache: this.cache, catalog: catalog as ItemCatalog }, document)
-          : await buildCharacter(
-              {
-                cache: this.cache,
-                manifest: catalog as CharacterCatalog,
-                composer: this.shared.composer,
-              },
-              document,
-            );
+          : isVehicle(document)
+            ? await buildVehicle(
+                { cache: this.cache, catalog: catalog as VehicleCatalog },
+                document,
+              )
+            : await buildCharacter(
+                {
+                  cache: this.cache,
+                  manifest: catalog as CharacterCatalog,
+                  composer: this.shared.composer,
+                },
+                document,
+              );
       if (generation !== this.generation) {
         built.rig.dispose();
         return;
@@ -322,8 +343,18 @@ export class Viewer implements FrameListener {
     }
   }
 
+  /** The catalog of the document's kind; characters when there is no document yet. */
+  private loadCatalogFor(
+    document: ViewerDocument | undefined,
+  ): Promise<CharacterCatalog | AnimalCatalog | ItemCatalog | VehicleCatalog> {
+    if (document && isAnimal(document)) return this.cache.loadAnimalCatalog();
+    if (document && isItem(document)) return this.cache.loadItemCatalog();
+    if (document && isVehicle(document)) return this.cache.loadVehicleCatalog();
+    return this.cache.loadCharacterCatalog();
+  }
+
   private async applyAnimation(
-    catalog: CharacterCatalog | AnimalCatalog | ItemCatalog,
+    catalog: CharacterCatalog | AnimalCatalog | ItemCatalog | VehicleCatalog,
     rig: CharacterRig,
     generation: number,
   ): Promise<void> {
@@ -332,7 +363,7 @@ export class Viewer implements FrameListener {
     let name: string | null | undefined = this.options.animation;
     let timeScale = speed;
     let startFraction = 0;
-    if (document && isItem(document)) {
+    if (document && (isItem(document) || isVehicle(document))) {
       name = null;
     } else if (name === undefined && document) {
       if (isAnimal(document)) {
@@ -379,6 +410,7 @@ export class Viewer implements FrameListener {
   /** The camera defaults for the document: animals face the way the game's avatars face. */
   private defaultCamera(): Required<CameraOptions> {
     const document = this.document;
+    if (document && isVehicle(document)) return VEHICLE_CAMERA;
     if (document && isAnimal(document) && this.catalog && 'animals' in this.catalog) {
       const direction = this.catalog.animals[document.type]?.avatar?.direction;
       const yaw = direction === undefined ? undefined : AVATAR_DIRECTION_YAW[direction];

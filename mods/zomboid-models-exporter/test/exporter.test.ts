@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url';
 
 import { lauxlib, lua, lualib, to_luastring, type LuaState } from 'fengari';
 import { describe, expect, it } from 'vitest';
-import { validateCharacterDescription, type CharacterDescription } from 'zomboid-models';
+import {
+  validateCharacterDescription,
+  validateVehicleDescription,
+  type CharacterDescription,
+  type VehicleDescription,
+} from 'zomboid-models';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const luaRoot = join(here, '..', '42', 'media', 'lua');
@@ -82,6 +87,43 @@ local function bodyPart(state)
     stitched = function() return state.stitched or false end,
     isSplint = function() return false end,
     bleeding = function() return state.bleeding or false end,
+  }
+end
+
+local function vehiclePart(id, fields)
+  fields = fields or {}
+  local part = { getId = function() return id end }
+  if not fields.missing then
+    part.getInventoryItem = function() return { getCondition = function() return fields.condition or 100 end } end
+  else
+    part.getInventoryItem = function() return nil end
+  end
+  if fields.window then part.getWindow = function() return { isOpen = function() return fields.open or false end } end end
+  if fields.door then part.getDoor = function() return { isOpen = function() return fields.open or false end } end end
+  return part
+end
+
+function makeVehicle()
+  local parts = {
+    vehiclePart('DoorFrontLeft', { door = true, condition = 45 }),
+    vehiclePart('WindowFrontLeft', { window = true, open = true }),
+    vehiclePart('TireRearRight', { missing = true }),
+    vehiclePart('Engine', { condition = 100 }),
+  }
+  return {
+    getScriptName = function() return 'Base.CarNormal' end,
+    getId = function() return 42 end,
+    getSkinIndex = function() return 1 end,
+    getColorHue = function() return 0.6 end,
+    getColorSaturation = function() return 0.9 end,
+    getColorValue = function() return 0.7 end,
+    getRust = function() return 1 end,
+    getPartCount = function() return #parts end,
+    getPartByIndex = function(self, i) return parts[i + 1] end,
+    getHeadlightsOn = function() return true end,
+    getStoplightsOn = function() return false end,
+    getWindowLightsOn = function() return false end,
+    getBloodIntensity = function(self, side) return side == 'Front' and 0.5 or 0 end,
   }
 end
 
@@ -244,5 +286,42 @@ describe('ZomboidModels.export', () => {
     run(L, 'ZomboidModels.export({ getUsername = function() return "a/b c" end })');
     const minimal = JSON.parse(evalString(L, "written['zomboid-models/a_b_c.json']")) as unknown;
     expect(validateCharacterDescription(minimal).ok).toBe(true);
+  });
+});
+
+describe('ZomboidModels.exportVehicle', () => {
+  it('writes a valid vehicle document with the parts that differ from a complete vehicle', () => {
+    const L = newState();
+    const relPath = evalString(L, 'ZomboidModels.exportVehicle(makeVehicle())');
+    expect(relPath).toBe('zomboid-models/vehicle-Base.CarNormal-42.json');
+    const parsed = JSON.parse(evalString(L, `written['${relPath}']`)) as unknown;
+    const result = validateVehicleDescription(parsed);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    const doc = (result as { value: VehicleDescription }).value;
+    expect(doc).toMatchObject({
+      vehicle: 'Base.CarNormal',
+      skin: 1,
+      paint: { hue: 0.6, saturation: 0.9, value: 0.7 },
+      rust: 1,
+      parts: {
+        DoorFrontLeft: { condition: 45 },
+        WindowFrontLeft: { open: true },
+        TireRearRight: { missing: true },
+      },
+      headlights: true,
+      blood: { front: 0.5 },
+    });
+    expect(doc.parts?.['Engine']).toBeUndefined();
+    expect(doc.stoplights).toBeUndefined();
+    expect(doc.meta).toEqual({ exporter: 'ZomboidModelsExporter', id: 42 });
+  });
+
+  it('survives a vehicle without the optional methods', () => {
+    const L = newState();
+    run(L, 'ZomboidModels.exportVehicle({ getScriptName = function() return "Mod.Truck" end })');
+    const doc = JSON.parse(
+      evalString(L, "written['zomboid-models/vehicle-Mod.Truck-0.json']"),
+    ) as unknown;
+    expect(validateVehicleDescription(doc).ok).toBe(true);
   });
 });

@@ -1,10 +1,10 @@
 # zomboid-models
 
-Renders Project Zomboid (Build 42) characters in the browser: the body, clothing including clothing from mods, hair and beard, items in the hands, and the blood, wounds, and bandages the game draws on them, animated with the game's own animation files.
+Renders Project Zomboid (Build 42) characters, animals, items, and vehicles in the browser: the body, clothing including clothing from mods, hair and beard, items in the hands, the blood, wounds, and bandages the game draws on them, animated with the game's own animation files; the animals with their breeds; items on the ground or in the hand; and vehicles with the game's paint, rust, damage, blood, and lights.
 
 The project has three parts. A three.js library draws the character from a JSON description. A command line pipeline converts the assets from your own copy of the game or of the dedicated server into files a browser can load. A playground lets you assemble a character and look at the result.
 
-Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, and any item on the ground or in the hand. A reference mod exports players from the game. Vehicles are next; see [docs/decisions.md](docs/decisions.md).
+Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, any item on the ground or in the hand, and every vehicle with its paint, rust, damage, blood, and lights through a port of the game's vehicle shader. A reference mod exports players from the game and describes vehicles on request. See [docs/decisions.md](docs/decisions.md) for what is still open.
 
 A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It ships without game assets, so paste the URL of a folder you built with the pipeline into its asset field.
 

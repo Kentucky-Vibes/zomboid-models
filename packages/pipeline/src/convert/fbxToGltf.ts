@@ -7,8 +7,21 @@
  * they are: what the game shows in its left-handed frame is what the raw data shows in a
  * right-handed one. Node transforms are baked into the vertices, so the GLB is a flat list of
  * named meshes, which is what the game's `mesh = file|MeshName` references select from.
+ *
+ * Skinned meshes (the three cars whose doors, hood, and trunk hang on bones) are baked too, in
+ * their closed state: the game shows them closed by holding the last frame of the part's
+ * `<part>_closing` clip, and the bind pose in the file has them open.
  */
-import { Box3, Matrix4, Vector3, type BufferGeometry, type Mesh, type Object3D } from 'three';
+import {
+  Box3,
+  Matrix3,
+  Matrix4,
+  Vector3,
+  type BufferGeometry,
+  type Mesh,
+  type Object3D,
+  type SkinnedMesh,
+} from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
 import {
@@ -43,6 +56,14 @@ function attribute(geometry: BufferGeometry, name: string): Float32Array | undef
     : Float32Array.from(attr.array as ArrayLike<number>);
 }
 
+function isMeshObject(object: Object3D): object is Mesh {
+  return (object as { isMesh?: boolean }).isMesh === true;
+}
+
+function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
+  return (object as { isSkinnedMesh?: boolean }).isSkinnedMesh === true;
+}
+
 interface FlatMesh {
   name: string;
   positions: Float32Array;
@@ -53,30 +74,64 @@ interface FlatMesh {
   materialName: string;
 }
 
-/** Bakes the node's world transform into the geometry and flips V to glTF's top-left origin. */
+/**
+ * The transform of each vertex into world space: the node's world matrix, or, for a skinned
+ * mesh, the weighted bone matrices the way the three.js skinning shader composes them.
+ */
+function vertexMatrices(mesh: Mesh): (index: number, out: Matrix4) => Matrix4 {
+  const world = (_index: number, out: Matrix4): Matrix4 => out.copy(mesh.matrixWorld);
+  if (!isSkinnedMesh(mesh)) return world;
+  const skinIndex = mesh.geometry.getAttribute('skinIndex');
+  const skinWeight = mesh.geometry.getAttribute('skinWeight');
+  if (!skinIndex || !skinWeight) return world;
+  mesh.skeleton.update();
+  const boneMatrices = mesh.skeleton.boneMatrices;
+  if (!boneMatrices) return world;
+  const sum = new Float32Array(16);
+  return (index, out) => {
+    sum.fill(0);
+    let total = 0;
+    for (let j = 0; j < 4; j++) {
+      const weight = skinWeight.getComponent(index, j);
+      if (weight === 0) continue;
+      const bone = skinIndex.getComponent(index, j) * 16;
+      for (let k = 0; k < 16; k++) {
+        sum[k] = (sum[k] ?? 0) + weight * (boneMatrices[bone + k] ?? 0);
+      }
+      total += weight;
+    }
+    if (total === 0) return world(index, out);
+    out.fromArray(sum).multiplyScalar(1 / total);
+    out.premultiply(mesh.bindMatrixInverse).multiply(mesh.bindMatrix);
+    return out.premultiply(mesh.matrixWorld);
+  };
+}
+
+/** Bakes the vertex transforms into the geometry and flips V to glTF's top-left origin. */
 function flatten(mesh: Mesh, warnings: string[]): FlatMesh | undefined {
   const geometry = mesh.geometry;
   const positionsIn = attribute(geometry, 'position');
   if (!positionsIn) return undefined;
   const count = positionsIn.length / 3;
-  const matrix = mesh.matrixWorld;
-  const normalMatrix = new Matrix4().copy(matrix).invert().transpose();
+  const matrixAt = vertexMatrices(mesh);
+  const matrix = new Matrix4();
+  const normalMatrix = new Matrix3();
   const positions = new Float32Array(count * 3);
+  const normalsIn = attribute(geometry, 'normal');
+  const normals =
+    normalsIn && normalsIn.length === count * 3 ? new Float32Array(count * 3) : undefined;
   const point = new Vector3();
   for (let i = 0; i < count; i++) {
+    matrixAt(i, matrix);
     point.set(positionsIn[i * 3] ?? 0, positionsIn[i * 3 + 1] ?? 0, positionsIn[i * 3 + 2] ?? 0);
     point.applyMatrix4(matrix);
     positions[i * 3] = point.x;
     positions[i * 3 + 1] = point.y;
     positions[i * 3 + 2] = point.z;
-  }
-  const normalsIn = attribute(geometry, 'normal');
-  let normals: Float32Array | undefined;
-  if (normalsIn && normalsIn.length === count * 3) {
-    normals = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
+    if (normals && normalsIn) {
+      normalMatrix.getNormalMatrix(matrix);
       point.set(normalsIn[i * 3] ?? 0, normalsIn[i * 3 + 1] ?? 0, normalsIn[i * 3 + 2] ?? 0);
-      point.applyMatrix4(normalMatrix).normalize();
+      point.applyNormalMatrix(normalMatrix);
       normals[i * 3] = point.x;
       normals[i * 3 + 1] = point.y;
       normals[i * 3 + 2] = point.z;
@@ -99,7 +154,7 @@ function flatten(mesh: Mesh, warnings: string[]): FlatMesh | undefined {
     ? Uint32Array.from(index.array as ArrayLike<number>)
     : Uint32Array.from({ length: count }, (_, i) => i);
   // A mirrored node transform reverses the winding; keep front faces facing out.
-  if (matrix.determinant() < 0) {
+  if (mesh.matrixWorld.determinant() < 0) {
     for (let i = 0; i + 2 < indices.length; i += 3) {
       const a = indices[i] as number;
       indices[i] = indices[i + 2] as number;
@@ -121,8 +176,45 @@ function flatten(mesh: Mesh, warnings: string[]): FlatMesh | undefined {
   };
 }
 
-function isMeshObject(object: Object3D): object is Mesh {
-  return (object as { isMesh?: boolean }).isMesh === true;
+/**
+ * Puts hinged parts in their closed state: for every `<part>_closing` clip, the bone
+ * `<part>_bone` takes the clip's last frame, which is how the game holds a closed door, hood,
+ * or trunk. Returns the parts posed.
+ */
+export function applyClosedPose(group: Object3D): string[] {
+  const posed: string[] = [];
+  for (const clip of group.animations) {
+    const match = /^(.+)_closing$/i.exec(clip.name);
+    if (!match) continue;
+    const part = match[1] as string;
+    const bone = group.getObjectByName(`${part}_bone`) ?? group.getObjectByName(part);
+    if (!bone) continue;
+    let applied = false;
+    for (const track of clip.tracks) {
+      const dot = track.name.lastIndexOf('.');
+      if (track.name.slice(0, dot) !== bone.name) continue;
+      const size = track.getValueSize();
+      const last = track.values.length - size;
+      if (last < 0) continue;
+      switch (track.name.slice(dot + 1)) {
+        case 'position':
+          bone.position.fromArray(track.values, last);
+          break;
+        case 'quaternion':
+          bone.quaternion.fromArray(track.values, last);
+          break;
+        case 'scale':
+          bone.scale.fromArray(track.values, last);
+          break;
+        default:
+          continue;
+      }
+      applied = true;
+    }
+    if (applied) posed.push(part);
+  }
+  if (posed.length > 0) group.updateMatrixWorld(true);
+  return posed;
 }
 
 /** Parses an FBX file with the three.js loader; the buffer may hold the binary or ASCII form. */
@@ -135,20 +227,18 @@ export function parseFbx(data: Uint8Array): Object3D {
   return group;
 }
 
-/** Converts every static mesh of an FBX file to one GLB; skinned meshes are skipped. */
+/** Converts every mesh of an FBX file to one GLB of static meshes, hinged parts closed. */
 export function convertFbxFile(data: Uint8Array, generator?: string): MeshConversionResult {
   const warnings: string[] = [];
   const group = parseFbx(data);
+  applyClosedPose(group);
   const builder = new GltfBuilder(generator);
   const meshes: MeshConversionResult['meshes'] = [];
   const materials = new Map<string, number>();
   const bounds = new Box3();
 
-  let skinned = 0;
   group.traverse((object) => {
     if (!isMeshObject(object)) return;
-    // Skinned FBX meshes (the vehicles with doors on hinges) are written in their bind pose.
-    if ((object as { isSkinnedMesh?: boolean }).isSkinnedMesh) skinned++;
     const flat = flatten(object, warnings);
     if (!flat) return;
     let material = materials.get(flat.materialName);
@@ -201,6 +291,5 @@ export function convertFbxFile(data: Uint8Array, generator?: string): MeshConver
   });
 
   if (meshes.length === 0) warnings.push('the FBX file has no meshes');
-  if (skinned > 0) warnings.push(`${skinned} skinned meshes written in their bind pose`);
   return { glb: builder.toGlb(), meshes, bones: [], textures: [], warnings };
 }

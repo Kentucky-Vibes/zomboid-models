@@ -256,10 +256,10 @@ function M.describe(character)
     }
 end
 
---- A file-system safe name for a player: letters, digits, '-', '_', and '.' are kept, everything
---- else becomes '_'. Written byte by byte because Kahlua's `string.gsub` has no character classes.
-function M.fileName(character)
-    local name = tostring(try(character, 'getUsername') or try(character, 'getDisplayName') or '')
+--- A file-system safe name: letters, digits, '-', '_', and '.' are kept, everything else
+--- becomes '_'. Written byte by byte because Kahlua's `string.gsub` has no character classes.
+function M.safeName(name)
+    name = tostring(name or '')
     local parts = {}
     for i = 1, #name do
         local byte = string.byte(name, i)
@@ -267,7 +267,12 @@ function M.fileName(character)
             or (byte >= 97 and byte <= 122) or byte == 45 or byte == 95 or byte == 46
         table.insert(parts, keep and string.sub(name, i, i) or '_')
     end
-    local safe = table.concat(parts)
+    return table.concat(parts)
+end
+
+--- The file name for a player: the username, else the display name, else 'player'.
+function M.fileName(character)
+    local safe = M.safeName(try(character, 'getUsername') or try(character, 'getDisplayName') or '')
     if safe == '' then safe = 'player' end
     return safe
 end
@@ -281,6 +286,110 @@ function M.export(character)
         return nil
     end
     local relPath = M.OUTPUT_FOLDER .. '/' .. M.fileName(character) .. '.json'
+    local writer = getFileWriter(relPath, true, false)
+    if writer == nil then
+        print('[zomboid-models] cannot open ' .. relPath)
+        return nil
+    end
+    writer:write(text)
+    writer:close()
+    return relPath
+end
+
+--- Vehicles ------------------------------------------------------------------------------------
+
+M.VEHICLE_FORMAT = 'zomboid-models/vehicle'
+
+local function clamp01(value)
+    if value < 0 then return 0 end
+    if value > 1 then return 1 end
+    return value
+end
+
+--- The state of one VehiclePart, or nil when the part is installed, intact, and closed.
+local function describeVehiclePart(part)
+    local state = {}
+    local item = try(part, 'getInventoryItem')
+    if item == nil then
+        state.missing = true
+    else
+        local condition = try(item, 'getCondition')
+        if condition ~= nil and condition < 100 then state.condition = condition end
+    end
+    local window = try(part, 'getWindow')
+    if window ~= nil and try(window, 'isOpen') then state.open = true end
+    local door = try(part, 'getDoor')
+    if door ~= nil and try(door, 'isOpen') then state.open = true end
+    if isEmpty(state) then return nil end
+    return state
+end
+
+--- The parts of a vehicle that differ from a complete vehicle in full condition.
+function M.describeVehicleParts(vehicle)
+    local parts = {}
+    local count = try(vehicle, 'getPartCount') or 0
+    for i = 0, count - 1 do
+        local part = try(vehicle, 'getPartByIndex', i)
+        local id = try(part, 'getId')
+        local state = describeVehiclePart(part)
+        if id ~= nil and state ~= nil then parts[id] = state end
+    end
+    if isEmpty(parts) then return nil end
+    return parts
+end
+
+--- The whole vehicle document as a Lua table, from a BaseVehicle.
+function M.describeVehicle(vehicle)
+    local doc = {
+        format = M.VEHICLE_FORMAT,
+        version = M.VERSION,
+        vehicle = try(vehicle, 'getScriptName'),
+    }
+    local skin = try(vehicle, 'getSkinIndex')
+    if skin ~= nil and skin >= 0 then doc.skin = skin end
+    local hue = try(vehicle, 'getColorHue')
+    local saturation = try(vehicle, 'getColorSaturation')
+    local value = try(vehicle, 'getColorValue')
+    if hue ~= nil and saturation ~= nil and value ~= nil then
+        doc.paint = { hue = clamp01(hue), saturation = clamp01(saturation), value = clamp01(value) }
+    end
+    local rust = try(vehicle, 'getRust')
+    if rust ~= nil then doc.rust = clamp01(rust) end
+    doc.parts = M.describeVehicleParts(vehicle)
+    if try(vehicle, 'getHeadlightsOn') then doc.headlights = true end
+    if try(vehicle, 'getStoplightsOn') then doc.stoplights = true end
+    if try(vehicle, 'getWindowLightsOn') then doc.interiorLight = true end
+    local lightbar = try(vehicle, 'getLightbarLightsModeObject')
+    if lightbar ~= nil and try(lightbar, 'isEnable') then
+        local index = try(lightbar, 'getLightTexIndex')
+        if index == 1 then doc.lightbar = 'left' elseif index == 2 then doc.lightbar = 'right' end
+    end
+    local blood = {}
+    for _, side in ipairs({ 'Front', 'Rear', 'Left', 'Right' }) do
+        local amount = try(vehicle, 'getBloodIntensity', side)
+        if amount ~= nil and amount > 0 then blood[string.lower(side)] = clamp01(amount) end
+    end
+    if not isEmpty(blood) then doc.blood = blood end
+    doc.meta = {
+        exporter = 'ZomboidModelsExporter',
+        id = try(vehicle, 'getId'),
+    }
+    return doc
+end
+
+--- Writes the document for a vehicle to zomboid-models/vehicle-<script>-<id>.json and returns
+--- the relative path, or nil on failure. Nothing calls this on its own; run it from the Lua
+--- console or from another mod, for example on `getPlayer():getVehicle()`.
+function M.exportVehicle(vehicle)
+    if vehicle == nil then return nil end
+    local ok, text = pcall(function() return JSON.encode(M.describeVehicle(vehicle)) end)
+    if not ok then
+        print('[zomboid-models] vehicle export failed: ' .. tostring(text))
+        return nil
+    end
+    local script = tostring(try(vehicle, 'getScriptName') or 'vehicle')
+    local id = tostring(try(vehicle, 'getId') or 0)
+    local relPath = M.OUTPUT_FOLDER .. '/vehicle-' .. M.safeName(script .. '-' .. id) .. '.json'
     local writer = getFileWriter(relPath, true, false)
     if writer == nil then
         print('[zomboid-models] cannot open ' .. relPath)

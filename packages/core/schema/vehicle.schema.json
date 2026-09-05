@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kentucky-vibes/zomboid-models/schema/vehicle.schema.json",
+  "title": "zomboid-models vehicle",
+  "description": "One Project Zomboid vehicle as the game keeps it: script, skin, paint, rust, the state of its parts, its lights, and the blood on its sides.",
+  "type": "object",
+  "required": ["format", "version", "vehicle"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "zomboid-models/vehicle" },
+    "version": { "const": 1 },
+    "vehicle": { "type": "string", "minLength": 1 },
+    "skin": { "type": "integer", "minimum": 0 },
+    "paint": {
+      "type": "object",
+      "required": ["hue", "saturation", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "hue": { "$ref": "#/$defs/unit" },
+        "saturation": { "$ref": "#/$defs/unit" },
+        "value": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "rust": { "$ref": "#/$defs/unit" },
+    "parts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "condition": { "type": "number", "minimum": 0, "maximum": 100 },
+          "missing": { "type": "boolean" },
+          "open": { "type": "boolean" }
+        }
+      }
+    },
+    "headlights": { "type": "boolean" },
+    "stoplights": { "type": "boolean" },
+    "interiorLight": { "type": "boolean" },
+    "lightbar": { "enum": ["left", "right"] },
+    "blood": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "front": { "$ref": "#/$defs/unit" },
+        "rear": { "$ref": "#/$defs/unit" },
+        "left": { "$ref": "#/$defs/unit" },
+        "right": { "$ref": "#/$defs/unit" }
+      }
+    },
+    "seed": { "type": "integer" },
+    "meta": { "type": "object" }
+  },
+  "$defs": {
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

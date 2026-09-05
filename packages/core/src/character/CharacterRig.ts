@@ -240,6 +240,14 @@ export class CharacterRig extends Group {
     this.ownedTextures.push(texture);
   }
 
+  /**
+   * Adds an object assembled elsewhere, such as a vehicle. Its meshes count for the bounds and
+   * are freed with the rig, but they keep their own materials.
+   */
+  addObject(object: Object3D): void {
+    this.skeletonRoot.add(object);
+  }
+
   /** Applies a texture to every part with the given key. */
   setTexture(key: string, texture: Texture | null): void {
     for (const part of this.parts) {
@@ -313,16 +321,16 @@ export class CharacterRig extends Group {
     this.updateMatrixWorld(true);
     const box = new Box3();
     const point = new Vector3();
-    for (const part of this.parts) {
-      const geometry = part.mesh.geometry;
-      const position = geometry.getAttribute('position');
+    this.traverseVisible((object) => {
+      if (!isMesh(object)) return;
+      const position = object.geometry.getAttribute('position');
       for (let i = 0; i < position.count; i++) {
-        part.mesh.getVertexPosition(i, point);
-        part.mesh.localToWorld(point);
+        object.getVertexPosition(i, point);
+        object.localToWorld(point);
         this.worldToLocal(point);
         box.expandByPoint(point);
       }
-    }
+    });
     return box;
   }
 
@@ -336,7 +344,7 @@ export class CharacterRig extends Group {
     for (const texture of this.ownedTextures) texture.dispose();
     this.ownedTextures.length = 0;
     this.skeletonRoot.traverse((object) => {
-      if (isSkinnedMesh(object)) {
+      if (isMesh(object)) {
         object.geometry.dispose();
         disposeMaterial(object.material);
       }

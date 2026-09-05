@@ -1,6 +1,6 @@
-# Character document format
+# Document formats
 
-A character is described by a JSON document. The renderer, the Web Component, and the React component all take the same document, and any exporter (a server mod, a script, a form on a website) produces it. The document mirrors the state the game itself keeps for a player's appearance, so nothing is lost between the game and the page.
+Everything the renderer shows is described by a JSON document: a character (this section and the ones up to the body part names), an animal, an item, or a vehicle (the last three sections). The renderer, the Web Component, and the React component all take the same documents, and any exporter (a server mod, a script, a form on a website) produces them. Each document mirrors the state the game itself keeps for the subject, so nothing is lost between the game and the page.
 
 The JSON Schema is published as `schema/character.schema.json` in the `zomboid-models` package, and `validateCharacterDescription()` from the same package checks a parsed document at runtime and returns typed errors.
 
@@ -140,3 +140,42 @@ One inventory item on its own has the document `zomboid-models/item`:
 - `blood`: reserved for blood on weapons; not drawn yet.
 
 The pipeline writes the item catalog when `subjects` includes `items`. Ground models are FBX files in the game, which the pipeline converts through the three.js FBX loader; the model's script scale applies, so a hammer on the ground is hammer-sized next to a character. The JSON Schema is `schema/item.schema.json`, and `validateItemDescription()` checks a document at runtime.
+
+## Vehicles
+
+A vehicle has the document `zomboid-models/vehicle`:
+
+```json
+{
+  "format": "zomboid-models/vehicle",
+  "version": 1,
+  "vehicle": "Base.CarLightsPolice",
+  "skin": 0,
+  "paint": { "hue": 0.6, "saturation": 0.9, "value": 0.7 },
+  "rust": 1,
+  "parts": {
+    "DoorFrontLeft": { "condition": 45 },
+    "WindowFrontLeft": { "open": true },
+    "TireRearRight": { "missing": true }
+  },
+  "headlights": true,
+  "lightbar": "left",
+  "blood": { "front": 0.5, "left": 1 }
+}
+```
+
+- `vehicle`: the full script name, `Base.CarNormal`, `Base.PickUpVan`, or a mod's vehicle.
+- `skin`: an index into the script's skins, as `getSkinIndex()` returns it.
+- `paint`: hue, saturation, and value from 0 to 1, as `BaseVehicle` stores its colour. The shell texture marks the painted areas with its alpha; the shader replaces their hue and shifts saturation and value by the paint's values around 0.5.
+- `rust`: from 0 to 1, the opacity of the rust atlas.
+- `parts`: the state of parts by their script id, for those that differ from an installed, intact, closed part. `condition` is the item's condition from 0 to 100: bodywork and windows show the first damage texture from 59 down to 40 and the second one below 40. `missing` means no item is installed: doors, windows, and a trunk that carries the rear lights show the game's uninstalled shade, and tires and the doors of the three cars with door meshes are not drawn. `open` applies to windows, which show the uninstalled shade when open, and to doors, which are drawn closed for now.
+- `headlights`, `stoplights`, `interiorLight`: which light zones show the lights texture, as `updateLights` sets them for headlights with battery charge, brake lights, and the interior light on the windows.
+- `lightbar`: `left` or `right`, the half of a light bar that is lit, for the police and emergency vehicles that have one.
+- `blood`: per side from 0 to 1, as `getBloodIntensity()` reports `Front`, `Rear`, `Left`, and `Right`; each side covers the zones the game covers.
+- `seed`: picks the rust, the paint, and the skin the document leaves open, the way the game rolls them at spawn: no rust or full rust, one of the game's five paint families, any skin.
+
+The renderer draws the body with a port of the game's vehicle shader: the mask texture cuts the body into 27 zones, and per zone the state above decides between the plain shell, the two damage textures, the uninstalled shade, the lights, and the blood. Wheels come from the game's text meshes and sit at the wheel offsets of the script; the models of parts (light bars, van seats, the doors of the three cars that have separate door meshes) sit where the script places them. Not drawn yet: open doors and hoods, models placed on attachment points (the hood ornament of one car), and the sky box the game reflects in the windows, which is a soft gradient here.
+
+The pipeline writes the vehicle catalog when `subjects` includes `vehicles`. The JSON Schema is `schema/vehicle.schema.json`, and `validateVehicleDescription()` checks a document at runtime. `validateDescription()` checks a document of any kind by its `format`.
+
+The reference mod has `ZomboidModels.describeVehicle(vehicle)` and `ZomboidModels.exportVehicle(vehicle)`, which fill the document from `BaseVehicle`: `getScriptName()`, `getSkinIndex()`, `getColorHue()`, `getColorSaturation()`, `getColorValue()`, `getRust()`, every part with `getInventoryItem()`, its condition, and its window and door state, `getHeadlightsOn()`, `getStoplightsOn()`, `getWindowLightsOn()`, the light bar mode, and `getBloodIntensity()` per side. Nothing exports vehicles on its own; call `exportVehicle` from the Lua console or from another mod.

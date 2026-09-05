@@ -421,3 +421,90 @@ export interface ItemCatalog {
   textures: Record<string, string>;
   items: Record<string, ManifestItem>;
 }
+
+/** A vector of three numbers in the vehicle script's own units and frame. */
+export type ScriptVector = [number, number, number];
+
+/**
+ * One model a vehicle draws: the body or the model of a part, with its placement as the vehicle
+ * script gives it. Offsets, rotations, and scales are the script's raw values in the game's
+ * frame; the renderer composes them the way `BaseVehicle.updateTransform` does.
+ */
+export interface ManifestVehicleModel {
+  /** Name of the `model` block in the vehicle script (`Default`, `InflatedTirePlusWheel`), when it has one. */
+  id?: string;
+  /** Model key in the catalog's models. */
+  model: string;
+  /** Mesh name inside the file when the model script picks one with `file|mesh`. */
+  mesh?: string;
+  /** Texture key for models with their own texture (wheels); vehicle-shader models use the skin. */
+  texture?: string;
+  /** Shader name from the model script: `vehicle`, `vehicle_multiuv`, `vehiclewheel`, and so on. */
+  shader?: string;
+  /** Scale from the model script. */
+  modelScale: number;
+  invertX?: true;
+  /** Scale, offset, and rotation (degrees) from the vehicle script's `model` block. */
+  scale: number;
+  offset: ScriptVector;
+  rotate: ScriptVector;
+  ignoreVehicleScale?: true;
+  /** Attachment names for models placed on another part's model; not drawn yet. */
+  attachmentParent?: string;
+  attachmentSelf?: string;
+}
+
+/** Texture keys of one skin, with the vehicle-level textures filled in where the skin has none. */
+export interface ManifestVehicleSkin {
+  texture: string;
+  textureMask?: string;
+  textureLights?: string;
+  textureRust?: string;
+  textureDamage1Overlay?: string;
+  textureDamage1Shell?: string;
+  textureDamage2Overlay?: string;
+  textureDamage2Shell?: string;
+}
+
+export interface ManifestVehicleWheel {
+  id: string;
+  front: boolean;
+  /** Offset in script units; the renderer applies the model scale. */
+  offset: ScriptVector;
+  radius: number;
+  width: number;
+}
+
+/** One part of a vehicle script that matters for drawing, keyed by its id. */
+export interface ManifestVehiclePart {
+  models: ManifestVehicleModel[];
+  /** Id of the wheel the part sits on, for tires. */
+  wheel?: string;
+  parent?: string;
+  door?: true;
+  window?: true;
+  hasLightsRear?: true;
+  category?: string;
+}
+
+/** One vehicle script, keyed by its full name (`Base.CarNormal`). */
+export interface ManifestVehicle {
+  /** The `model` blocks of the script; the first one is the body. */
+  models: ManifestVehicleModel[];
+  /** The body model's scale, which the game applies to every offset and extent of the script. */
+  modelScale: number;
+  extents: ScriptVector;
+  skins: ManifestVehicleSkin[];
+  wheels: ManifestVehicleWheel[];
+  parts: Record<string, ManifestVehiclePart>;
+  lightbar?: true;
+  /** `forcedColor` from the script, as hue, saturation, and value from 0 to 1. */
+  forcedColor?: { hue: number; saturation: number; value: number };
+}
+
+/** Everything needed to render vehicles. */
+export interface VehicleCatalog {
+  models: Record<string, ManifestModel>;
+  textures: Record<string, string>;
+  vehicles: Record<string, ManifestVehicle>;
+}

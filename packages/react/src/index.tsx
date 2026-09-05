@@ -19,8 +19,9 @@ export interface ZomboidCharacterProps extends ViewerOptions {
 }
 
 /**
- * Shows one character. The viewer is created when the component mounts and rebuilt when the
- * asset folder or mode changes; the character and the animation update in place.
+ * Shows one document: a character, an animal, an item, or a vehicle. The viewer is created when
+ * the component mounts and rebuilt when the asset folder or mode changes; the document and the
+ * animation update in place.
  */
 export function ZomboidCharacter({ className, style, onReady, ...options }: ZomboidCharacterProps) {
   const host = useRef<HTMLDivElement>(null);
