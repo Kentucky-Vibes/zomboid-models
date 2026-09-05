@@ -41,5 +41,8 @@
     "directory": "packages/element"
   },
   "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
-  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues",
+  "engines": {
+    "node": ">=22.12"
+  }
 }

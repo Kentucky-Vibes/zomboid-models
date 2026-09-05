@@ -1,7 +1,5 @@
-export interface FrameListener {
-  /** Called once per animation frame with the elapsed time since the previous frame. */
-  onFrame(deltaSeconds: number): void;
-}
+/** Called once per animation frame with the elapsed time since the previous frame. */
+export type FrameListener = (deltaSeconds: number) => void;
 
 /**
  * A single requestAnimationFrame loop shared by every viewer on the page. It runs only while
@@ -50,7 +48,7 @@ export class RenderLoop {
     const delta = Math.min((time - this.lastTime) / 1000, 0.1);
     this.lastTime = time;
     for (const listener of this.listeners) {
-      listener.onFrame(delta);
+      listener(delta);
     }
   };
 }

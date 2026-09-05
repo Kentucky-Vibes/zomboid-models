@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
+import type { NamesCatalog } from 'zomboid-models';
 import type {
   AnimalCatalog,
   CharacterCatalog,
   ItemCatalog,
   ManifestIndex,
-  NamesCatalog,
   VehicleCatalog,
-} from 'zomboid-models';
+} from 'zomboid-models/rules';
 
 export interface ManifestState {
   manifest: CharacterCatalog | undefined;

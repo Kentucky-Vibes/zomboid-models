@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.12"
   },
   "dependencies": {
     "fast-xml-parser": "5.11.1",
@@ -49,5 +49,6 @@
   "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues",
   "devDependencies": {
     "gltf-validator": "2.0.0-dev.3.10"
-  }
+  },
+  "sideEffects": false
 }

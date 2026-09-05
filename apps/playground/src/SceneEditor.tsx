@@ -1,11 +1,11 @@
 import {
   displayName,
-  type NamesCatalog,
   type SceneDescription,
   type SceneSubject,
   type SceneSubjectDescription,
-  type VehicleCatalog,
 } from 'zomboid-models';
+import type { NamesCatalog } from 'zomboid-models';
+import type { VehicleCatalog } from 'zomboid-models/rules';
 
 export interface SceneEditorProps {
   scene: SceneDescription;

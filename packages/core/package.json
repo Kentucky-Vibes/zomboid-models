@@ -16,6 +16,10 @@
       "types": "./dist/format/index.d.ts",
       "import": "./dist/format/index.js"
     },
+    "./rules": {
+      "types": "./dist/rules/index.d.ts",
+      "import": "./dist/rules/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -50,5 +54,8 @@
     "directory": "packages/core"
   },
   "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
-  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues",
+  "engines": {
+    "node": ">=22.12"
+  }
 }

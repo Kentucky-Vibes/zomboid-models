@@ -23,6 +23,9 @@ jobs:
           node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
+      # npm publishes through the trusted publisher set up on npmjs.com for each package; that
+      # needs npm 11.5.1 or later, newer than the one Node ships with.
+      - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
       - name: Create version pull request or publish
@@ -34,5 +37,4 @@ jobs:
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'

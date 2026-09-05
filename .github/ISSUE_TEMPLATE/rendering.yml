@@ -1,0 +1,32 @@
+name: Rendering problem
+description: A document renders wrongly, or not at all
+labels: [rendering]
+body:
+  - type: textarea
+    id: document
+    attributes:
+      label: Document
+      description: The JSON the viewer was given. Paste it, or attach the file.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What the game shows and what the viewer shows
+      description: A screenshot from the game next to one from the viewer says the most. Which package and options were in use (viewer, element, React, render, playground)?
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: The package versions, the game version the assets were built from, and the browser or Node.js version.
+      placeholder: zomboid-models 1.0.0, game 42.20.3, Chrome 131
+    validations:
+      required: true
+  - type: textarea
+    id: warnings
+    attributes:
+      label: Warnings
+      description: Anything the viewer reported through `onWarning` or the `warning` event.

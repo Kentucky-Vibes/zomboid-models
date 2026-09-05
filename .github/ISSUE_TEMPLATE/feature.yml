@@ -1,0 +1,16 @@
+name: Proposal
+description: Something the packages could do
+labels: [proposal]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why
+      description: What you want to show or build, and what the packages lack for it. The project is a set of building blocks and stays one; see the scope section of the README before proposing a product on top of it.
+    validations:
+      required: true
+  - type: textarea
+    id: game
+    attributes:
+      label: How the game does it
+      description: If the proposal is about matching the game, where in the game's code or data the behaviour lives, if you know.

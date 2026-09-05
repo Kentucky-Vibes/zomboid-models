@@ -21,6 +21,8 @@ export interface ManifestIndex {
   version: typeof MANIFEST_VERSION;
   /** Game version the assets were converted from, for example `42.20.3`. */
   gameVersion: string;
+  /** Version of `zomboid-models-pipeline` that built the folder; a viewer of another major warns. */
+  pipeline?: string;
   generatedAt: string;
   /** Mod ids that contributed assets, in load order. */
   mods: string[];
@@ -384,9 +386,6 @@ export interface CharacterCatalog {
   /** Bandage item type per body part, the way the game names them (`Base.Bandage_Head`). */
   bandageItems: Partial<Record<BodyPart, string>>;
 }
-
-/** @deprecated The name from manifest version 1; the character catalog carries the same data. */
-export type Manifest = CharacterCatalog;
 
 /** The textures of one animal breed, as texture keys, in the definition's order. */
 export interface ManifestAnimalBreed {

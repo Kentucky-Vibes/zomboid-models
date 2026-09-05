@@ -25,7 +25,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.12"
   },
   "dependencies": {
     "playwright": "1.63.0",
@@ -50,5 +50,6 @@
     "directory": "packages/render"
   },
   "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
-  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues",
+  "sideEffects": false
 }

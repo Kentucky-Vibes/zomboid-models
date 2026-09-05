@@ -6,12 +6,12 @@
 export type LightbarMode = 1 | 2 | 3;
 
 /** Which side is lit: 0 none, 1 left, 2 right. */
-export type LightbarSide = 0 | 1 | 2;
+export type LightbarLitSide = 0 | 1 | 2;
 
 interface Step {
   /** The step holds until this many milliseconds into the cycle. */
   until: number;
-  side: LightbarSide;
+  side: LightbarLitSide;
 }
 
 const PATTERNS: Record<LightbarMode, { period: number; steps: Step[] }> = {
@@ -54,7 +54,7 @@ const PATTERNS: Record<LightbarMode, { period: number; steps: Step[] }> = {
 };
 
 /** The side lit at a time since the light bar was switched on, as `LightbarLightsMode.update`. */
-export function lightbarSideAt(mode: LightbarMode, milliseconds: number): LightbarSide {
+export function lightbarSideAt(mode: LightbarMode, milliseconds: number): LightbarLitSide {
   const pattern = PATTERNS[mode];
   const t = ((milliseconds % pattern.period) + pattern.period) % pattern.period;
   for (const step of pattern.steps) if (t < step.until) return step.side;

@@ -10,7 +10,7 @@
     "url": "https://github.com/kentucky-vibes/zomboid-models.git"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.12"
   },
   "workspaces": [
     "packages/*",
@@ -29,7 +29,8 @@
     "check": "npm run build && npm run typecheck && npm run lint && npm run format:check && npm run test",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "npm run build && changeset publish"
+    "release": "npm run build && changeset publish",
+    "docs:api": "typedoc"
   },
   "devDependencies": {
     "@changesets/changelog-github": "1.0.1",
@@ -37,10 +38,13 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@types/node": "26.4.1",
+    "@vitest/coverage-v8": "^5.0.0",
     "eslint": "10.10.0",
     "globals": "17.12.0",
+    "happy-dom": "^20.14.0",
     "prettier": "3.9.6",
     "tsup": "8.5.1",
+    "typedoc": "^0.28.20",
     "typescript": "5.9.3",
     "typescript-eslint": "8.69.0",
     "vitest": "5.0.0"

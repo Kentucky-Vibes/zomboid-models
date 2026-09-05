@@ -1,0 +1,26 @@
+name: Pipeline problem
+description: The asset build fails, warns, or leaves something out
+labels: [pipeline]
+body:
+  - type: textarea
+    id: output
+    attributes:
+      label: Build output
+      description: What `zomboid-models build` (or `doctor`) printed, warnings included.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: The configuration file, with paths shortened if you prefer.
+      render: json
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: The pipeline version, the game version, and the mods in the load order if any.
+      placeholder: zomboid-models-pipeline 1.0.0, game 42.20.3, no mods
+    validations:
+      required: true

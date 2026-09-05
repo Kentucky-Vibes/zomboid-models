@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { emptyCharacterCatalog } from '../format/emptyCatalog.js';
-import type { Manifest } from '../format/manifest.js';
+import type { CharacterCatalog } from '../format/manifest.js';
 import {
   CHARACTER_FORMAT,
   CHARACTER_FORMAT_VERSION,
@@ -9,7 +9,7 @@ import {
 } from '../format/types.js';
 import { resolveBeard, resolveHair, resolveOutfit } from './outfit.js';
 
-function manifest(): Manifest {
+function manifest(): CharacterCatalog {
   return {
     ...emptyCharacterCatalog(),
     bodies: {

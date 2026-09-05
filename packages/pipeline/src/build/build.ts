@@ -16,6 +16,8 @@ import {
 import type { PipelineConfig } from '../config.js';
 import { convertAnimationFile } from '../convert/animationToGltf.js';
 import { convertFbxFile } from '../convert/fbxToGltf.js';
+import { describeGlb } from '../gltf/inspect.js';
+import { PIPELINE_VERSION } from '../version.js';
 import { convertMeshFile } from '../convert/meshToGltf.js';
 import { convertTextMeshFile } from '../convert/textMeshToGltf.js';
 import { entryValue } from '../game/scripts.js';
@@ -188,7 +190,16 @@ function convertModels(
       continue;
     }
     if (source.extension === '.glb') {
-      warnings.push(`model "${key}" is already glTF; copying is not supported yet`);
+      // A model that is glTF already (a mod may ship one) is copied with its meshes listed.
+      try {
+        const glb = readFileSync(source.path);
+        const described = describeGlb(glb);
+        const file = `models/${slug(key)}-${hashOf(glb)}.glb`;
+        writeFileSync(join(outDir, file), glb);
+        writer.models.set(key, { file, skinned: described.skinned, meshes: described.meshes });
+      } catch (error) {
+        warnings.push(`model "${key}": ${error instanceof Error ? error.message : String(error)}`);
+      }
       continue;
     }
     try {
@@ -562,6 +573,7 @@ export function runBuild(config: PipelineConfig, log: BuildLogger): BuildReport 
     format: MANIFEST_FORMAT,
     version: MANIFEST_VERSION,
     gameVersion: formatGameVersion(version),
+    pipeline: PIPELINE_VERSION,
     generatedAt: new Date().toISOString(),
     mods: mods.map((mod) => mod.id),
     catalogs: {},

@@ -1,3 +1,5 @@
+import type { RgbColor } from '../format/types.js';
+
 /**
  * The game's outfit random number generator, ported bit for bit so that a seed produces the
  * same choices as in the game: `zombie.util.LocationRNG` (xoroshiro128+ seeded through
@@ -69,11 +71,6 @@ export class LocationRng {
 }
 
 /** A colour with channels in [0, 1], as the game's `ImmutableColor`. */
-export interface RgbColor {
-  r: number;
-  g: number;
-  b: number;
-}
 
 /**
  * `zombie.core.Color.HSBtoRGB`: hue, saturation, and brightness in [0, 1] to a colour quantised

@@ -23,6 +23,7 @@ import type {
   CharacterCatalog,
   ItemCatalog,
   ManifestClip,
+  ManifestIndex,
   VehicleCatalog,
 } from '../format/manifest.js';
 import type { CharacterDescription } from '../format/types.js';
@@ -33,7 +34,8 @@ import { lightingLinear, resolveLighting, type LightingOption } from '../lightin
 import { buildVehicle } from '../vehicle/VehicleBuilder.js';
 import { scaledVehicleLighting, type VehicleLighting } from '../vehicle/VehicleMaterial.js';
 import { VehicleRig } from '../vehicle/VehicleRig.js';
-import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
+import { PACKAGE_VERSION, majorVersion } from '../version.js';
+import { getRenderLoop } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
 
 /**
@@ -57,21 +59,19 @@ export interface CameraOptions {
 }
 
 /** Any document the viewer can show. */
-export type ViewerDocument = SubjectDescription;
-
-function isAnimal(document: ViewerDocument): document is AnimalDescription {
+function isAnimal(document: SubjectDescription): document is AnimalDescription {
   return document.format === ANIMAL_FORMAT;
 }
 
-function isItem(document: ViewerDocument): document is ItemDescription {
+function isItem(document: SubjectDescription): document is ItemDescription {
   return document.format === ITEM_FORMAT;
 }
 
-function isVehicle(document: ViewerDocument): document is VehicleDescription {
+function isVehicle(document: SubjectDescription): document is VehicleDescription {
   return document.format === VEHICLE_FORMAT;
 }
 
-function isScene(document: ViewerDocument): document is SceneDescription {
+function isScene(document: SubjectDescription): document is SceneDescription {
   return document.format === SCENE_FORMAT;
 }
 
@@ -80,7 +80,7 @@ export interface ViewerOptions {
   assetBaseUrl: string;
   mode?: ViewerMode;
   /** The document to show. */
-  document?: ViewerDocument;
+  document?: SubjectDescription;
   /** The same as `document`; kept for the first releases. */
   character?: CharacterDescription;
   /**
@@ -164,7 +164,7 @@ const AVATAR_DIRECTION_YAW: Record<string, number> = {
  * One document on one canvas. The viewer owns its scene, camera, and rig, and draws through
  * the renderer shared by every viewer on the page.
  */
-export class Viewer implements FrameListener {
+export class Viewer {
   readonly element: HTMLElement;
   readonly canvas: HTMLCanvasElement;
   readonly scene = new Scene();
@@ -187,6 +187,8 @@ export class Viewer implements FrameListener {
   private needsRender = true;
   private generation = 0;
   private disposed = false;
+  private versionWarned = false;
+  private readonly releaseContext: () => void;
   private characterHeight = 1;
   private characterExtent = 1;
 
@@ -239,22 +241,32 @@ export class Viewer implements FrameListener {
     this.intersectionObserver.observe(this.element);
     this.reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
     this.reducedMotion.addEventListener('change', this.syncLoop);
+    this.releaseContext = this.shared.onContext({
+      lost: () =>
+        this.options.onWarning?.({
+          code: 'context-lost',
+          message:
+            'the browser dropped the WebGL context; the picture returns when the browser restores it',
+        }),
+      restored: () => {
+        this.needsRender = true;
+        this.syncLoop();
+      },
+    });
 
     this.resize();
     this.placeCamera();
     void this.load();
   }
 
-  /** The document being shown, whichever option it came through. */
-  get document(): ViewerDocument | undefined {
-    return this.options.document ?? this.options.character;
+  /** The document being shown. */
+  get document(): SubjectDescription | undefined {
+    return this.options.document;
   }
 
   /** Replaces the document; a vehicle of the same script and skin updates in place. */
-  async setDocument(document: ViewerDocument): Promise<void> {
-    const options = { ...this.options, document };
-    delete options.character;
-    this.options = options;
+  async setDocument(document: SubjectDescription): Promise<void> {
+    this.options = { ...this.options, document };
     const rig = this.rig;
     if (
       rig instanceof VehicleRig &&
@@ -295,6 +307,29 @@ export class Viewer implements FrameListener {
     if (this.catalog && this.rig) void this.applyAnimation(this.catalog, this.rig, this.generation);
   }
 
+  /** Holds the animation at a time in seconds, or lets it play again with `undefined`. */
+  setPoseTime(seconds: number | undefined): void {
+    const options = { ...this.options };
+    delete options.poseTime;
+    this.options = seconds === undefined ? options : { ...options, poseTime: seconds };
+    const poseTime = this.poseTime();
+    if (this.rig) {
+      if (poseTime === undefined) this.rig.resume();
+      else this.rig.freezeAt(poseTime);
+      this.rig.refreshShadow();
+    }
+    this.needsRender = true;
+    this.syncLoop();
+  }
+
+  /** Turns the light bar pattern of a vehicle on or off without rebuilding. */
+  setAnimateLightbar(animate: boolean): void {
+    this.options = { ...this.options, animateLightbar: animate };
+    if (this.rig instanceof VehicleRig) this.rig.animateLightbar = animate;
+    this.needsRender = true;
+    this.syncLoop();
+  }
+
   play(): void {
     this.playing = true;
     this.rig?.resume();
@@ -331,7 +366,7 @@ export class Viewer implements FrameListener {
     return this.options.poseTime ?? (this.options.mode === 'image' ? 0 : undefined);
   }
 
-  onFrame(delta: number): void {
+  private readonly frame = (delta: number): void => {
     if (this.rig && this.playing && this.rig.animated && this.poseTime() === undefined) {
       this.rig.update(delta);
       this.needsRender = true;
@@ -344,16 +379,17 @@ export class Viewer implements FrameListener {
       this.needsRender = false;
       this.shared.renderTo(this.canvas, this.scene, this.camera);
     }
-  }
+  };
 
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.generation++;
-    getRenderLoop().remove(this);
+    getRenderLoop().remove(this.frame);
     this.resizeObserver.disconnect();
     this.intersectionObserver.disconnect();
     this.reducedMotion.removeEventListener('change', this.syncLoop);
+    this.releaseContext();
     this.controls?.dispose();
     this.rig?.dispose();
     this.rig = undefined;
@@ -368,6 +404,7 @@ export class Viewer implements FrameListener {
       const catalog = await this.loadCatalogFor(document);
       if (generation !== this.generation) return;
       this.catalog = catalog;
+      this.checkCatalogVersion(await this.cache.loadManifest());
       if (!document) return;
       const built = isAnimal(document)
         ? await buildAnimal(
@@ -437,8 +474,21 @@ export class Viewer implements FrameListener {
   }
 
   /** The catalog of the document's kind; characters when there is no document yet. */
+  /** Warns once when the assets come from a pipeline of another major version. */
+  private checkCatalogVersion(manifest: ManifestIndex): void {
+    if (this.versionWarned || manifest.pipeline === undefined) return;
+    const built = majorVersion(manifest.pipeline);
+    const mine = majorVersion(PACKAGE_VERSION);
+    if (built < 0 || mine < 0 || built === mine) return;
+    this.versionWarned = true;
+    this.options.onWarning?.({
+      code: 'catalog-version',
+      message: `the assets were built with zomboid-models-pipeline ${manifest.pipeline} and this viewer is zomboid-models ${PACKAGE_VERSION}; rebuild the assets with a pipeline of the same major version`,
+    });
+  }
+
   private loadCatalogFor(
-    document: ViewerDocument | undefined,
+    document: SubjectDescription | undefined,
   ): Promise<CharacterCatalog | AnimalCatalog | ItemCatalog | VehicleCatalog> {
     if (document && isAnimal(document)) return this.cache.loadAnimalCatalog();
     if (document && isItem(document)) return this.cache.loadItemCatalog();
@@ -567,7 +617,7 @@ export class Viewer implements FrameListener {
     const mode = this.options.mode ?? 'viewer';
     if (mode === 'image') {
       // A picture is drawn when asked for; the page's loop has nothing to do.
-      getRenderLoop().remove(this);
+      getRenderLoop().remove(this.frame);
       return;
     }
     const motionAllowed = !(mode === 'showcase' && this.reducedMotion.matches);
@@ -575,9 +625,9 @@ export class Viewer implements FrameListener {
       this.playing && this.rig?.animated === true && this.poseTime() === undefined && motionAllowed;
     const interactive = this.controls !== undefined;
     if (this.visible && (animating || interactive || this.needsRender)) {
-      getRenderLoop().add(this);
+      getRenderLoop().add(this.frame);
     } else {
-      getRenderLoop().remove(this);
+      getRenderLoop().remove(this.frame);
     }
   };
 }

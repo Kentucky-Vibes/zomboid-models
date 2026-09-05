@@ -31,7 +31,8 @@ export interface SceneLighting {
   factor: [number, number, number];
 }
 
-type Rgba = [number, number, number, number];
+/** A colour with its alpha, as the game's `ColorInfo` holds it. */
+export type Rgba = [number, number, number, number];
 
 const SEASON_ROW: Record<Season, number> = { summer: 0, autumn: 1, winter: 2, spring: 3 };
 

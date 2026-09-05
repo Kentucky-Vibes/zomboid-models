@@ -8,10 +8,17 @@ import { TextureComposer } from '../texture/TextureComposer.js';
  * the number of live WebGL contexts, and this keeps the count at one however many viewers a
  * page shows.
  */
+/** What a viewer hears about the shared WebGL context. */
+export interface ContextListener {
+  lost(): void;
+  restored(): void;
+}
+
 export class SharedRenderer {
   readonly renderer: WebGLRenderer;
   private users = 0;
   private textureComposer: TextureComposer | undefined;
+  private readonly contextListeners = new Set<ContextListener>();
 
   /** The texture compositor bound to this renderer, created on first use. */
   get composer(): TextureComposer {
@@ -30,6 +37,23 @@ export class SharedRenderer {
     this.renderer.setPixelRatio(1);
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.autoClear = true;
+    const canvas = this.renderer.domElement;
+    canvas.addEventListener('webglcontextlost', (event) => {
+      // Telling the browser the loss is handled is what makes it restore the context later.
+      event.preventDefault();
+      for (const listener of this.contextListeners) listener.lost();
+    });
+    canvas.addEventListener('webglcontextrestored', () => {
+      for (const listener of this.contextListeners) listener.restored();
+    });
+  }
+
+  /** Subscribes to context loss and restoration; returns the function that unsubscribes. */
+  onContext(listener: ContextListener): () => void {
+    this.contextListeners.add(listener);
+    return () => {
+      this.contextListeners.delete(listener);
+    };
   }
 
   /** Renders `scene` at the target's size and copies the result onto the target canvas. */

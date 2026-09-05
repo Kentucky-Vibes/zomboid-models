@@ -6,5 +6,9 @@ export * from './manifest.js';
 export * from './names.js';
 export * from './scene.js';
 export * from './types.js';
-export { isBodyPart, validateCharacterDescription, type ValidationResult } from './validate.js';
+export {
+  isBodyPart,
+  validateCharacterDescription,
+  type CharacterValidationResult,
+} from './validate.js';
 export * from './vehicle.js';

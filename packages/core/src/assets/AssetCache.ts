@@ -13,9 +13,59 @@ import {
 } from '../format/manifest.js';
 import type { NamesCatalog } from '../format/names.js';
 
+/** How long one request may take before it counts as failed. */
+const REQUEST_TIMEOUT_MS = 30_000;
+/** The pauses before the second and the third attempt at a request that failed. */
+const RETRY_DELAYS_MS = [500, 1500];
+
+class HttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** A request is worth repeating when the network or the server failed, not when the file is absent. */
+function retryable(error: unknown): boolean {
+  if (error instanceof HttpError) return error.status >= 500 || error.status === 429;
+  return true;
+}
+
+function withTimeout<T>(promise: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${what} took longer than ${REQUEST_TIMEOUT_MS / 1000} seconds`));
+    }, REQUEST_TIMEOUT_MS);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/** Runs a request, and again after a pause when it fails in a way that may pass next time. */
+async function attempt<T>(what: string, run: () => Promise<T>): Promise<T> {
+  let failure: unknown;
+  for (let index = 0; index <= RETRY_DELAYS_MS.length; index++) {
+    if (index > 0) {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[index - 1]));
+    }
+    try {
+      return await withTimeout(run(), what);
+    } catch (error) {
+      failure = error;
+      if (!retryable(error)) break;
+    }
+  }
+  throw failure instanceof Error ? failure : new Error(String(failure));
+}
+
 /**
- * Loads and caches the manifest index, the catalogs, the GLB files, and the textures of one
- * asset folder. Every viewer on a page that uses the same `assetBaseUrl` shares one cache.
+ * Loads and caches the manifest index, the catalogs, the names, the GLB files, and the
+ * textures of one asset folder. Every viewer on a page that uses the same `assetBaseUrl`
+ * shares one cache. A request that fails is tried three times over a few seconds when the
+ * failure looks temporary; a file that does not exist fails at once. A failed load leaves no
+ * entry behind, so the next call asks again.
  */
 export class AssetCache {
   private readonly gltfLoader = new GLTFLoader();
@@ -33,12 +83,18 @@ export class AssetCache {
     return new URL(relativePath, this.baseUrl).href;
   }
 
-  private async fetchJson(relativePath: string): Promise<unknown> {
-    const response = await fetch(this.url(relativePath), { cache: 'no-cache' });
-    if (!response.ok) {
-      throw new Error(`could not load ${relativePath} from ${response.url}: ${response.status}`);
-    }
-    return response.json();
+  private fetchJson(relativePath: string): Promise<unknown> {
+    const url = this.url(relativePath);
+    return attempt(`loading ${relativePath}`, async () => {
+      const response = await fetch(url, { cache: 'no-cache' });
+      if (!response.ok) {
+        throw new HttpError(
+          `could not load ${relativePath} from ${response.url}: ${response.status}`,
+          response.status,
+        );
+      }
+      return (await response.json()) as unknown;
+    });
   }
 
   /** Loads `manifest.json`, the index that names the catalog files. */
@@ -127,10 +183,13 @@ export class AssetCache {
   loadGltf(relativePath: string): Promise<GLTF> {
     let promise = this.gltfs.get(relativePath);
     if (!promise) {
-      promise = this.gltfLoader.loadAsync(this.url(relativePath)).catch((error: unknown) => {
-        this.gltfs.delete(relativePath);
-        throw error;
-      });
+      const url = this.url(relativePath);
+      promise = attempt(`loading ${relativePath}`, () => this.gltfLoader.loadAsync(url)).catch(
+        (error: unknown) => {
+          this.gltfs.delete(relativePath);
+          throw error;
+        },
+      );
       this.gltfs.set(relativePath, promise);
     }
     return promise;
@@ -144,8 +203,8 @@ export class AssetCache {
     const cacheKey = raw ? `raw:${relativePath}` : relativePath;
     let promise = this.textures.get(cacheKey);
     if (!promise) {
-      promise = this.textureLoader
-        .loadAsync(this.url(relativePath))
+      const url = this.url(relativePath);
+      promise = attempt(`loading ${relativePath}`, () => this.textureLoader.loadAsync(url))
         .then((texture) => {
           texture.colorSpace = raw ? NoColorSpace : SRGBColorSpace;
           texture.magFilter = LinearFilter;

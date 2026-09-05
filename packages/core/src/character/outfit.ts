@@ -1,4 +1,4 @@
-import type { Manifest, ManifestClothingItem } from '../format/manifest.js';
+import type { CharacterCatalog, ManifestClothingItem } from '../format/manifest.js';
 import type { CharacterDescription, Sex, WornItemDescription } from '../format/types.js';
 
 /** A worn item after the game's slot rules have been applied. */
@@ -22,7 +22,10 @@ export interface ResolvedOutfit {
   warnings: string[];
 }
 
-function locationOf(manifest: Manifest, id: string): Manifest['bodyLocations'][string] | undefined {
+function locationOf(
+  manifest: CharacterCatalog,
+  id: string,
+): CharacterCatalog['bodyLocations'][string] | undefined {
   return manifest.bodyLocations[id];
 }
 
@@ -33,7 +36,7 @@ function locationOf(manifest: Manifest, id: string): Manifest['bodyLocations'][s
  * alternate-model rules are evaluated across the final list.
  */
 export function resolveOutfit(
-  manifest: Manifest,
+  manifest: CharacterCatalog,
   description: CharacterDescription,
 ): ResolvedOutfit {
   const sex: Sex = description.body.sex;
@@ -102,7 +105,7 @@ export interface ResolvedHair {
 
 /** Picks the hair style to draw, replacing it by the hat's alternate when a hat is worn. */
 export function resolveHair(
-  manifest: Manifest,
+  manifest: CharacterCatalog,
   sex: Sex,
   styleName: string | undefined,
   hatCategory: string | undefined,
@@ -132,7 +135,7 @@ export function resolveHair(
 
 /** Picks the beard style to draw, unless the hat removes beards. */
 export function resolveBeard(
-  manifest: Manifest,
+  manifest: CharacterCatalog,
   styleName: string | undefined,
   hatCategory: string | undefined,
 ): ResolvedHair {

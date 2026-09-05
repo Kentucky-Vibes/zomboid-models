@@ -1,0 +1,20 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "zomboid-models",
+  "entryPointStrategy": "packages",
+  "entryPoints": [
+    "packages/core",
+    "packages/element",
+    "packages/react",
+    "packages/pipeline",
+    "packages/render"
+  ],
+  "out": "apps/playground/dist/api",
+  "readme": "README.md",
+  "includeVersion": false,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "treatWarningsAsErrors": false,
+  "navigation": { "includeCategories": false },
+  "validation": { "notExported": false, "invalidLink": true, "notDocumented": false }
+}

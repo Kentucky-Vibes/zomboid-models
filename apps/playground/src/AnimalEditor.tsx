@@ -3,13 +3,13 @@ import {
   ANIMAL_STANCES,
   ANIMAL_VARIANTS,
   displayName,
-  type AnimalCatalog,
   type AnimalDescription,
   type AnimalAction,
   type AnimalStance,
   type AnimalVariant,
-  type NamesCatalog,
 } from 'zomboid-models';
+import type { NamesCatalog } from 'zomboid-models';
+import type { AnimalCatalog } from 'zomboid-models/rules';
 
 export interface AnimalEditorProps {
   catalog: AnimalCatalog;

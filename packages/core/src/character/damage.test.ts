@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MANIFEST_FORMAT, MANIFEST_VERSION, type Manifest } from '../format/manifest.js';
+import { MANIFEST_FORMAT, MANIFEST_VERSION, type CharacterCatalog } from '../format/manifest.js';
 import { damageItemNames, damageWornItems } from './damage.js';
 
 describe('damageItemNames', () => {
@@ -41,7 +41,7 @@ describe('damageWornItems', () => {
           bloodLocation: [],
         },
       },
-    } as unknown as Manifest;
+    } as unknown as CharacterCatalog;
     const warnings: string[] = [];
     const items = damageWornItems(
       manifest,

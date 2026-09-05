@@ -8,7 +8,7 @@ import {
   CHARACTER_ACTIONS,
 } from './types.js';
 
-export type ValidationResult =
+export type CharacterValidationResult =
   { ok: true; value: CharacterDescription } | { ok: false; errors: string[] };
 
 type Json = Record<string, unknown>;
@@ -236,7 +236,7 @@ function checkAction(c: Checker, value: unknown): void {
 }
 
 /** Checks that a parsed JSON value is a character description and narrows its type. */
-export function validateCharacterDescription(value: unknown): ValidationResult {
+export function validateCharacterDescription(value: unknown): CharacterValidationResult {
   const c = new Checker();
   const doc = c.record(value, '$');
   if (!doc) {

@@ -1,4 +1,4 @@
-import type { Manifest } from '../format/manifest.js';
+import type { CharacterCatalog } from '../format/manifest.js';
 import {
   BODY_PARTS,
   type BodyPart,
@@ -71,7 +71,7 @@ export function bodyMaskState(layers: readonly BodyLayerInput[]): {
   return { hidden, folder };
 }
 
-function holeMaskKey(manifest: Manifest, part: BodyPart): string | undefined {
+function holeMaskKey(manifest: CharacterCatalog, part: BodyPart): string | undefined {
   const blood = manifest.bloodMasks[part];
   return blood === undefined ? undefined : blood.replace(/^bloodtextures\//, 'holetextures/');
 }
@@ -100,7 +100,10 @@ function dirtPass(mask: string, amount: number): CompositePass {
  * then the result drawn through the body masks so that skin under clothing disappears, then
  * the skin restored inside the holes of the garments.
  */
-export function planBodyTexture(manifest: Manifest, input: BodyTextureInput): CompositePlan {
+export function planBodyTexture(
+  manifest: CharacterCatalog,
+  input: BodyTextureInput,
+): CompositePlan {
   const passes: CompositePass[] = [{ shader: 'blit', diffuse: { key: input.skinTexture } }];
   for (const part of BODY_PARTS) {
     const mask = manifest.bloodMasks[part];
@@ -186,7 +189,10 @@ export function isPlainItemTexture(input: ItemTextureInput): boolean {
  * Plans a worn item's texture: the base texture with tint or hue, then blood, dirt, and a patch
  * per part, then holes punched through it, one resolve per hole like the game.
  */
-export function planItemTexture(manifest: Manifest, input: ItemTextureInput): CompositePlan {
+export function planItemTexture(
+  manifest: CharacterCatalog,
+  input: ItemTextureInput,
+): CompositePlan {
   const d = input.description;
   const base: CompositePass = { shader: 'blit', diffuse: { key: input.baseTexture } };
   if (isTinted(input.tint)) {

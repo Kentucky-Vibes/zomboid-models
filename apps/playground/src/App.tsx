@@ -12,7 +12,7 @@ import {
   type ItemDescription,
   type SceneDescription,
   type VehicleDescription,
-  type ViewerDocument,
+  type SubjectDescription,
   type LightingOption,
   type LightingPreset,
   type Season,
@@ -141,7 +141,7 @@ export function App() {
   const [preset, setPreset] = useState('full');
   const [jsonDraft, setJsonDraft] = useState('');
   const [jsonError, setJsonError] = useState<string | undefined>(undefined);
-  const document: ViewerDocument =
+  const document: SubjectDescription =
     subject === 'animal'
       ? animal
       : subject === 'item'

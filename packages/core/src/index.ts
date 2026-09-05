@@ -1,54 +1,24 @@
+/**
+ * The renderer and the document formats. The game's rules the renderer applies live under
+ * `zomboid-models/rules`, and the catalog files the pipeline writes under `zomboid-models/format`.
+ */
 export { ATTRIBUTION_TEXT } from './attribution.js';
-export * from './format/index.js';
+export { PACKAGE_VERSION } from './version.js';
+export * from './format/animal.js';
+export * from './format/document.js';
+export * from './format/item.js';
+export * from './format/names.js';
+export * from './format/scene.js';
+export * from './format/types.js';
+export {
+  isBodyPart,
+  validateCharacterDescription,
+  type CharacterValidationResult,
+} from './format/validate.js';
+export * from './format/vehicle.js';
 export { createViewer } from './viewer/createViewer.js';
 export { Viewer } from './viewer/Viewer.js';
-export type {
-  CameraOptions,
-  SnapshotOptions,
-  ViewerDocument,
-  ViewerMode,
-  ViewerOptions,
-} from './viewer/Viewer.js';
+export type { CameraOptions, SnapshotOptions, ViewerMode, ViewerOptions } from './viewer/Viewer.js';
 export type { RigWarning } from './character/CharacterRig.js';
-export { autoClip, prepareCharacter } from './character/CharacterBuilder.js';
-export type { AutoClip, PreparedCharacter } from './character/CharacterBuilder.js';
-export { autoAnimalClip, resolveAnimalLook } from './animal/AnimalBuilder.js';
-export type { AnimalLook } from './animal/AnimalBuilder.js';
-export { resolveItemLook } from './item/ItemBuilder.js';
-export type { ItemLook } from './item/ItemBuilder.js';
-export {
-  placeVehicleModels,
-  resolveVehicleLook,
-  rollVehiclePaint,
-} from './vehicle/VehicleBuilder.js';
-export type { PlacedVehicleModel, VehicleLook } from './vehicle/VehicleBuilder.js';
-export { vehicleShaderState } from './vehicle/VehicleState.js';
-export type { VehicleShaderState } from './vehicle/VehicleState.js';
-export { ZONE, ZONE_COLORS, zoneOfIndex1, zoneOfIndex2 } from './vehicle/zones.js';
-export { defaultVehicleLighting, scaledVehicleLighting } from './vehicle/VehicleMaterial.js';
-export {
-  LIGHTING_PRESETS,
-  climateAt,
-  dayHours,
-  lightingLinear,
-  resolveLighting,
-  squareLight,
-} from './lighting/gameLight.js';
-export type {
-  Climate,
-  DayHours,
-  LightingOption,
-  LightingPreset,
-  LightingTime,
-  SceneLighting,
-  Season,
-} from './lighting/gameLight.js';
-export { GAME_MODEL_SCALE } from './character/scale.js';
-export { characterShadowParams } from './character/shadow.js';
-export type { ShadowParams } from './character/shadow.js';
-export { lightbarSideAt } from './vehicle/lightbar.js';
-export type { LightbarMode } from './vehicle/lightbar.js';
-export type { VehicleLighting } from './vehicle/VehicleMaterial.js';
-export { generateOutfit, randomBodyBlood, rollRotStage } from './outfit/generate.js';
-export type { GeneratedOutfit, OutfitGenerationOptions } from './outfit/generate.js';
-export { LocationRng, OutfitRng, hsbToRgb } from './outfit/rng.js';
+export { AssetCache, getAssetCache } from './assets/AssetCache.js';
+export type { LightingOption, LightingPreset, LightingTime, Season } from './lighting/gameLight.js';

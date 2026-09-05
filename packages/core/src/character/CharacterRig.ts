@@ -20,12 +20,19 @@ import {
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 
 import type { AssetCache } from '../assets/AssetCache.js';
-import type { Manifest, ManifestHeldItem } from '../format/manifest.js';
+import type { CharacterCatalog, ManifestHeldItem } from '../format/manifest.js';
 
 import { attachmentNode } from './attachments.js';
 
 export interface RigWarning {
-  code: 'missing-item' | 'missing-model' | 'missing-texture' | 'missing-bone' | 'missing-animation';
+  code:
+    | 'missing-item'
+    | 'missing-model'
+    | 'missing-texture'
+    | 'missing-bone'
+    | 'missing-animation'
+    | 'catalog-version'
+    | 'context-lost';
   message: string;
 }
 
@@ -88,7 +95,7 @@ export class CharacterRig extends Group {
   /** Loads the body model whose skeleton every other part binds to. */
   static async load(
     cache: AssetCache,
-    manifest: Pick<Manifest, 'models'>,
+    manifest: Pick<CharacterCatalog, 'models'>,
     modelKey: string,
   ): Promise<CharacterRig> {
     const model = manifest.models[modelKey];
@@ -110,7 +117,7 @@ export class CharacterRig extends Group {
   /** Adds every skinned mesh of a model, rebinding it to the body skeleton by bone name. */
   async addWornModel(
     cache: AssetCache,
-    manifest: Manifest,
+    manifest: CharacterCatalog,
     key: string,
     modelKey: string,
   ): Promise<void> {
@@ -148,7 +155,7 @@ export class CharacterRig extends Group {
    */
   async addStaticModel(
     cache: AssetCache,
-    manifest: Pick<Manifest, 'models'>,
+    manifest: Pick<CharacterCatalog, 'models'>,
     key: string,
     modelKey: string,
     boneName: string | undefined,
@@ -190,7 +197,7 @@ export class CharacterRig extends Group {
    */
   addHeldModel(
     cache: AssetCache,
-    manifest: Manifest,
+    manifest: CharacterCatalog,
     key: string,
     held: ManifestHeldItem,
     propName: string,
@@ -205,7 +212,7 @@ export class CharacterRig extends Group {
    */
   async addAttachedModel(
     cache: AssetCache,
-    manifest: Manifest,
+    manifest: CharacterCatalog,
     key: string,
     held: ManifestHeldItem,
     attachmentName: string,

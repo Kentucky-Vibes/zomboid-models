@@ -19,7 +19,7 @@ import type { VehicleDescription } from '../format/vehicle.js';
 import { resolveVehicleLook, type VehicleLook } from './VehicleBuilder.js';
 import { applyVehicleMaterialState } from './VehicleMaterial.js';
 import { vehicleShaderState } from './VehicleState.js';
-import { lightbarSideAt, type LightbarMode, type LightbarSide } from './lightbar.js';
+import { lightbarSideAt, type LightbarMode, type LightbarLitSide } from './lightbar.js';
 import { ZONE } from './zones.js';
 
 /** The clips of one hinged part model and the script's anims that play them. */
@@ -47,7 +47,7 @@ export class VehicleRig extends CharacterRig {
   animateLightbar = true;
   private readonly partMotions = new Map<string, PartMotion[]>();
   private lightbarMilliseconds = 0;
-  private lightbarSide: LightbarSide = 0;
+  private lightbarSide: LightbarLitSide = 0;
 
   constructor() {
     super(new Object3D());
@@ -152,7 +152,7 @@ export class VehicleRig extends CharacterRig {
   }
 
   /** Lights one half of the light bar, as `updateLights` does from `getLightTexIndex`. */
-  setLightbar(side: LightbarSide): void {
+  setLightbar(side: LightbarLitSide): void {
     this.lightbarSide = side;
     for (const material of this.vehicleMaterials) {
       const lights = material.uniforms['TextureLightsEnables2']?.value as

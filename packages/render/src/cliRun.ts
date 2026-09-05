@@ -28,6 +28,7 @@ Options:
       --lighting <value>      day, dusk, night, studio, or {"hour":..,"season":..} as JSON
       --background <colour>   CSS colour, or transparent (default)
       --animation <clip>      A clip name, or "none" for the bind pose
+      --animation-speed <n>   Playback speed multiplier (default: 1)
       --pose-time <seconds>   The time of the clip to draw (default: 0)
   -h, --help                  Show this help
 `;
@@ -80,6 +81,7 @@ export function parseCliArgs(argv: readonly string[]): CliParse {
         lighting: { type: 'string' },
         background: { type: 'string' },
         animation: { type: 'string' },
+        'animation-speed': { type: 'string' },
         'pose-time': { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
       },
@@ -92,6 +94,8 @@ export function parseCliArgs(argv: readonly string[]): CliParse {
     const height = parseNumber(values.height, '--height');
     const quality = parseNumber(values.quality, '--quality');
     const poseTime = parseNumber(values['pose-time'], '--pose-time');
+    const animationSpeed = parseNumber(values['animation-speed'], '--animation-speed');
+    if (animationSpeed !== undefined) options.animationSpeed = animationSpeed;
     if (width !== undefined) options.width = width;
     if (height !== undefined) options.height = height;
     if (quality !== undefined) options.quality = quality;

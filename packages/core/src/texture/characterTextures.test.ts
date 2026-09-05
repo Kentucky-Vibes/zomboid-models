@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { emptyCharacterCatalog } from '../format/emptyCatalog.js';
-import type { Manifest } from '../format/manifest.js';
+import type { CharacterCatalog } from '../format/manifest.js';
 import {
   bodyMaskState,
   isPlainItemTexture,
@@ -11,7 +11,7 @@ import {
 import { bloodPartsFor, maskLeavesFor } from './maskParts.js';
 import { planTextureKeys } from './plan.js';
 
-function manifest(): Manifest {
+function manifest(): CharacterCatalog {
   return {
     ...emptyCharacterCatalog(),
     bodies: {

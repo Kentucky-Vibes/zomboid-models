@@ -4,16 +4,16 @@ import {
   displayName,
   type BodyPart,
   type CharacterDescription,
-  type Manifest,
-  type NamesCatalog,
   type Sex,
   type WornItemDescription,
   CHARACTER_ACTIONS,
   type CharacterAction,
 } from 'zomboid-models';
+import type { NamesCatalog } from 'zomboid-models';
+import type { CharacterCatalog } from 'zomboid-models/rules';
 
 export interface OutfitEditorProps {
-  manifest: Manifest;
+  manifest: CharacterCatalog;
   character: CharacterDescription;
   onChange: (character: CharacterDescription) => void;
   names?: NamesCatalog | undefined;
@@ -481,7 +481,7 @@ function HeldItemPicker({
   value,
   onChange,
 }: {
-  manifest: Manifest;
+  manifest: CharacterCatalog;
   value: string | undefined;
   onChange: (item: string | undefined) => void;
 }) {

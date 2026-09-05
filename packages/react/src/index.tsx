@@ -3,10 +3,11 @@ import { createViewer, type Viewer, type ViewerOptions } from 'zomboid-models';
 
 export type {
   CameraOptions,
-  CharacterDescription,
+  LightingOption,
   RigWarning,
+  SnapshotOptions,
+  SubjectDescription,
   Viewer,
-  ViewerDocument,
   ViewerMode,
   ViewerOptions,
 } from 'zomboid-models';
@@ -20,8 +21,9 @@ export interface ZomboidViewProps extends ViewerOptions {
 
 /**
  * Shows one document: a character, an animal, an item, a vehicle, or a scene. The viewer is
- * created when the component mounts and rebuilt when the asset folder or mode changes; the
- * document and the animation update in place.
+ * created when the component mounts and rebuilt when the asset folder, the mode, the
+ * background, the camera, the lighting, or the shadows change; the document, the animation,
+ * its speed, the pose time, and the light bar update in place.
  */
 export function ZomboidView({ className, style, onReady, ...options }: ZomboidViewProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -29,13 +31,19 @@ export function ZomboidView({ className, style, onReady, ...options }: ZomboidVi
   const latest = useRef(options);
   latest.current = options;
 
-  const { assetBaseUrl, mode, background, autoRotate, attribution, maxPixelRatio } = options;
+  const { assetBaseUrl, mode, background, autoRotate, attribution, maxPixelRatio, shadow } =
+    options;
   const cameraKey = JSON.stringify(options.camera ?? null);
   const lightingKey = JSON.stringify(options.lighting ?? null);
 
   useEffect(() => {
     if (!host.current) return;
-    const instance = createViewer(host.current, latest.current);
+    // The callbacks read the latest props, so a re-render never leaves a stale handler behind.
+    const instance = createViewer(host.current, {
+      ...latest.current,
+      onWarning: (warning) => latest.current.onWarning?.(warning),
+      onError: (error) => latest.current.onError?.(error),
+    });
     viewer.current = instance;
     onReady?.(instance);
     return () => {
@@ -51,12 +59,13 @@ export function ZomboidView({ className, style, onReady, ...options }: ZomboidVi
     autoRotate,
     attribution,
     maxPixelRatio,
+    shadow,
     cameraKey,
     lightingKey,
     onReady,
   ]);
 
-  const document = options.document ?? options.character;
+  const { document } = options;
   useEffect(() => {
     if (viewer.current && document) void viewer.current.setDocument(document);
   }, [document]);
@@ -75,11 +84,19 @@ export function ZomboidView({ className, style, onReady, ...options }: ZomboidVi
     }
   }, [animationSpeed]);
 
+  const { poseTime } = options;
+  useEffect(() => {
+    viewer.current?.setPoseTime(poseTime);
+  }, [poseTime]);
+
+  const { animateLightbar } = options;
+  useEffect(() => {
+    if (viewer.current && animateLightbar !== undefined) {
+      viewer.current.setAnimateLightbar(animateLightbar);
+    }
+  }, [animateLightbar]);
+
   return (
     <div ref={host} className={className} style={{ width: '100%', height: '100%', ...style }} />
   );
 }
-
-/** The component under its first name; kept until 1.0. */
-export const ZomboidCharacter = ZomboidView;
-export type ZomboidCharacterProps = ZomboidViewProps;

@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'react';
-import {
-  displayName,
-  type ItemCatalog,
-  type ItemDescription,
-  type NamesCatalog,
-} from 'zomboid-models';
+import { displayName, type ItemDescription } from 'zomboid-models';
+import type { NamesCatalog } from 'zomboid-models';
+import type { ItemCatalog } from 'zomboid-models/rules';
 
 export interface ItemEditorProps {
   catalog: ItemCatalog;

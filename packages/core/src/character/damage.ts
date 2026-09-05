@@ -1,4 +1,4 @@
-import type { Manifest } from '../format/manifest.js';
+import type { CharacterCatalog } from '../format/manifest.js';
 import {
   BODY_PARTS,
   type BodyPart,
@@ -61,7 +61,7 @@ export function damageItemNames(
  * the manifest does not know (reported as warnings).
  */
 export function damageWornItems(
-  manifest: Manifest,
+  manifest: CharacterCatalog,
   sex: Sex,
   damage: Partial<Record<BodyPart, BodyPartDamageDescription>> | undefined,
   warnings: string[],

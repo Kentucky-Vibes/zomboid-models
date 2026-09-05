@@ -3,15 +3,24 @@ import {
   validateDescription,
   type CameraOptions,
   type LightingOption,
-  type CharacterDescription,
   type RigWarning,
+  type SnapshotOptions,
+  type SubjectDescription,
   type Viewer,
-  type ViewerDocument,
   type ViewerMode,
   type ViewerOptions,
 } from 'zomboid-models';
 
-export type { CameraOptions, CharacterDescription, RigWarning, Viewer, ViewerDocument, ViewerMode };
+export type {
+  CameraOptions,
+  LightingOption,
+  RigWarning,
+  SnapshotOptions,
+  SubjectDescription,
+  Viewer,
+  ViewerMode,
+  ViewerOptions,
+};
 
 const OBSERVED = [
   'asset-base-url',
@@ -22,6 +31,9 @@ const OBSERVED = [
   'background',
   'auto-rotate',
   'attribution',
+  'shadow',
+  'animate-lightbar',
+  'max-pixel-ratio',
   'pose-time',
   'camera',
   'lighting',
@@ -29,17 +41,20 @@ const OBSERVED = [
 
 /**
  * `<zomboid-view>` shows one document: a character, an animal, an item, a vehicle, or a scene.
- * `<zomboid-character>` is the same element under its first name. Attributes:
+ * Attributes:
  *
  * - `asset-base-url` (required): folder that holds `manifest.json`.
  * - `src`: URL of a JSON document of any kind; or assign the `document` property.
- * - `mode`: `viewer` (default) or `showcase`.
+ * - `mode`: `viewer` (default), `showcase`, or `image`.
  * - `animation`: clip name, `none` for the bind pose; omit for the clip the game would play.
  * - `animation-speed`: playback speed multiplier, 1 by default.
- * - `pose-time`: seconds into the clip to freeze at.
+ * - `pose-time`: seconds into the clip to hold at.
  * - `background`: CSS colour or `transparent` (default).
- * - `auto-rotate`, `attribution`: boolean attributes (`attribution="false"` hides the wording).
+ * - `auto-rotate`, `attribution`, `shadow`, `animate-lightbar`: boolean attributes; present
+ *   means on, and the value `false` means off (`shadow="false"`).
+ * - `max-pixel-ratio`: upper bound for the device pixel ratio.
  * - `camera`: JSON with `fov`, `distance`, `yaw`, `pitch`, `targetHeight`.
+ * - `lighting`: a preset name, or JSON with `hour`, `season`, `moon`.
  *
  * Events: `warning` (detail: RigWarning), `error` (detail: Error), `ready` (detail: Viewer).
  */
@@ -56,7 +71,7 @@ export class ZomboidViewElement extends HTMLElement {
   }
 
   private viewer: Viewer | undefined;
-  private characterValue: ViewerDocument | undefined;
+  private documentValue: SubjectDescription | undefined;
   private readonly host: HTMLDivElement;
   private loadGeneration = 0;
 
@@ -71,23 +86,14 @@ export class ZomboidViewElement extends HTMLElement {
   }
 
   /** The document to show; takes precedence over `src` once assigned. */
-  get document(): ViewerDocument | undefined {
-    return this.characterValue;
+  get document(): SubjectDescription | undefined {
+    return this.documentValue;
   }
 
-  set document(value: ViewerDocument | undefined) {
-    this.characterValue = value;
+  set document(value: SubjectDescription | undefined) {
+    this.documentValue = value;
     if (value && this.viewer) void this.viewer.setDocument(value);
     else if (this.isConnected) this.mount();
-  }
-
-  /** The same as `document`; kept for the first releases. */
-  get character(): ViewerDocument | undefined {
-    return this.characterValue;
-  }
-
-  set character(value: ViewerDocument | undefined) {
-    this.document = value;
   }
 
   /** The underlying viewer, available after the element is connected. */
@@ -109,19 +115,29 @@ export class ZomboidViewElement extends HTMLElement {
       void this.loadFromSrc();
       return;
     }
-    if (name === 'animation' && this.viewer) {
-      void this.viewer.setAnimation(this.animationOption());
-      return;
-    }
-    if (name === 'animation-speed' && this.viewer) {
-      this.viewer.setAnimationSpeed(this.animationSpeedOption() ?? 1);
-      return;
+    if (this.viewer) {
+      if (name === 'animation') {
+        void this.viewer.setAnimation(this.animationOption());
+        return;
+      }
+      if (name === 'animation-speed') {
+        this.viewer.setAnimationSpeed(this.animationSpeedOption() ?? 1);
+        return;
+      }
+      if (name === 'pose-time') {
+        this.viewer.setPoseTime(this.poseTimeOption());
+        return;
+      }
+      if (name === 'animate-lightbar') {
+        this.viewer.setAnimateLightbar(this.flag('animate-lightbar', true));
+        return;
+      }
     }
     this.mount();
   }
 
-  /** Renders the current frame to a PNG data URL. */
-  toImage(options?: { width?: number; height?: number }): string | undefined {
+  /** Renders the current frame to a data URL, PNG unless `type` says otherwise. */
+  toImage(options?: SnapshotOptions): string | undefined {
     return this.viewer?.toImage(options);
   }
 
@@ -133,6 +149,18 @@ export class ZomboidViewElement extends HTMLElement {
     this.viewer?.pause();
   }
 
+  /** A boolean attribute: absent gives the default, present is on unless the value is `false`. */
+  private flag(name: string, fallback: boolean): boolean {
+    const value = this.getAttribute(name);
+    if (value === null) return fallback;
+    return value.trim().toLowerCase() !== 'false';
+  }
+
+  private numberAttribute(name: string): number | undefined {
+    const value = Number(this.getAttribute(name));
+    return this.hasAttribute(name) && Number.isFinite(value) ? value : undefined;
+  }
+
   private animationOption(): string | null | undefined {
     const value = this.getAttribute('animation');
     if (value === null) return undefined;
@@ -140,10 +168,25 @@ export class ZomboidViewElement extends HTMLElement {
   }
 
   private animationSpeedOption(): number | undefined {
-    const value = Number(this.getAttribute('animation-speed'));
-    return this.hasAttribute('animation-speed') && Number.isFinite(value) && value > 0
-      ? value
-      : undefined;
+    const value = this.numberAttribute('animation-speed');
+    return value !== undefined && value > 0 ? value : undefined;
+  }
+
+  private poseTimeOption(): number | undefined {
+    return this.numberAttribute('pose-time');
+  }
+
+  private json<T>(name: string): T | undefined {
+    const value = this.getAttribute(name);
+    if (!value) return undefined;
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      this.dispatchEvent(
+        new CustomEvent('error', { detail: new Error(`${name} is not valid JSON`) }),
+      );
+      return undefined;
+    }
   }
 
   private options(): ViewerOptions | undefined {
@@ -153,8 +196,10 @@ export class ZomboidViewElement extends HTMLElement {
       assetBaseUrl,
       mode: (this.getAttribute('mode') as ViewerMode | null) ?? 'viewer',
       background: this.getAttribute('background') ?? 'transparent',
-      autoRotate: this.hasAttribute('auto-rotate'),
-      attribution: this.getAttribute('attribution') !== 'false',
+      autoRotate: this.flag('auto-rotate', false),
+      attribution: this.flag('attribution', true),
+      shadow: this.flag('shadow', true),
+      animateLightbar: this.flag('animate-lightbar', true),
       onWarning: (warning) => this.dispatchEvent(new CustomEvent('warning', { detail: warning })),
       onError: (error) => this.dispatchEvent(new CustomEvent('error', { detail: error })),
     };
@@ -162,31 +207,20 @@ export class ZomboidViewElement extends HTMLElement {
     if (animation !== undefined) options.animation = animation;
     const animationSpeed = this.animationSpeedOption();
     if (animationSpeed !== undefined) options.animationSpeed = animationSpeed;
-    const poseTime = Number(this.getAttribute('pose-time'));
-    if (this.hasAttribute('pose-time') && Number.isFinite(poseTime)) options.poseTime = poseTime;
-    const camera = this.getAttribute('camera');
-    if (camera) {
-      try {
-        options.camera = JSON.parse(camera) as CameraOptions;
-      } catch {
-        this.dispatchEvent(
-          new CustomEvent('error', { detail: new Error('camera is not valid JSON') }),
-        );
-      }
-    }
+    const poseTime = this.poseTimeOption();
+    if (poseTime !== undefined) options.poseTime = poseTime;
+    const maxPixelRatio = this.numberAttribute('max-pixel-ratio');
+    if (maxPixelRatio !== undefined && maxPixelRatio > 0) options.maxPixelRatio = maxPixelRatio;
+    const camera = this.json<CameraOptions>('camera');
+    if (camera) options.camera = camera;
     const lighting = this.getAttribute('lighting');
     if (lighting) {
-      try {
-        options.lighting = lighting.startsWith('{')
-          ? (JSON.parse(lighting) as LightingOption)
-          : (lighting as LightingOption);
-      } catch {
-        this.dispatchEvent(
-          new CustomEvent('error', { detail: new Error('lighting is not valid JSON') }),
-        );
-      }
+      const parsed = lighting.startsWith('{')
+        ? this.json<LightingOption>('lighting')
+        : (lighting as LightingOption);
+      if (parsed !== undefined) options.lighting = parsed;
     }
-    if (this.characterValue) options.document = this.characterValue;
+    if (this.documentValue) options.document = this.documentValue;
     return options;
   }
 
@@ -196,7 +230,7 @@ export class ZomboidViewElement extends HTMLElement {
     if (!options) return;
     this.viewer = createViewer(this.host, options);
     this.dispatchEvent(new CustomEvent('ready', { detail: this.viewer }));
-    if (!this.characterValue && this.getAttribute('src')) void this.loadFromSrc();
+    if (!this.documentValue && this.getAttribute('src')) void this.loadFromSrc();
   }
 
   private unmount(): void {
@@ -214,7 +248,7 @@ export class ZomboidViewElement extends HTMLElement {
       const result = validateDescription(await response.json());
       if (!result.ok) throw new Error(`invalid document: ${result.errors.join('; ')}`);
       if (generation !== this.loadGeneration) return;
-      this.characterValue = result.value;
+      this.documentValue = result.value;
       if (this.viewer) await this.viewer.setDocument(result.value);
       else this.mount();
     } catch (error) {
@@ -228,21 +262,10 @@ export class ZomboidViewElement extends HTMLElement {
   }
 }
 
-/** The element under its first name, `<zomboid-character>`; kept until 1.0. */
-export class ZomboidCharacterElement extends ZomboidViewElement {
-  static override readonly tagName: string = 'zomboid-character';
-
-  static override define(tagName = ZomboidCharacterElement.tagName): void {
-    if (!customElements.get(tagName)) customElements.define(tagName, ZomboidCharacterElement);
-  }
-}
-
 ZomboidViewElement.define();
-ZomboidCharacterElement.define();
 
 declare global {
   interface HTMLElementTagNameMap {
     'zomboid-view': ZomboidViewElement;
-    'zomboid-character': ZomboidCharacterElement;
   }
 }

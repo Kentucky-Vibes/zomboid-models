@@ -27,6 +27,8 @@ jobs:
       - run: npm run build --workspaces --if-present
         env:
           PLAYGROUND_BASE: /zomboid-models/
+      # The API reference is served next to the playground, under /api/.
+      - run: npm run docs:api
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/playground/dist

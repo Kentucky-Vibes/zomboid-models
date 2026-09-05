@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import type { CameraOptions, LightingOption, ViewerDocument, ViewerMode } from 'zomboid-models';
-import { ZomboidCharacter } from 'zomboid-models-react';
+import type { CameraOptions, LightingOption, SubjectDescription, ViewerMode } from 'zomboid-models';
+import { ZomboidView } from 'zomboid-models-react';
 
 export interface CharacterViewProps {
   assetBaseUrl: string;
   mode: ViewerMode;
-  document: ViewerDocument;
+  document: SubjectDescription;
   /** A clip name, null for the bind pose, or undefined to let the viewer pick the idle. */
   animation: string | null | undefined;
   animationSpeed?: number;
@@ -31,7 +31,7 @@ export function CharacterView({
 
   return (
     <div>
-      <ZomboidCharacter
+      <ZomboidView
         assetBaseUrl={assetBaseUrl}
         mode={mode}
         document={document}

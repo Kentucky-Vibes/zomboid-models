@@ -1,12 +1,7 @@
 import { useMemo, useState } from 'react';
-import {
-  displayName,
-  type ManifestVehicle,
-  type NamesCatalog,
-  type VehicleCatalog,
-  type VehicleDescription,
-  type VehiclePartState,
-} from 'zomboid-models';
+import { displayName, type VehicleDescription, type VehiclePartState } from 'zomboid-models';
+import type { NamesCatalog } from 'zomboid-models';
+import type { ManifestVehicle, VehicleCatalog } from 'zomboid-models/rules';
 
 export interface VehicleEditorProps {
   catalog: VehicleCatalog;
