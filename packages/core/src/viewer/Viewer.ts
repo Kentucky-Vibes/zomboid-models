@@ -17,6 +17,7 @@ import type { CharacterRig, RigWarning } from '../character/CharacterRig.js';
 import { ANIMAL_FORMAT, type AnimalDescription } from '../format/animal.js';
 import type { SubjectDescription } from '../format/document.js';
 import { ITEM_FORMAT, type ItemDescription } from '../format/item.js';
+import { SCENE_FORMAT, type SceneDescription } from '../format/scene.js';
 import type {
   AnimalCatalog,
   CharacterCatalog,
@@ -26,6 +27,7 @@ import type {
 import type { CharacterDescription } from '../format/types.js';
 import { VEHICLE_FORMAT, type VehicleDescription } from '../format/vehicle.js';
 import { buildItem } from '../item/ItemBuilder.js';
+import { buildScene } from '../scene/SceneBuilder.js';
 import { buildVehicle } from '../vehicle/VehicleBuilder.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
@@ -58,6 +60,10 @@ function isItem(document: ViewerDocument): document is ItemDescription {
 
 function isVehicle(document: ViewerDocument): document is VehicleDescription {
   return document.format === VEHICLE_FORMAT;
+}
+
+function isScene(document: ViewerDocument): document is SceneDescription {
+  return document.format === SCENE_FORMAT;
 }
 
 export interface ViewerOptions {
@@ -109,6 +115,15 @@ const VEHICLE_CAMERA: Required<CameraOptions> = {
   yaw: -145,
   pitch: 18,
   targetHeight: 0.5,
+};
+
+/** Scenes are wide and low: a three-quarter view from a little above, aimed low. */
+const SCENE_CAMERA: Required<CameraOptions> = {
+  fov: 30,
+  distance: 1.7,
+  yaw: 30,
+  pitch: 16,
+  targetHeight: 0.35,
 };
 
 /** Camera yaw for the compass direction an animal faces in the game's own avatar pictures. */
@@ -265,8 +280,8 @@ export class Viewer implements FrameListener {
   }
 
   onFrame(delta: number): void {
-    if (this.rig && this.playing && this.clip && this.options.poseTime === undefined) {
-      this.rig.mixer.update(delta);
+    if (this.rig && this.playing && this.rig.animated && this.options.poseTime === undefined) {
+      this.rig.update(delta);
       this.needsRender = true;
     }
     if (this.controls) {
@@ -318,14 +333,16 @@ export class Viewer implements FrameListener {
                 { cache: this.cache, catalog: catalog as VehicleCatalog },
                 document,
               )
-            : await buildCharacter(
-                {
-                  cache: this.cache,
-                  manifest: catalog as CharacterCatalog,
-                  composer: this.shared.composer,
-                },
-                document,
-              );
+            : isScene(document)
+              ? await buildScene({ cache: this.cache, composer: this.shared.composer }, document)
+              : await buildCharacter(
+                  {
+                    cache: this.cache,
+                    manifest: catalog as CharacterCatalog,
+                    composer: this.shared.composer,
+                  },
+                  document,
+                );
       if (generation !== this.generation) {
         built.rig.dispose();
         return;
@@ -350,6 +367,7 @@ export class Viewer implements FrameListener {
     if (document && isAnimal(document)) return this.cache.loadAnimalCatalog();
     if (document && isItem(document)) return this.cache.loadItemCatalog();
     if (document && isVehicle(document)) return this.cache.loadVehicleCatalog();
+    // A scene loads the catalogs of its subjects itself; the character one stands in here.
     return this.cache.loadCharacterCatalog();
   }
 
@@ -363,7 +381,7 @@ export class Viewer implements FrameListener {
     let name: string | null | undefined = this.options.animation;
     let timeScale = speed;
     let startFraction = 0;
-    if (document && (isItem(document) || isVehicle(document))) {
+    if (document && (isItem(document) || isVehicle(document) || isScene(document))) {
       name = null;
     } else if (name === undefined && document) {
       if (isAnimal(document)) {
@@ -386,7 +404,7 @@ export class Viewer implements FrameListener {
     rig.playClip(clip, { timeScale, startFraction });
     if (this.options.poseTime !== undefined) rig.freezeAt(this.options.poseTime);
     // Pose the skeleton once so the framing sees a lying or sitting body as it is, not the bind pose.
-    rig.mixer.update(0);
+    rig.update(0);
     rig.updateMatrixWorld(true);
     this.frameCharacter();
     this.needsRender = true;
@@ -411,6 +429,7 @@ export class Viewer implements FrameListener {
   private defaultCamera(): Required<CameraOptions> {
     const document = this.document;
     if (document && isVehicle(document)) return VEHICLE_CAMERA;
+    if (document && isScene(document)) return SCENE_CAMERA;
     if (document && isAnimal(document) && this.catalog && 'animals' in this.catalog) {
       const direction = this.catalog.animals[document.type]?.avatar?.direction;
       const yaw = direction === undefined ? undefined : AVATAR_DIRECTION_YAW[direction];
@@ -467,7 +486,10 @@ export class Viewer implements FrameListener {
     const showcase = (this.options.mode ?? 'viewer') === 'showcase';
     const motionAllowed = !(showcase && this.reducedMotion.matches);
     const animating =
-      this.playing && this.clip !== null && this.options.poseTime === undefined && motionAllowed;
+      this.playing &&
+      this.rig?.animated === true &&
+      this.options.poseTime === undefined &&
+      motionAllowed;
     const interactive = this.controls !== undefined;
     if (this.visible && (animating || interactive || this.needsRender)) {
       getRenderLoop().add(this);

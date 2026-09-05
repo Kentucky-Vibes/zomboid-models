@@ -99,6 +99,8 @@ export interface GameCatalog {
   attachedLocations: Record<string, string>;
   idle: IdleClipTable;
   stances: StanceTable;
+  /** The clip of a character seated in a vehicle, from `player-vehicle/idle`. */
+  vehicleIdle: ManifestClip | undefined;
   decals: Record<string, DecalXml>;
   decalGroups: Record<string, string[]>;
   outfits: { male: Record<string, ManifestOutfit>; female: Record<string, ManifestOutfit> };
@@ -388,6 +390,14 @@ function loadStances(files: ActiveFileMap, warnings: string[]): StanceTable {
   return table;
 }
 
+/** The `default` node of `player-vehicle/idle`: what a driver or passenger plays. */
+function loadVehicleIdle(files: ActiveFileMap, warnings: string[]): ManifestClip | undefined {
+  const nodes = loadStateNodes(files, 'player-vehicle', 'idle', warnings);
+  const node = nodes.find((n) => n.fileName.toLowerCase() === 'default') ?? nodes[0];
+  if (node?.node.animName === undefined) return undefined;
+  return clipOf(node.node, node.node.animName);
+}
+
 function toOutfitItems(
   items: readonly OutfitItemXml[],
   byGuid: ReadonlyMap<string, string>,
@@ -557,6 +567,7 @@ export function loadCatalog(files: ActiveFileMap, modOrder: readonly string[]): 
     attachedLocations: attachedLua ? parseAttachedLocationsLua(attachedLua) : {},
     idle: loadIdleTable(files, warnings),
     stances: loadStances(files, warnings),
+    vehicleIdle: loadVehicleIdle(files, warnings),
     outfits: loadOutfits(files, byGuid, warnings),
     ...loadDefinitions(files, warnings),
     animals: loadAnimals(files, warnings),

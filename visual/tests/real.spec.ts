@@ -37,6 +37,46 @@ const DOCUMENTS: Record<string, object> = {
     lightbar: 'left',
     blood: { front: 1 },
   },
+  crew: {
+    format: 'zomboid-models/scene',
+    version: 1,
+    subjects: [
+      {
+        document: {
+          format: 'zomboid-models/vehicle',
+          version: 1,
+          vehicle: 'Base.CarLightsPolice',
+          rust: 0,
+        },
+      },
+      {
+        document: {
+          format: 'zomboid-models/character',
+          version: 1,
+          body: { sex: 'male', hair: 'CrewCut' },
+          worn: [{ item: 'Base.Trousers_Denim' }, { item: 'Base.Jacket_Police' }],
+        },
+        seat: 'FrontLeft',
+        in: 0,
+      },
+      {
+        document: {
+          format: 'zomboid-models/character',
+          version: 1,
+          body: { sex: 'female', zombie: { seed: 5 } },
+          outfit: { name: 'Nurse', seed: 5 },
+        },
+        position: [3.2, 0.5],
+        yaw: -20,
+      },
+      {
+        document: { format: 'zomboid-models/animal', version: 1, type: 'cow' },
+        position: [-3.4, 0],
+        yaw: 30,
+      },
+    ],
+    ground: '#3a3b3f',
+  },
   martin: {
     format: 'zomboid-models/vehicle',
     version: 1,

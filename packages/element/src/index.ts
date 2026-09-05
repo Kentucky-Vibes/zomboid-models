@@ -26,8 +26,8 @@ const OBSERVED = [
 ] as const;
 
 /**
- * `<zomboid-character>` shows one document: a character, an animal, an item, or a vehicle.
- * Attributes:
+ * `<zomboid-view>` shows one document: a character, an animal, an item, a vehicle, or a scene.
+ * `<zomboid-character>` is the same element under its first name. Attributes:
  *
  * - `asset-base-url` (required): folder that holds `manifest.json`.
  * - `src`: URL of a JSON document of any kind; or assign the `document` property.
@@ -41,16 +41,16 @@ const OBSERVED = [
  *
  * Events: `warning` (detail: RigWarning), `error` (detail: Error), `ready` (detail: Viewer).
  */
-export class ZomboidCharacterElement extends HTMLElement {
-  static readonly tagName = 'zomboid-character';
+export class ZomboidViewElement extends HTMLElement {
+  static readonly tagName: string = 'zomboid-view';
 
   static get observedAttributes(): readonly string[] {
     return OBSERVED;
   }
 
   /** Registers the element under its tag name unless it is already defined. */
-  static define(tagName = ZomboidCharacterElement.tagName): void {
-    if (!customElements.get(tagName)) customElements.define(tagName, ZomboidCharacterElement);
+  static define(tagName = ZomboidViewElement.tagName): void {
+    if (!customElements.get(tagName)) customElements.define(tagName, ZomboidViewElement);
   }
 
   private viewer: Viewer | undefined;
@@ -214,10 +214,21 @@ export class ZomboidCharacterElement extends HTMLElement {
   }
 }
 
+/** The element under its first name, `<zomboid-character>`; kept until 1.0. */
+export class ZomboidCharacterElement extends ZomboidViewElement {
+  static override readonly tagName: string = 'zomboid-character';
+
+  static override define(tagName = ZomboidCharacterElement.tagName): void {
+    if (!customElements.get(tagName)) customElements.define(tagName, ZomboidCharacterElement);
+  }
+}
+
+ZomboidViewElement.define();
 ZomboidCharacterElement.define();
 
 declare global {
   interface HTMLElementTagNameMap {
+    'zomboid-view': ZomboidViewElement;
     'zomboid-character': ZomboidCharacterElement;
   }
 }

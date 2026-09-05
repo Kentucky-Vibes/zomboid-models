@@ -179,3 +179,43 @@ The renderer draws the body with a port of the game's vehicle shader: the mask t
 The pipeline writes the vehicle catalog when `subjects` includes `vehicles`. The JSON Schema is `schema/vehicle.schema.json`, and `validateVehicleDescription()` checks a document at runtime. `validateDescription()` checks a document of any kind by its `format`.
 
 The reference mod has `ZomboidModels.describeVehicle(vehicle)` and `ZomboidModels.exportVehicle(vehicle)`, which fill the document from `BaseVehicle`: `getScriptName()`, `getSkinIndex()`, `getColorHue()`, `getColorSaturation()`, `getColorValue()`, `getRust()`, every part with `getInventoryItem()`, its condition, and its window and door state, `getHeadlightsOn()`, `getStoplightsOn()`, `getWindowLightsOn()`, the light bar mode, and `getBloodIntensity()` per side. Nothing exports vehicles on its own; call `exportVehicle` from the Lua console or from another mod.
+
+## Scenes
+
+Several subjects together have the document `zomboid-models/scene`:
+
+```json
+{
+  "format": "zomboid-models/scene",
+  "version": 1,
+  "subjects": [
+    {
+      "document": {
+        "format": "zomboid-models/vehicle",
+        "version": 1,
+        "vehicle": "Base.CarLightsPolice"
+      }
+    },
+    {
+      "document": { "format": "zomboid-models/character", "version": 1, "body": { "sex": "male" } },
+      "seat": "FrontLeft",
+      "in": 0
+    },
+    {
+      "document": { "format": "zomboid-models/animal", "version": 1, "type": "cow" },
+      "position": [-3.5, 0],
+      "yaw": 30
+    }
+  ],
+  "ground": "#3a3b3f"
+}
+```
+
+- `subjects`: the documents to show, each a character, animal, item, or vehicle document as described above, in drawing order.
+- `position`: where the subject stands on the ground, in the game's units (one tile is one unit): `x` runs to the right as seen from the default camera and `z` toward it. Subjects without a position line up in a row, centred, left to right in document order.
+- `yaw`: a turn in degrees; 0 faces the default camera for every kind, positive turns to the subject's left. Vehicles face the camera with their front, the way a character does with their face.
+- `animation`: a clip name for this subject, `null` for the bind pose, the game's clip when absent.
+- `seat` and `in`: for a character, the seat of the vehicle at index `in` of `subjects` (`FrontLeft`, `FrontRight`, `RearLeft`, `RearRight`, and whatever else the vehicle script declares). The character sits at the seat's `inside` position of the script and plays the game's driving idle, driver and passengers alike, as the game does.
+- `ground`: a CSS colour for a disc of ground under the subjects; nothing is drawn when absent.
+
+Characters, animals, and items are drawn 1.5 times their file units, the factor the game applies to them in the world, so a survivor stands as tall next to a car as in the game. The camera frames the whole group. The JSON Schema is `schema/scene.schema.json`, and `validateSceneDescription()` checks a document at runtime.

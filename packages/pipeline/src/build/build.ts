@@ -374,6 +374,9 @@ function assembleCharacterCatalog(
     animations: pickConverted(writer.animations, plan.animations),
     idle: catalog.idle,
     stances: catalog.stances,
+    ...(catalog.vehicleIdle && writer.animations.has(catalog.vehicleIdle.clip)
+      ? { vehicleIdle: catalog.vehicleIdle }
+      : {}),
     clothingItems: plan.clothingItems,
     wearables: plan.wearables,
     clothingItemToItem: plan.clothingItemToItem,

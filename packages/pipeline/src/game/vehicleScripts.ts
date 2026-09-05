@@ -53,6 +53,12 @@ const SKIN_KEYS: readonly (keyof VehicleScriptSkin)[] = [
   'textureDamage2Shell',
 ];
 
+export interface VehicleScriptPassenger {
+  id: string;
+  /** The `inside` position offset, in script units. */
+  inside: Vec3 | undefined;
+}
+
 export interface VehicleScriptPart {
   id: string;
   parent: string | undefined;
@@ -79,6 +85,7 @@ export interface VehicleScript {
   skins: VehicleScriptSkin[];
   wheels: VehicleScriptWheel[];
   parts: VehicleScriptPart[];
+  passengers: VehicleScriptPassenger[];
   extents: Vec3;
   forcedColor: { hue: number; saturation: number; value: number } | undefined;
   lightbar: boolean;
@@ -96,6 +103,7 @@ export function emptyVehicleScript(module: string, name: string, source: string)
     skins: [],
     wheels: [],
     parts: [],
+    passengers: [],
     extents: [1, 1, 1],
     forcedColor: undefined,
     lightbar: false,
@@ -254,6 +262,17 @@ export class VehicleScriptLoader {
       case 'crawlThroughWheel':
         loadWheel(script, block);
         break;
+      case 'passenger':
+        if (block.name.includes('*')) {
+          for (const passenger of [...script.passengers]) {
+            if (globMatch(block.name, passenger.id)) {
+              loadPassenger(script, { ...block, name: passenger.id });
+            }
+          }
+        } else {
+          loadPassenger(script, block);
+        }
+        break;
       case 'lightbar':
         script.lightbar = true;
         if (!script.parts.some((p) => p.id === 'lightbar')) {
@@ -280,6 +299,7 @@ export class VehicleScriptLoader {
     }
     if (parts.length === 1) {
       copyParts(script, template, '*');
+      copyPassengers(script, template, '*');
       copyWheels(script, template, '*');
       return;
     }
@@ -297,6 +317,13 @@ export class VehicleScriptLoader {
       case 'wheel':
         if (!copyWheels(script, template, spec)) {
           this.warnings.push(`${script.fullName}: wheel "${spec}" not found in template "${name}"`);
+        }
+        break;
+      case 'passenger':
+        if (!copyPassengers(script, template, spec)) {
+          this.warnings.push(
+            `${script.fullName}: passenger "${spec}" not found in template "${name}"`,
+          );
         }
         break;
       default:
@@ -398,6 +425,35 @@ function loadPart(script: VehicleScript, block: ScriptBlock): void {
     else if (child.type === 'door') part.door = true;
     else if (child.type === 'window') part.window = true;
   }
+}
+
+/** `LoadPassenger`: only the `inside` position matters for drawing. */
+function loadPassenger(script: VehicleScript, block: ScriptBlock): void {
+  let passenger = script.passengers.find((p) => p.id === block.name);
+  if (!passenger) {
+    passenger = { id: block.name, inside: undefined };
+    script.passengers.push(passenger);
+  }
+  for (const child of block.blocks) {
+    if (child.type !== 'position' || child.name !== 'inside') continue;
+    const offset = child.entries.find((e) => e.key === 'offset');
+    if (offset) passenger.inside = vector(offset.value, passenger.inside ?? [0, 0, 0]);
+  }
+}
+
+function copyPassengers(script: VehicleScript, from: VehicleScript, spec: string): boolean {
+  const source = spec === '*' ? from.passengers : from.passengers.filter((p) => p.id === spec);
+  if (spec !== '*' && source.length === 0) return false;
+  for (const passenger of source) {
+    const copy = {
+      ...passenger,
+      inside: passenger.inside ? ([...passenger.inside] as Vec3) : undefined,
+    };
+    const index = script.passengers.findIndex((p) => p.id === passenger.id);
+    if (index < 0) script.passengers.push(copy);
+    else script.passengers[index] = copy;
+  }
+  return true;
 }
 
 function loadSkin(block: ScriptBlock): VehicleScriptSkin {

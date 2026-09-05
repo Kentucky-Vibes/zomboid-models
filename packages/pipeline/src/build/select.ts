@@ -194,6 +194,7 @@ export function planAssets(
       catalog.idle.default.clip,
       ...Object.values(catalog.idle.byWeaponType).map((clip) => clip.clip),
       ...stanceClips,
+      ...(catalog.vehicleIdle ? [catalog.vehicleIdle.clip] : []),
       ...extraAnimations,
     ]),
     clothingItems: {},

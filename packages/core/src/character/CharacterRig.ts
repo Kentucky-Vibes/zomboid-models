@@ -51,6 +51,7 @@ export class CharacterRig extends Group {
   readonly warnings: RigWarning[] = [];
   private readonly attachmentNodes = new Map<string, Object3D[]>();
   private readonly ownedTextures: Texture[] = [];
+  private readonly childRigs: CharacterRig[] = [];
   private action: AnimationAction | undefined;
 
   private constructor(readonly skeletonRoot: Object3D) {
@@ -248,6 +249,23 @@ export class CharacterRig extends Group {
     this.skeletonRoot.add(object);
   }
 
+  /** Adds another rig as a child: it animates, freezes, and is freed with this one. */
+  adoptRig(rig: CharacterRig): void {
+    this.childRigs.push(rig);
+    this.skeletonRoot.add(rig);
+  }
+
+  /** Whether this rig or any child plays a clip. */
+  get animated(): boolean {
+    return this.action !== undefined || this.childRigs.some((rig) => rig.animated);
+  }
+
+  /** Advances every clip of this rig and its children by the time in seconds. */
+  update(delta: number): void {
+    this.mixer.update(delta);
+    for (const rig of this.childRigs) rig.update(delta);
+  }
+
   /** Applies a texture to every part with the given key. */
   setTexture(key: string, texture: Texture | null): void {
     for (const part of this.parts) {
@@ -303,8 +321,9 @@ export class CharacterRig extends Group {
     this.action.play();
   }
 
-  /** Moves the animation to a time and stops there. */
+  /** Moves the animation to a time and stops there, in this rig and its children. */
   freezeAt(seconds: number): void {
+    for (const rig of this.childRigs) rig.freezeAt(seconds);
     if (!this.action) return;
     this.action.paused = false;
     this.action.time = seconds;
@@ -313,6 +332,7 @@ export class CharacterRig extends Group {
   }
 
   resume(): void {
+    for (const rig of this.childRigs) rig.resume();
     if (this.action) this.action.paused = false;
   }
 
@@ -322,7 +342,7 @@ export class CharacterRig extends Group {
     const box = new Box3();
     const point = new Vector3();
     this.traverseVisible((object) => {
-      if (!isMesh(object)) return;
+      if (!isMesh(object) || object.userData['excludeFromBounds'] === true) return;
       const position = object.geometry.getAttribute('position');
       for (let i = 0; i < position.count; i++) {
         object.getVertexPosition(i, point);
@@ -335,6 +355,8 @@ export class CharacterRig extends Group {
   }
 
   dispose(): void {
+    for (const rig of this.childRigs) rig.dispose();
+    this.childRigs.length = 0;
     this.mixer.stopAllAction();
     for (const part of this.parts) {
       part.mesh.geometry.dispose();

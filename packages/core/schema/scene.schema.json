@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kentucky-vibes/zomboid-models/schema/scene.schema.json",
+  "title": "zomboid-models scene",
+  "description": "Several Project Zomboid subjects (characters, animals, items, vehicles) placed together, with characters optionally seated in a vehicle.",
+  "type": "object",
+  "required": ["format", "version", "subjects"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "zomboid-models/scene" },
+    "version": { "const": 1 },
+    "subjects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["document"],
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "type": "object",
+            "required": ["format", "version"],
+            "properties": {
+              "version": { "type": "integer" },
+              "format": {
+                "enum": [
+                  "zomboid-models/character",
+                  "zomboid-models/animal",
+                  "zomboid-models/item",
+                  "zomboid-models/vehicle"
+                ]
+              }
+            }
+          },
+          "position": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "yaw": { "type": "number" },
+          "animation": { "type": ["string", "null"] },
+          "seat": { "type": "string", "minLength": 1 },
+          "in": { "type": "integer", "minimum": 0 }
+        },
+        "dependentRequired": { "seat": ["in"], "in": ["seat"] }
+      }
+    },
+    "ground": { "type": "string", "minLength": 1 },
+    "meta": { "type": "object" }
+  }
+}

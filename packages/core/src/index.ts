@@ -26,6 +26,7 @@ export { vehicleShaderState } from './vehicle/VehicleState.js';
 export type { VehicleShaderState } from './vehicle/VehicleState.js';
 export { ZONE, ZONE_COLORS, zoneOfIndex1, zoneOfIndex2 } from './vehicle/zones.js';
 export { defaultVehicleLighting } from './vehicle/VehicleMaterial.js';
+export { GAME_MODEL_SCALE } from './scene/SceneBuilder.js';
 export type { VehicleLighting } from './vehicle/VehicleMaterial.js';
 export { generateOutfit, randomBodyBlood, rollRotStage } from './outfit/generate.js';
 export type { GeneratedOutfit, OutfitGenerationOptions } from './outfit/generate.js';

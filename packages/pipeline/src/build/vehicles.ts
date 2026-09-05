@@ -160,6 +160,11 @@ export function planVehicleAssets(catalog: GameCatalog): VehiclePlan {
       parts,
     };
     if (script.lightbar) vehicle.lightbar = true;
+    const seats: Record<string, [number, number, number]> = {};
+    for (const passenger of script.passengers) {
+      if (passenger.inside) seats[passenger.id] = [...passenger.inside];
+    }
+    if (Object.keys(seats).length > 0) vehicle.seats = seats;
     if (script.forcedColor) vehicle.forcedColor = { ...script.forcedColor };
     plan.vehicles[script.fullName] = vehicle;
   }

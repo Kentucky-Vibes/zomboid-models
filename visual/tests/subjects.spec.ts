@@ -18,6 +18,28 @@ const DOCUMENTS: Record<string, object> = {
   },
   animal: { format: 'zomboid-models/animal', version: 1, type: 'cow' },
   item: { format: 'zomboid-models/item', version: 1, item: 'Base.Axe' },
+  scene: {
+    format: 'zomboid-models/scene',
+    version: 1,
+    subjects: [
+      {
+        document: {
+          format: 'zomboid-models/vehicle',
+          version: 1,
+          vehicle: 'Base.CarNormal',
+          rust: 0,
+        },
+      },
+      {
+        document: { format: 'zomboid-models/character', version: 1, body: { sex: 'male' } },
+        seat: 'FrontLeft',
+        in: 0,
+      },
+      { document: { format: 'zomboid-models/animal', version: 1, type: 'cow' }, yaw: 45 },
+      { document: { format: 'zomboid-models/item', version: 1, item: 'Base.Axe' } },
+    ],
+    ground: '#3a3b3f',
+  },
   vehicle: {
     format: 'zomboid-models/vehicle',
     version: 1,

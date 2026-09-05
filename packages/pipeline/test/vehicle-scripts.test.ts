@@ -16,6 +16,10 @@ const TEMPLATES = `module Base {
     part Windshield { window { openable = false, } }
     part WindshieldRear { window { openable = false, } }
   }
+  template vehicle PassengerSeat2 {
+    passenger FrontLeft { position inside { offset = 0.17 -0.13 0.08, } position outside { offset = 0.6 -0.4 0.1, } }
+    passenger FrontRight { position inside { offset = -0.17 -0.13 0.08, } }
+  }
   template vehicle CarNormal {
     textureMask = Vehicles/vehicle_carnormal_mask,
     textureRust = Vehicles/Veh_Rust,
@@ -34,7 +38,10 @@ const VEHICLES = `module Base {
   vehicle CarNormal {
     template! = CarNormal,
     template = Tire,
+    template = PassengerSeat2,
     template = Windshield/part/Windshield,
+    passenger Rear* { position inside { offset = 0 0 -1, } }
+    passenger RearLeft { position inside { offset = 0.17 -0.13 -0.3, } }
     template = Windshield/part/Nope,
     forcedColor = 0.5 -1 0.7,
     model { file = Vehicles_CarNormal, scale = 1.82, offset = 0.0 0.2692 0.0, }
@@ -124,6 +131,14 @@ describe('VehicleScriptLoader', () => {
     const rear = car?.parts.find((p) => p.id === 'TireRearLeft');
     expect(rear?.models.map((m) => [m.id, m.file, m.scale])).toEqual([
       ['InflatedTirePlusWheel', 'Vehicles_Wheel', 1],
+    ]);
+  });
+
+  it('copies passengers from templates and reads their inside positions', () => {
+    expect(car?.passengers.map((p) => [p.id, p.inside])).toEqual([
+      ['FrontLeft', [0.17, -0.13, 0.08]],
+      ['FrontRight', [-0.17, -0.13, 0.08]],
+      ['RearLeft', [0.17, -0.13, -0.3]],
     ]);
   });
 

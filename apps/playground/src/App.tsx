@@ -3,12 +3,14 @@ import {
   ANIMAL_FORMAT,
   ATTRIBUTION_TEXT,
   ITEM_FORMAT,
+  SCENE_FORMAT,
   VEHICLE_FORMAT,
   validateDescription,
   type AnimalDescription,
   type CameraOptions,
   type CharacterDescription,
   type ItemDescription,
+  type SceneDescription,
   type VehicleDescription,
   type ViewerDocument,
 } from 'zomboid-models';
@@ -17,10 +19,11 @@ import { AnimalEditor } from './AnimalEditor.js';
 import { CharacterView } from './CharacterView.js';
 import { ItemEditor } from './ItemEditor.js';
 import { OutfitEditor } from './OutfitEditor.js';
+import { SceneEditor } from './SceneEditor.js';
 import { useManifest, useNames } from './useManifest.js';
 import { VehicleEditor } from './VehicleEditor.js';
 
-type Subject = 'character' | 'animal' | 'item' | 'vehicle';
+type Subject = 'character' | 'animal' | 'item' | 'vehicle' | 'scene';
 
 const DEFAULT_ASSET_BASE_URL = `${import.meta.env.BASE_URL}dev-assets/`;
 const ASSET_URL_STORAGE_KEY = 'zomboid-models.playground.assets';
@@ -84,6 +87,27 @@ const INITIAL_VEHICLE: VehicleDescription = {
   vehicle: 'Base.CarNormal',
 };
 
+const INITIAL_SCENE: SceneDescription = {
+  format: 'zomboid-models/scene',
+  version: 1,
+  subjects: [
+    { document: { format: 'zomboid-models/vehicle', version: 1, vehicle: 'Base.CarLightsPolice' } },
+    { document: INITIAL_CHARACTER, seat: 'FrontLeft', in: 0 },
+    {
+      document: {
+        format: 'zomboid-models/character',
+        version: 1,
+        body: { sex: 'female', zombie: { seed: 5 } },
+        outfit: { name: 'Nurse', seed: 5 },
+      },
+      position: [3.2, 0.5],
+      yaw: -20,
+    },
+    { document: INITIAL_ANIMAL, position: [-3.4, 0], yaw: 30 },
+  ],
+  ground: '#3a3b3f',
+};
+
 const CAMERA_PRESETS: Record<string, CameraOptions> = {
   full: {},
   head: { distance: 0.8, targetHeight: 0.86, fov: 22, yaw: 0, pitch: 4 },
@@ -104,6 +128,7 @@ export function App() {
   const [animal, setAnimal] = useState<AnimalDescription>(INITIAL_ANIMAL);
   const [item, setItem] = useState<ItemDescription>(INITIAL_ITEM);
   const [vehicle, setVehicle] = useState<VehicleDescription>(INITIAL_VEHICLE);
+  const [scene, setScene] = useState<SceneDescription>(INITIAL_SCENE);
   const [animation, setAnimation] = useState<string | null | undefined>(undefined);
   const [animationSpeed, setAnimationSpeed] = useState(1);
   const [preset, setPreset] = useState('full');
@@ -116,7 +141,9 @@ export function App() {
         ? item
         : subject === 'vehicle'
           ? vehicle
-          : character;
+          : subject === 'scene'
+            ? scene
+            : character;
   const clipNames = Object.keys(
     subject === 'animal'
       ? (animals?.animations ?? {})
@@ -142,6 +169,9 @@ export function App() {
       } else if (value.format === VEHICLE_FORMAT) {
         setVehicle(value);
         setSubject('vehicle');
+      } else if (value.format === SCENE_FORMAT) {
+        setScene(value);
+        setSubject('scene');
       } else {
         setCharacter(value);
         setSubject('character');
@@ -212,6 +242,7 @@ export function App() {
               <option value="vehicle" disabled={!vehicles}>
                 vehicle{vehicles ? '' : ' (no catalog)'}
               </option>
+              <option value="scene">scene</option>
             </select>
           </label>{' '}
           <label style={{ fontSize: 12 }}>
@@ -279,8 +310,8 @@ export function App() {
               animation={animation}
               animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
-              width={subject === 'vehicle' ? 640 : 420}
-              height={subject === 'vehicle' ? 420 : 600}
+              width={subject === 'vehicle' || subject === 'scene' ? 640 : 420}
+              height={subject === 'vehicle' || subject === 'scene' ? 420 : 600}
             />
             <CharacterView
               assetBaseUrl={assetBaseUrl}
@@ -289,8 +320,8 @@ export function App() {
               animation={animation}
               animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
-              width={subject === 'vehicle' ? 320 : 260}
-              height={subject === 'vehicle' ? 220 : 360}
+              width={subject === 'vehicle' || subject === 'scene' ? 320 : 260}
+              height={subject === 'vehicle' || subject === 'scene' ? 220 : 360}
             />
           </div>
         </div>
@@ -311,6 +342,15 @@ export function App() {
         {subject === 'vehicle' && vehicles && (
           <VehicleEditor catalog={vehicles} vehicle={vehicle} onChange={setVehicle} names={names} />
         )}
+        {subject === 'scene' && (
+          <SceneEditor
+            scene={scene}
+            onChange={setScene}
+            sources={{ character, animal, item, vehicle }}
+            vehicles={vehicles}
+            names={names}
+          />
+        )}
       </div>
       <details style={{ marginTop: 12, fontSize: 12 }}>
         <summary>document JSON</summary>
@@ -323,7 +363,7 @@ export function App() {
           style={{ width: '100%', fontFamily: 'monospace', fontSize: 11 }}
           value={jsonDraft}
           onChange={(e) => setJsonDraft(e.target.value)}
-          placeholder="Paste a character, animal, item, or vehicle document and press Apply"
+          placeholder="Paste a character, animal, item, vehicle, or scene document and press Apply"
         />
         <div>
           <button type="button" onClick={importJson}>

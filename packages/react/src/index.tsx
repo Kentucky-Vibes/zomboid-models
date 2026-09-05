@@ -11,7 +11,7 @@ export type {
   ViewerOptions,
 } from 'zomboid-models';
 
-export interface ZomboidCharacterProps extends ViewerOptions {
+export interface ZomboidViewProps extends ViewerOptions {
   className?: string;
   style?: CSSProperties;
   /** Receives the viewer once it is mounted, for `toImage()`, `play()`, and `pause()`. */
@@ -19,11 +19,11 @@ export interface ZomboidCharacterProps extends ViewerOptions {
 }
 
 /**
- * Shows one document: a character, an animal, an item, or a vehicle. The viewer is created when
- * the component mounts and rebuilt when the asset folder or mode changes; the document and the
- * animation update in place.
+ * Shows one document: a character, an animal, an item, a vehicle, or a scene. The viewer is
+ * created when the component mounts and rebuilt when the asset folder or mode changes; the
+ * document and the animation update in place.
  */
-export function ZomboidCharacter({ className, style, onReady, ...options }: ZomboidCharacterProps) {
+export function ZomboidView({ className, style, onReady, ...options }: ZomboidViewProps) {
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<Viewer | null>(null);
   const latest = useRef(options);
@@ -68,3 +68,7 @@ export function ZomboidCharacter({ className, style, onReady, ...options }: Zomb
     <div ref={host} className={className} style={{ width: '100%', height: '100%', ...style }} />
   );
 }
+
+/** The component under its first name; kept until 1.0. */
+export const ZomboidCharacter = ZomboidView;
+export type ZomboidCharacterProps = ZomboidViewProps;

@@ -31,6 +31,7 @@ const SCRIPTS = `module Base {
     forcedColor = 0.5 -1 -1,
     model { file = Vehicles_CarNormal, scale = 1.82, offset = 0.0 0.2692 0.0, }
     wheel FrontLeft { front = true, offset = 0.36 -0.3 0.85, radius = 0.15, width = 0.2, }
+    passenger FrontLeft { position inside { offset = 0.17 -0.13 0.08, } }
     part DoorFrontLeft { door { } model Default { file = CarDoor, } }
     part Windshield { window { openable = false, } }
     part TrunkDoor { hasLightsRear = true, }
@@ -88,6 +89,7 @@ describe('planVehicleAssets', () => {
       expect(car?.extents).toEqual([0.89, 0.65, 2.6]);
       expect(car?.forcedColor).toEqual({ hue: 0.5, saturation: -1, value: -1 });
       expect(car?.lightbar).toBe(true);
+      expect(car?.seats).toEqual({ FrontLeft: [0.17, -0.13, 0.08] });
       expect(car?.skins).toEqual([
         {
           texture: 'vehicles/vehicle_carnormalshell',

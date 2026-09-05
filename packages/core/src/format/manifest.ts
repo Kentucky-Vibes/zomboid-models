@@ -299,6 +299,8 @@ export interface CharacterCatalog {
   textures: Record<string, string>;
   animations: Record<string, ManifestAnimation>;
   idle: ManifestIdleClips;
+  /** The clip a character seated in a vehicle plays, from the `player-vehicle` animation set. */
+  vehicleIdle?: ManifestClip;
   /** Clips per stance for players and zombies. */
   stances: {
     player: Partial<Record<Stance, ManifestClip>>;
@@ -500,6 +502,8 @@ export interface ManifestVehicle {
   wheels: ManifestVehicleWheel[];
   parts: Record<string, ManifestVehiclePart>;
   lightbar?: true;
+  /** Seat positions inside the vehicle by passenger id, in script units, as the `inside` position offsets. */
+  seats?: Record<string, ScriptVector>;
   /** `forcedColor` from the script, as hue, saturation, and value from 0 to 1. */
   forcedColor?: { hue: number; saturation: number; value: number };
 }
