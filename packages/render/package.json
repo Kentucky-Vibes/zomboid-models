@@ -46,10 +46,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/kentucky-vibes/zomboid-models.git",
+    "url": "https://github.com/Kentucky-Vibes/zomboid-models.git",
     "directory": "packages/render"
   },
-  "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
-  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues",
+  "homepage": "https://github.com/Kentucky-Vibes/zomboid-models#readme",
+  "bugs": "https://github.com/Kentucky-Vibes/zomboid-models/issues",
   "sideEffects": false
 }

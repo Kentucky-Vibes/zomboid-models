@@ -2,7 +2,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "kentucky-vibes/zomboid-models"
+      "repo": "Kentucky-Vibes/zomboid-models"
     }
   ],
   "commit": false,
