@@ -25,7 +25,7 @@ viewer.dispose();
 Options:
 
 - `assetBaseUrl`: the folder that holds `manifest.json`.
-- `mode`: `viewer` (orbit controls, zoom) or `showcase` (no controls, transparent background by default, pauses when off screen and when the visitor prefers reduced motion).
+- `mode`: `viewer` (orbit controls, zoom), `showcase` (no controls, transparent background by default, pauses when off screen and when the visitor prefers reduced motion), or `image` (draws only when asked through `toImage()`, with the animation held at `poseTime`, 0 by default).
 - `document`: the document to show: a character, an animal, an item, a vehicle, or a scene (see [format.md](format.md)). `character` and `setCharacter()` mean the same and stay until 1.0.
 - `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the document's action, the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it. Items and vehicles have no clips; in a scene each subject carries its own `animation`.
 - `animationSpeed`: multiplies the playback speed; 1 by default. `setAnimationSpeed()` changes it in place.
@@ -128,4 +128,20 @@ The asset folder is static: put it behind any web server or CDN. File names othe
 
 ## Images instead of a live viewer
 
-`toImage()` returns a PNG data URL of the current frame at any size. For server-side rendering, run the page in headless Chromium (Playwright or Puppeteer) and call `toImage()` there; the packages do not render in Node.js on their own.
+`toImage()` returns a data URL of the current frame at any size, as PNG or, with `type: 'image/webp'`, as WebP. A viewer in `mode: 'image'` draws nothing on its own and holds the animation at `poseTime` (the first frame when absent), which is the mode for a page that only wants the picture.
+
+To make pictures without a page, `zomboid-models-render` runs the viewer in the Chromium that Playwright ships and saves PNG or WebP files from Node.js, from a folder of assets or from the URL they are hosted at:
+
+```bash
+npx zomboid-models-render --assets ./assets --out ./pictures --width 320 --height 480 players/*.json
+```
+
+```js
+import { Renderer } from 'zomboid-models-render';
+
+const renderer = await Renderer.launch({ assets: './assets' });
+const { image } = await renderer.render(document, { width: 320, height: 480, format: 'webp' });
+await renderer.close();
+```
+
+The pictures do not carry the wording The Indie Stone's terms require; show it next to them. See the package's README for the options.

@@ -96,7 +96,9 @@ After the first release the plan grew, in this order, each step a minor release:
 
 - 0.9: the `action` field for characters and animals. Done. The clips come from the game's animation sets through the same selection the game runs: the pipeline reads every node of a state with its `x_extends` parent merged in, evaluates the conditions (AND groups joined by OR, unset variables as false or empty, numeric tests) against the variables a healthy character has in that state, and keeps the most specific node that holds, with its 2D blend resolved at the character's point and its speed variable kept by name. The viewer holds the values of those variables (combat speed from the game's formula, idle speed 0.01, eat speed rolled) and the seeded gait of zombies. Actions loop even where the game plays them once (an attack, a bite), because a document is a snapshot and a still frame of a swing reads better than a swing that ends in a pose. The exporter mod records the player's action from the game's flags and animation variables.
 
-Planned next, in this order: 0.10 a package that renders documents to PNG and WebP without a browser on the page, and an image mode in the viewer.
+- 0.10: `zomboid-models-render`, a Node.js package and command line that renders documents to PNG and WebP files in the Chromium Playwright ships, and the viewer's `image` mode. Done. The package answers the viewer's asset requests itself, from a folder or from a remote base URL, through the browser's request routing, so that no HTTP server and no CORS setup are needed; the viewer's own `toImage()` makes the picture, so that a picture and a live view of the same document match. Software rendering is the default for the same pixels on every machine. The attribution wording is not drawn into the pictures, since a picture may be shown at any size; the page that shows them carries it.
+
+Planned next: publishing the packages from CI once the npm trusted publishing is set up, and an editor package if a site needs one. Hosting stays a recipe in the docs.
 
 Open after 0.5: models placed on attachment points and a vehicle example exported from a server.
 

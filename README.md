@@ -4,7 +4,7 @@ Renders Project Zomboid (Build 42) characters, animals, items, and vehicles in t
 
 The project has three parts. A three.js library draws the character from a JSON description. A command line pipeline converts the assets from your own copy of the game or of the dedicated server into files a browser can load. A playground lets you assemble a character and look at the result.
 
-Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, any item on the ground or in the hand, and every vehicle with its paint, rust, damage, blood, and lights through a port of the game's vehicle shader. Several subjects can share a scene, with survivors seated in their car. Display names come in every language the game ships. A reference mod exports players from the game with an index and the vehicle they sit in. See [docs/decisions.md](docs/decisions.md) for what is still open.
+Status: released on npm. The renderer draws players and zombies (bodies, clothing, hats, hair, held and attached items, blood, dirt, holes, patches, decals, wounds, bandages, outfits by name with the game's own randomiser), the thirty Build 42 animals with their breeds and body variants, any item on the ground or in the hand, and every vehicle with its paint, rust, damage, blood, and lights through a port of the game's vehicle shader. Several subjects can share a scene, with survivors seated in their car. Display names come in every language the game ships. Characters and animals can be shown walking, running, attacking, eating, sitting, or asleep, with the clips and speeds of the game's animation sets, and a Node.js package renders documents to PNG and WebP files. A reference mod exports players from the game with an index, the vehicle they sit in, and what they were doing. See [docs/decisions.md](docs/decisions.md) for what is still open.
 
 A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It ships without game assets, so paste the URL of a folder you built with the pipeline into its asset field.
 
@@ -22,6 +22,7 @@ A live playground runs at https://kentucky-vibes.github.io/zomboid-models/. It s
 | `zomboid-models-pipeline` | `packages/pipeline`            | The `zomboid-models` command line tool                           |
 | `zomboid-models-element`  | `packages/element`             | The `<zomboid-view>` Web Component, three.js bundled             |
 | `zomboid-models-react`    | `packages/react`               | A React component around the renderer                            |
+| `zomboid-models-render`   | `packages/render`              | Renders documents to PNG and WebP files from Node.js             |
 | playground                | `apps/playground`              | A Vite app for building and viewing characters (not published)   |
 | exporter mod              | `mods/zomboid-models-exporter` | A Project Zomboid mod that writes players as character documents |
 

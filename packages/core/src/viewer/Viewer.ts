@@ -36,7 +36,12 @@ import { VehicleRig } from '../vehicle/VehicleRig.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
 
-export type ViewerMode = 'viewer' | 'showcase';
+/**
+ * `viewer` orbits and zooms; `showcase` plays without controls and pauses off screen; `image`
+ * draws nothing on its own and exists to be asked for a picture through `toImage()`, with the
+ * animation held at `poseTime` (0 when absent).
+ */
+export type ViewerMode = 'viewer' | 'showcase' | 'image';
 
 export interface CameraOptions {
   /** Vertical field of view in degrees. */
@@ -111,6 +116,10 @@ export interface ViewerOptions {
 export interface SnapshotOptions {
   width?: number;
   height?: number;
+  /** `image/png` (the default) or `image/webp`. */
+  type?: 'image/png' | 'image/webp';
+  /** Compression quality from 0 to 1 for WebP. */
+  quality?: number;
 }
 
 const DEFAULT_CAMERA: Required<CameraOptions> = {
@@ -304,14 +313,26 @@ export class Viewer implements FrameListener {
     const aspect = this.camera.aspect;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
-    const url = this.shared.snapshot(this.scene, this.camera, width, height);
+    const url = this.shared.snapshot(
+      this.scene,
+      this.camera,
+      width,
+      height,
+      options.type,
+      options.quality,
+    );
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
     return url;
   }
 
+  /** The time the animation is held at: the option, or the first frame in image mode. */
+  private poseTime(): number | undefined {
+    return this.options.poseTime ?? (this.options.mode === 'image' ? 0 : undefined);
+  }
+
   onFrame(delta: number): void {
-    if (this.rig && this.playing && this.rig.animated && this.options.poseTime === undefined) {
+    if (this.rig && this.playing && this.rig.animated && this.poseTime() === undefined) {
       this.rig.update(delta);
       this.needsRender = true;
     }
@@ -458,7 +479,8 @@ export class Viewer implements FrameListener {
     if (generation !== this.generation) return;
     this.clip = clips[0]?.clip ?? null;
     rig.playClips(clips, { timeScale, startFraction });
-    if (this.options.poseTime !== undefined) rig.freezeAt(this.options.poseTime);
+    const poseTime = this.poseTime();
+    if (poseTime !== undefined) rig.freezeAt(poseTime);
     // Pose the skeleton once so the framing sees a lying or sitting body as it is, not the bind pose.
     rig.update(0);
     rig.updateMatrixWorld(true);
@@ -542,13 +564,15 @@ export class Viewer implements FrameListener {
 
   private readonly syncLoop = (): void => {
     if (this.disposed) return;
-    const showcase = (this.options.mode ?? 'viewer') === 'showcase';
-    const motionAllowed = !(showcase && this.reducedMotion.matches);
+    const mode = this.options.mode ?? 'viewer';
+    if (mode === 'image') {
+      // A picture is drawn when asked for; the page's loop has nothing to do.
+      getRenderLoop().remove(this);
+      return;
+    }
+    const motionAllowed = !(mode === 'showcase' && this.reducedMotion.matches);
     const animating =
-      this.playing &&
-      this.rig?.animated === true &&
-      this.options.poseTime === undefined &&
-      motionAllowed;
+      this.playing && this.rig?.animated === true && this.poseTime() === undefined && motionAllowed;
     const interactive = this.controls !== undefined;
     if (this.visible && (animating || interactive || this.needsRender)) {
       getRenderLoop().add(this);

@@ -51,12 +51,19 @@ export class SharedRenderer {
   }
 
   /** Renders `scene` at the given size and returns the pixels as a PNG data URL. */
-  snapshot(scene: Scene, camera: Camera, width: number, height: number): string {
+  snapshot(
+    scene: Scene,
+    camera: Camera,
+    width: number,
+    height: number,
+    type = 'image/png',
+    quality?: number,
+  ): string {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
     this.renderTo(canvas, scene, camera);
-    return canvas.toDataURL('image/png');
+    return canvas.toDataURL(type, quality);
   }
 
   acquire(): void {

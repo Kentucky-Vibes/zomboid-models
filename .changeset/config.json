@@ -1,9 +1,20 @@
 {
-  "changelog": ["@changesets/changelog-github", { "repo": "kentucky-vibes/zomboid-models" }],
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "kentucky-vibes/zomboid-models"
+    }
+  ],
   "commit": false,
   "fixed": [],
   "linked": [
-    ["zomboid-models", "zomboid-models-pipeline", "zomboid-models-element", "zomboid-models-react"]
+    [
+      "zomboid-models",
+      "zomboid-models-pipeline",
+      "zomboid-models-element",
+      "zomboid-models-react",
+      "zomboid-models-render"
+    ]
   ],
   "access": "public",
   "baseBranch": "main",

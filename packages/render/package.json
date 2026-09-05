@@ -1,0 +1,54 @@
+{
+  "name": "zomboid-models-render",
+  "version": "0.2.0",
+  "description": "Renders Project Zomboid character, animal, item, vehicle, and scene documents to PNG or WebP files from Node, without a browser on the page",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "zomboid-models-render": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "playwright": "1.63.0",
+    "zomboid-models": "0.2.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.185.4",
+    "three": "0.185.1"
+  },
+  "keywords": [
+    "project-zomboid",
+    "zomboid",
+    "render",
+    "png",
+    "webp",
+    "playwright",
+    "three"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kentucky-vibes/zomboid-models.git",
+    "directory": "packages/render"
+  },
+  "homepage": "https://github.com/kentucky-vibes/zomboid-models#readme",
+  "bugs": "https://github.com/kentucky-vibes/zomboid-models/issues"
+}
