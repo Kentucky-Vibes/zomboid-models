@@ -29,6 +29,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: Create version pull request or publish
+        id: changesets
         uses: changesets/action@v1
         with:
           publish: npm run release
@@ -38,3 +39,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
+      # changeset publish creates the tags but the action does not push them any more, so the
+      # tags and the GitHub releases (with the changelog sections as notes) are made here.
+      - if: steps.changesets.outputs.published == 'true'
+        run: git push --tags && node .github/scripts/github-releases.mjs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

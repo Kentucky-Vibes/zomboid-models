@@ -6,6 +6,21 @@ The project is a set of building blocks: a renderer, a pipeline that converts th
 
 A playground runs at https://kentucky-vibes.github.io/zomboid-models/ and the API reference at https://kentucky-vibes.github.io/zomboid-models/api/. The playground has no assets of its own: paste the URL of a folder you built with the pipeline into its asset field.
 
+<p align="center">
+  <img src="https://github.com/Kentucky-Vibes/zomboid-models/releases/download/zomboid-models%401.0.0/survivor.png" width="180" alt="A survivor in a varsity jacket and a police cap walking with a bloody axe">
+  <img src="https://github.com/Kentucky-Vibes/zomboid-models/releases/download/zomboid-models%401.0.0/zombie.png" width="180" alt="A zombie in nurse scrubs sprinting">
+  <img src="https://github.com/Kentucky-Vibes/zomboid-models/releases/download/zomboid-models%401.0.0/cow.png" width="180" alt="A Holstein cow grazing">
+</p>
+<p align="center">
+  <img src="https://github.com/Kentucky-Vibes/zomboid-models/releases/download/zomboid-models%401.0.0/police.png" width="320" alt="A police car with its light bar on, rust, and blood on the hood">
+  <img src="https://github.com/Kentucky-Vibes/zomboid-models/releases/download/zomboid-models%401.0.0/martin.png" width="320" alt="A car with its hood and front door open">
+</p>
+<p align="center">
+  <img src="https://github.com/Kentucky-Vibes/zomboid-models/releases/download/zomboid-models%401.0.0/scene.png" width="480" alt="A scene: a police car with an officer at the wheel, a walking zombie, and a cow">
+</p>
+
+The pictures are rendered from the game's assets with `zomboid-models-render` and shown under The Indie Stone's terms for non-commercial fan use; see the licensing section below. They are release attachments, not files of this repository.
+
 ## How it fits together
 
 1. Run `zomboid-models build` against a Project Zomboid install and any mod folders. It writes a folder of meshes, textures, animations, and catalogs.
