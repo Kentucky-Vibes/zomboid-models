@@ -487,6 +487,21 @@ export interface ManifestVehicleWheel {
   width: number;
 }
 
+/**
+ * One `anim` block of a vehicle part that names a clip: how the part opens and closes, and
+ * which end of the clip it holds when it is not moving.
+ */
+export interface ManifestVehicleAnim {
+  /** The clip's name in the part's model file, `Hood_closing` for example. */
+  anim: string;
+  /** Playback speed multiplier; 1 when the script gives none. */
+  rate?: number;
+  /** The clip plays backwards, so an `Open` anim can reuse the closing clip. */
+  reverse?: true;
+  /** The part holds the clip's first frame, in playback direction, instead of playing it. */
+  animate?: false;
+}
+
 /** One part of a vehicle script that matters for drawing, keyed by its id. */
 export interface ManifestVehiclePart {
   models: ManifestVehicleModel[];
@@ -497,6 +512,8 @@ export interface ManifestVehiclePart {
   window?: true;
   hasLightsRear?: true;
   category?: string;
+  /** The part's anims by name: `Open`, `Close`, `Opened`, and `Closed` for hinged parts. */
+  anims?: Record<string, ManifestVehicleAnim>;
 }
 
 /** One vehicle script, keyed by its full name (`Base.CarNormal`). */

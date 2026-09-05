@@ -8,15 +8,17 @@
  * right-handed one. Node transforms are baked into the vertices, so the GLB is a flat list of
  * named meshes, which is what the game's `mesh = file|MeshName` references select from.
  *
- * Skinned meshes (the three cars whose doors, hood, and trunk hang on bones) are baked too, in
- * their closed state: the game shows them closed by holding the last frame of the part's
- * `<part>_closing` clip, and the bind pose in the file has them open.
+ * Skinned meshes (the three cars whose doors, hood, and trunk hang on bones) keep their skins:
+ * the bones become nodes at rest in the closed state, the game's `<part>_closing` clips become
+ * glTF animations, and the mesh vertices are baked into the bind space so that the bones' inverse
+ * bind matrices apply as they are.
  */
 import {
   Box3,
   Matrix3,
-  Matrix4,
+  type Matrix4,
   Vector3,
+  type AnimationClip,
   type BufferGeometry,
   type Mesh,
   type Object3D,
@@ -28,8 +30,12 @@ import {
   GL_ARRAY_BUFFER,
   GL_ELEMENT_ARRAY_BUFFER,
   GltfBuilder,
+  type GltfAnimationChannel,
+  type GltfAnimationSampler,
+  type GltfNode,
   type GltfPrimitive,
 } from '../gltf/glb.js';
+import { decompose } from '../math/matrix.js';
 import type { MeshConversionResult } from './meshToGltf.js';
 
 /** The browser globals the FBX loader reaches for while parsing; images are never loaded. */
@@ -72,64 +78,36 @@ interface FlatMesh {
   uvs2: Float32Array | undefined;
   indices: Uint32Array;
   materialName: string;
+  /** Joint indices and weights, for skinned meshes. */
+  joints: Uint16Array | undefined;
+  weights: Float32Array | undefined;
 }
 
 /**
- * The transform of each vertex into world space: the node's world matrix, or, for a skinned
- * mesh, the weighted bone matrices the way the three.js skinning shader composes them.
+ * Bakes a transform into the geometry and flips V to glTF's top-left origin. Static meshes
+ * take their world matrix; skinned meshes take the bind matrix, so that the bones' inverse bind
+ * matrices, which are relative to the bind world, apply as they are.
  */
-function vertexMatrices(mesh: Mesh): (index: number, out: Matrix4) => Matrix4 {
-  const world = (_index: number, out: Matrix4): Matrix4 => out.copy(mesh.matrixWorld);
-  if (!isSkinnedMesh(mesh)) return world;
-  const skinIndex = mesh.geometry.getAttribute('skinIndex');
-  const skinWeight = mesh.geometry.getAttribute('skinWeight');
-  if (!skinIndex || !skinWeight) return world;
-  mesh.skeleton.update();
-  const boneMatrices = mesh.skeleton.boneMatrices;
-  if (!boneMatrices) return world;
-  const sum = new Float32Array(16);
-  return (index, out) => {
-    sum.fill(0);
-    let total = 0;
-    for (let j = 0; j < 4; j++) {
-      const weight = skinWeight.getComponent(index, j);
-      if (weight === 0) continue;
-      const bone = skinIndex.getComponent(index, j) * 16;
-      for (let k = 0; k < 16; k++) {
-        sum[k] = (sum[k] ?? 0) + weight * (boneMatrices[bone + k] ?? 0);
-      }
-      total += weight;
-    }
-    if (total === 0) return world(index, out);
-    out.fromArray(sum).multiplyScalar(1 / total);
-    out.premultiply(mesh.bindMatrixInverse).multiply(mesh.bindMatrix);
-    return out.premultiply(mesh.matrixWorld);
-  };
-}
-
-/** Bakes the vertex transforms into the geometry and flips V to glTF's top-left origin. */
 function flatten(mesh: Mesh, warnings: string[]): FlatMesh | undefined {
   const geometry = mesh.geometry;
   const positionsIn = attribute(geometry, 'position');
   if (!positionsIn) return undefined;
   const count = positionsIn.length / 3;
-  const matrixAt = vertexMatrices(mesh);
-  const matrix = new Matrix4();
-  const normalMatrix = new Matrix3();
+  const skinned = isSkinnedMesh(mesh);
+  const matrix = skinned ? mesh.bindMatrix : mesh.matrixWorld;
+  const normalMatrix = new Matrix3().getNormalMatrix(matrix);
   const positions = new Float32Array(count * 3);
   const normalsIn = attribute(geometry, 'normal');
   const normals =
     normalsIn && normalsIn.length === count * 3 ? new Float32Array(count * 3) : undefined;
   const point = new Vector3();
   for (let i = 0; i < count; i++) {
-    matrixAt(i, matrix);
     point.set(positionsIn[i * 3] ?? 0, positionsIn[i * 3 + 1] ?? 0, positionsIn[i * 3 + 2] ?? 0);
     point.applyMatrix4(matrix);
     positions[i * 3] = point.x;
     positions[i * 3 + 1] = point.y;
     positions[i * 3 + 2] = point.z;
     if (normals && normalsIn) {
-      normalMatrix.getNormalMatrix(matrix);
       point.set(normalsIn[i * 3] ?? 0, normalsIn[i * 3 + 1] ?? 0, normalsIn[i * 3 + 2] ?? 0);
       point.applyNormalMatrix(normalMatrix);
       normals[i * 3] = point.x;
@@ -153,12 +131,31 @@ function flatten(mesh: Mesh, warnings: string[]): FlatMesh | undefined {
   const indices = index
     ? Uint32Array.from(index.array as ArrayLike<number>)
     : Uint32Array.from({ length: count }, (_, i) => i);
-  // A mirrored node transform reverses the winding; keep front faces facing out.
-  if (mesh.matrixWorld.determinant() < 0) {
+  // A mirrored transform reverses the winding; keep front faces facing out.
+  if (matrix.determinant() < 0) {
     for (let i = 0; i + 2 < indices.length; i += 3) {
       const a = indices[i] as number;
       indices[i] = indices[i + 2] as number;
       indices[i + 2] = a;
+    }
+  }
+  let joints: Uint16Array | undefined;
+  let weights: Float32Array | undefined;
+  if (skinned) {
+    const skinIndex = geometry.getAttribute('skinIndex');
+    const skinWeight = geometry.getAttribute('skinWeight');
+    if (skinIndex && skinWeight && skinIndex.itemSize === 4 && skinWeight.itemSize === 4) {
+      joints = Uint16Array.from(skinIndex.array as ArrayLike<number>);
+      weights = new Float32Array(count * 4);
+      for (let i = 0; i < count; i++) {
+        let total = 0;
+        for (let j = 0; j < 4; j++) total += skinWeight.getComponent(i, j);
+        for (let j = 0; j < 4; j++) {
+          weights[i * 4 + j] = total > 0 ? skinWeight.getComponent(i, j) / total : j === 0 ? 1 : 0;
+        }
+      }
+    } else {
+      warnings.push(`${mesh.name}: skinned without four influences per vertex; written static`);
     }
   }
   const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
@@ -173,6 +170,8 @@ function flatten(mesh: Mesh, warnings: string[]): FlatMesh | undefined {
     uvs2,
     indices,
     materialName: material?.name ?? 'default',
+    joints,
+    weights,
   };
 }
 
@@ -227,7 +226,108 @@ export function parseFbx(data: Uint8Array): Object3D {
   return group;
 }
 
-/** Converts every mesh of an FBX file to one GLB of static meshes, hinged parts closed. */
+/** The clips a vehicle needs: the closing animation of each hinged part, by the game's name. */
+function partClips(group: Object3D): AnimationClip[] {
+  return group.animations.filter((clip) => /_closing$/i.test(clip.name));
+}
+
+/**
+ * Writes every node of the hierarchy that a skin or a clip refers to, with its rest transform,
+ * and returns the node index by object. Nodes are written whole subtrees from their roots so
+ * that a bone's parents carry their transforms.
+ */
+function addBoneNodes(
+  builder: GltfBuilder,
+  group: Object3D,
+  roots: Object3D[],
+): Map<Object3D, number> {
+  const ids = new Map<Object3D, number>();
+  const visit = (object: Object3D): number => {
+    const known = ids.get(object);
+    if (known !== undefined) return known;
+    const trs = decompose(object.matrix.toArray());
+    const node: GltfNode = {
+      name: object.name,
+      translation: trs.translation,
+      rotation: trs.rotation,
+      scale: trs.scale,
+    };
+    const id = builder.addNode(node);
+    ids.set(object, id);
+    for (const child of object.children) {
+      if (isMeshObject(child)) continue;
+      const childId = visit(child);
+      (node.children ??= []).push(childId);
+    }
+    return id;
+  };
+  for (const root of roots) {
+    let top = root;
+    while (top.parent && top.parent !== group) top = top.parent;
+    const id = visit(top);
+    if (top.parent === group && !ids.has(group)) builder.addSceneNode(id);
+  }
+  return ids;
+}
+
+/** The bone roots a skinned mesh's skeleton hangs from: the ancestors of its bones under the group. */
+function skeletonRoots(group: Object3D, meshes: SkinnedMesh[]): Object3D[] {
+  const roots = new Set<Object3D>();
+  for (const mesh of meshes) {
+    for (const bone of mesh.skeleton.bones) {
+      let top: Object3D = bone;
+      while (top.parent && top.parent !== group) top = top.parent;
+      roots.add(top);
+    }
+  }
+  return [...roots];
+}
+
+function addClips(
+  builder: GltfBuilder,
+  clips: AnimationClip[],
+  nodeOf: (name: string) => number | undefined,
+  warnings: string[],
+): number {
+  let written = 0;
+  for (const clip of clips) {
+    const samplers: GltfAnimationSampler[] = [];
+    const channels: GltfAnimationChannel[] = [];
+    for (const track of clip.tracks) {
+      const dot = track.name.lastIndexOf('.');
+      const node = nodeOf(track.name.slice(0, dot));
+      const property = track.name.slice(dot + 1);
+      const path =
+        property === 'position'
+          ? 'translation'
+          : property === 'quaternion'
+            ? 'rotation'
+            : property === 'scale'
+              ? 'scale'
+              : undefined;
+      if (node === undefined || path === undefined) continue;
+      const type = path === 'rotation' ? 'VEC4' : 'VEC3';
+      const input = builder.addAccessor(Float32Array.from(track.times), 'SCALAR', {
+        minMax: true,
+      });
+      const output = builder.addAccessor(Float32Array.from(track.values), type);
+      samplers.push({ input, output, interpolation: 'LINEAR' });
+      channels.push({ sampler: samplers.length - 1, target: { node, path } });
+    }
+    if (channels.length === 0) {
+      warnings.push(`clip "${clip.name}" targets no exported node; dropped`);
+      continue;
+    }
+    builder.addAnimation(clip.name, samplers, channels);
+    written++;
+  }
+  return written;
+}
+
+/**
+ * Converts every mesh of an FBX file to one GLB: static meshes baked, skinned meshes with their
+ * bones at rest in the closed state and the closing clips as animations.
+ */
 export function convertFbxFile(data: Uint8Array, generator?: string): MeshConversionResult {
   const warnings: string[] = [];
   const group = parseFbx(data);
@@ -236,6 +336,22 @@ export function convertFbxFile(data: Uint8Array, generator?: string): MeshConver
   const meshes: MeshConversionResult['meshes'] = [];
   const materials = new Map<string, number>();
   const bounds = new Box3();
+
+  const skinnedMeshes: SkinnedMesh[] = [];
+  group.traverse((object) => {
+    if (isSkinnedMesh(object)) skinnedMeshes.push(object);
+  });
+  const nodeIds =
+    skinnedMeshes.length > 0
+      ? addBoneNodes(builder, group, skeletonRoots(group, skinnedMeshes))
+      : new Map<Object3D, number>();
+  // A name can repeat down a chain of nodes (a bone, its pivot, its tip). The clips address
+  // nodes by name, and a player binds a name to the first node in traversal order, the way
+  // three.js did when it posed the file here; the channels must point at that same node.
+  const nodeByName = new Map<string, number>();
+  for (const [object, id] of nodeIds) {
+    if (!nodeByName.has(object.name)) nodeByName.set(object.name, id);
+  }
 
   group.traverse((object) => {
     if (!isMeshObject(object)) return;
@@ -272,6 +388,25 @@ export function convertFbxFile(data: Uint8Array, generator?: string): MeshConver
         target: GL_ARRAY_BUFFER,
       });
     }
+    let skinId: number | undefined;
+    if (flat.joints && flat.weights && isSkinnedMesh(object)) {
+      const joints = object.skeleton.bones.map((bone) => nodeIds.get(bone));
+      if (joints.every((id) => id !== undefined)) {
+        attributes['JOINTS_0'] = builder.addAccessor(flat.joints, 'VEC4', {
+          target: GL_ARRAY_BUFFER,
+        });
+        attributes['WEIGHTS_0'] = builder.addAccessor(flat.weights, 'VEC4', {
+          target: GL_ARRAY_BUFFER,
+        });
+        const inverseBind = new Float32Array(object.skeleton.bones.length * 16);
+        object.skeleton.boneInverses.forEach((matrix: Matrix4, i) => {
+          inverseBind.set(matrix.elements, i * 16);
+        });
+        skinId = builder.addSkin(joints, inverseBind, undefined, flat.name);
+      } else {
+        warnings.push(`${flat.name}: a bone is missing from the hierarchy; written static`);
+      }
+    }
     const vertexCount = flat.positions.length / 3;
     const indexData = vertexCount <= 0xffff ? Uint16Array.from(flat.indices) : flat.indices;
     const primitive: GltfPrimitive = {
@@ -280,16 +415,27 @@ export function convertFbxFile(data: Uint8Array, generator?: string): MeshConver
       material,
     };
     const meshId = builder.addMesh([primitive], flat.name);
-    builder.addSceneNode(builder.addNode({ name: flat.name, mesh: meshId }));
+    const node: GltfNode = { name: flat.name, mesh: meshId };
+    if (skinId !== undefined) node.skin = skinId;
+    builder.addSceneNode(builder.addNode(node));
     meshes.push({
       name: flat.name,
       vertices: vertexCount,
       triangles: flat.indices.length / 3,
-      skinned: false,
+      skinned: skinId !== undefined,
     });
     bounds.expandByObject(object);
   });
 
+  if (skinnedMeshes.length > 0) {
+    addClips(builder, partClips(group), (name) => nodeByName.get(name), warnings);
+  }
   if (meshes.length === 0) warnings.push('the FBX file has no meshes');
-  return { glb: builder.toGlb(), meshes, bones: [], textures: [], warnings };
+  return {
+    glb: builder.toGlb(),
+    meshes,
+    bones: [...nodeByName.keys()],
+    textures: [],
+    warnings,
+  };
 }

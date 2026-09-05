@@ -29,7 +29,13 @@ const TEMPLATES = `module Base {
     wheel FrontLeft { front = true, offset = 0.36 -0.3 0.85, radius = 0.15, width = 0.2, }
     wheel RearLeft { front = false, offset = 0.36 -0.3 -0.6, }
     extents = 0.89 0.65 2.6,
-    part DoorFrontLeft { door { } }
+    part DoorFrontLeft {
+      door { }
+      anim Close { anim = DoorFrontLeft_closing, rate = 2.5, }
+      anim Open { anim = DoorFrontLeft_closing, reverse = true, rate = 2.0, }
+      anim Closed { anim = DoorFrontLeft_closing, reverse = true, animate = false, }
+      anim Lock { sound = LockVehicleDoorStandard, }
+    }
     part TrunkDoor { hasLightsRear = true, }
   }
 }`;
@@ -165,6 +171,12 @@ describe('VehicleScriptLoader', () => {
         ignoreVehicleScale: false,
       },
     ]);
+    expect(door?.anims).toEqual({
+      Close: { anim: 'DoorFrontLeft_closing', rate: 2.5, reverse: false, animate: true },
+      Open: { anim: 'DoorFrontLeft_closing', rate: 2, reverse: true, animate: true },
+      Closed: { anim: 'DoorFrontLeft_closing', rate: 1, reverse: true, animate: false },
+      Lock: { anim: undefined, rate: 1, reverse: false, animate: true },
+    });
     expect(car?.parts.find((p) => p.id === 'TrunkDoor')?.hasLightsRear).toBe(true);
     expect(car?.lightbar).toBe(true);
     expect(car?.parts.some((p) => p.id === 'lightbar')).toBe(true);

@@ -28,7 +28,9 @@ import type { CharacterDescription } from '../format/types.js';
 import { VEHICLE_FORMAT, type VehicleDescription } from '../format/vehicle.js';
 import { buildItem } from '../item/ItemBuilder.js';
 import { buildScene } from '../scene/SceneBuilder.js';
+import { lightingLinear, resolveLighting, type LightingOption } from '../lighting/gameLight.js';
 import { buildVehicle } from '../vehicle/VehicleBuilder.js';
+import { scaledVehicleLighting, type VehicleLighting } from '../vehicle/VehicleMaterial.js';
 import { VehicleRig } from '../vehicle/VehicleRig.js';
 import { getRenderLoop, type FrameListener } from '../render/RenderLoop.js';
 import { acquireSharedRenderer, type SharedRenderer } from '../render/SharedRenderer.js';
@@ -86,6 +88,11 @@ export interface ViewerOptions {
   shadow?: boolean;
   /** Flashes a vehicle's light bar with the game's pattern; on by default. */
   animateLightbar?: boolean;
+  /**
+   * The light of a time of day, as the game computes it: a preset (`day`, `dusk`, `night`,
+   * or the neutral `studio`) or an hour with a season and a moon. Defaults to `day`.
+   */
+  lighting?: LightingOption;
   /** Freezes the animation at this time in seconds instead of playing it. */
   poseTime?: number;
   /** CSS colour, or `transparent`. */
@@ -152,6 +159,7 @@ export class Viewer implements FrameListener {
   readonly canvas: HTMLCanvasElement;
   readonly scene = new Scene();
   readonly camera = new PerspectiveCamera(30, 1, 0.01, 100);
+  private readonly vehicleLighting: VehicleLighting;
   private readonly cache: AssetCache;
   private readonly shared: SharedRenderer;
   private readonly controls: OrbitControls | undefined;
@@ -192,8 +200,11 @@ export class Viewer implements FrameListener {
     }
     host.append(this.element);
 
-    this.scene.add(new HemisphereLight(0xffffff, 0x666666, 1.6));
-    const key = new DirectionalLight(0xffffff, 1.2);
+    const lighting = resolveLighting(options.lighting);
+    this.vehicleLighting = scaledVehicleLighting(lighting.factor);
+    const light = new Color(...lightingLinear(lighting));
+    this.scene.add(new HemisphereLight(light, new Color(0x666666).multiply(light), 1.6));
+    const key = new DirectionalLight(light, 1.2);
     key.position.set(1, 2, 2);
     this.scene.add(key);
     this.applyBackground();
@@ -361,6 +372,7 @@ export class Viewer implements FrameListener {
                   cache: this.cache,
                   catalog: catalog as VehicleCatalog,
                   shadow: this.options.shadow ?? true,
+                  lighting: this.vehicleLighting,
                 },
                 document,
               )
@@ -370,6 +382,7 @@ export class Viewer implements FrameListener {
                     cache: this.cache,
                     composer: this.shared.composer,
                     shadow: this.options.shadow ?? true,
+                    lighting: this.vehicleLighting,
                   },
                   document,
                 )

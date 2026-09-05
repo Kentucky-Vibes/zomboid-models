@@ -82,7 +82,21 @@ const DOCUMENTS: Record<string, object> = {
     version: 1,
     vehicle: 'Base.ModernCar_Martin',
     paint: { hue: 0.58, saturation: 0.9, value: 0.7 },
-    parts: { DoorFrontLeft: { condition: 45 }, Windshield: { missing: true } },
+    parts: {
+      DoorFrontLeft: { condition: 45, open: true },
+      EngineDoor: { open: true },
+      Windshield: { missing: true },
+    },
+  },
+};
+
+/** Documents rendered under a time of day, by screenshot name. */
+const LIT: Record<string, { document: object; lighting: string | object }> = {
+  'police-night': { document: DOCUMENTS['police'] as object, lighting: 'night' },
+  'survivor-dusk': { document: DOCUMENTS['survivor'] as object, lighting: 'dusk' },
+  'cow-winter-morning': {
+    document: DOCUMENTS['cow'] as object,
+    lighting: { hour: 8, season: 'winter' },
   },
 };
 
@@ -94,6 +108,13 @@ for (const [name, document] of Object.entries(DOCUMENTS)) {
       .split('\n')
       .filter((line) => line.length > 0 && !line.includes('attachments are not drawn yet'));
     expect(unexpected, 'warnings while loading').toEqual([]);
+    await expect(page.locator('#viewer canvas')).toHaveScreenshot(`${name}.png`);
+  });
+}
+
+for (const [name, { document, lighting }] of Object.entries(LIT)) {
+  test(`${name} renders the same frame as before`, async ({ page }) => {
+    await openDocument(page, '/dev-assets/', document, undefined, lighting);
     await expect(page.locator('#viewer canvas')).toHaveScreenshot(`${name}.png`);
   });
 }

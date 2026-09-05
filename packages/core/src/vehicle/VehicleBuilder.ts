@@ -12,6 +12,7 @@ import {
   Vector3,
   type Mesh,
   type ShaderMaterial,
+  type SkinnedMesh,
   type Texture,
 } from 'three';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
@@ -311,6 +312,10 @@ function isMesh(object: Object3D): object is Mesh {
   return (object as Partial<Mesh>).isMesh === true;
 }
 
+function isSkinnedMesh(object: Object3D): object is SkinnedMesh {
+  return (object as Partial<SkinnedMesh>).isSkinnedMesh === true;
+}
+
 /** The meshes of a model file, or only the one the script names. */
 function selectMeshes(root: Object3D, meshName: string | undefined): Mesh[] {
   const meshes: Mesh[] = [];
@@ -420,12 +425,31 @@ export async function buildVehicle(
       rig.partHolders.set(item.part, [...(rig.partHolders.get(item.part) ?? []), holder]);
     }
     for (const mesh of meshes) {
-      const local = mesh.matrixWorld.clone();
-      mesh.removeFromParent();
-      holder.add(mesh);
-      local.decompose(mesh.position, mesh.quaternion, mesh.scale);
       mesh.material = material;
       mesh.frustumCulled = false;
+    }
+    if (meshes.some(isSkinnedMesh)) {
+      // A mesh on bones needs the whole file's hierarchy; the other meshes of the file stay hidden.
+      scene.traverse((object) => {
+        if (isMesh(object)) object.visible = meshes.includes(object);
+      });
+      holder.add(scene);
+      const anims = item.part === undefined ? undefined : look.vehicle.parts[item.part]?.anims;
+      if (item.part !== undefined && anims !== undefined) {
+        for (const clip of rig.addPartMotion(item.part, scene, gltf.animations, anims)) {
+          rig.warnings.push({
+            code: 'missing-animation',
+            message: `part "${item.part}": model "${item.model.model}" has no clip "${clip}"`,
+          });
+        }
+      }
+    } else {
+      for (const mesh of meshes) {
+        const local = mesh.matrixWorld.clone();
+        mesh.removeFromParent();
+        holder.add(mesh);
+        local.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      }
     }
     group.add(holder);
   }

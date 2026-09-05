@@ -30,6 +30,9 @@ Options:
 - `animation`: a clip name from the catalog, `null` for the bind pose, or omitted for the clip the game would play: the idle for the held item, the stance's clip, or the zombie idle, at the speed the game's animation sets give it. Items and vehicles have no clips; in a scene each subject carries its own `animation`.
 - `animationSpeed`: multiplies the playback speed; 1 by default. `setAnimationSpeed()` changes it in place.
 - `poseTime`: freezes the clip at that time in seconds instead of playing it.
+- `shadow`: draws the game's blob shadows under characters, animals, and vehicles; on by default.
+- `animateLightbar`: flashes a vehicle's light bar with the pattern of its `lightbarMode`; on by default. Off, the bar holds the side the document records.
+- `lighting`: the light of a time of day. A preset, `day` (the default), `dusk`, `night`, or `studio` (neutral white), or an object `{ hour, season, moon }` with the hour from 0 to 24, the season (`summer` by default), and how full the moon is from 0 to 1. The colour and the strength come from the game's climate tables and its dawn and dusk hours at the map's latitude, relative to a clear summer afternoon, which is the viewer's plain daylight; nights are as dark as in the game.
 - `background`: a CSS colour or `transparent`.
 - `autoRotate`, `maxPixelRatio`, `camera` (`fov`, `distance` as a multiple of the character's height, `yaw` and `pitch` in degrees, `targetHeight` as a fraction of the height).
 - `attribution`: shows the wording The Indie Stone's terms require. It defaults to true; if you hide it, place the wording elsewhere on the page.
@@ -48,7 +51,7 @@ Every viewer on a page shares one WebGL context, so a list of twenty characters 
 <zomboid-view asset-base-url="/assets/" src="/characters/42.json" mode="showcase"></zomboid-view>
 ```
 
-`<zomboid-view>` is the element's name; `<zomboid-character>`, its first name, works the same and stays until 1.0. The element bundles three.js. Attributes map to the options above (`asset-base-url`, `mode`, `animation`, `animation-speed`, `pose-time`, `background`, `auto-rotate`, `attribution`, `camera` as JSON), `src` loads a document of any kind by URL, and the `document` property (or `character`, its alias) takes an object. It dispatches `ready`, `warning`, and `error` events and has `toImage()`, `play()`, and `pause()` methods. Give it a size with CSS.
+`<zomboid-view>` is the element's name; `<zomboid-character>`, its first name, works the same and stays until 1.0. The element bundles three.js. Attributes map to the options above (`asset-base-url`, `mode`, `animation`, `animation-speed`, `pose-time`, `background`, `auto-rotate`, `attribution`, `camera` as JSON, `lighting` as a preset name or JSON), `src` loads a document of any kind by URL, and the `document` property (or `character`, its alias) takes an object. It dispatches `ready`, `warning`, and `error` events and has `toImage()`, `play()`, and `pause()` methods. Give it a size with CSS.
 
 ## React
 

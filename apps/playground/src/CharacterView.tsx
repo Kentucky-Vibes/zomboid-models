@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CameraOptions, ViewerDocument, ViewerMode } from 'zomboid-models';
+import type { CameraOptions, LightingOption, ViewerDocument, ViewerMode } from 'zomboid-models';
 import { ZomboidCharacter } from 'zomboid-models-react';
 
 export interface CharacterViewProps {
@@ -10,6 +10,7 @@ export interface CharacterViewProps {
   animation: string | null | undefined;
   animationSpeed?: number;
   camera?: CameraOptions;
+  lighting?: LightingOption;
   width: number;
   height: number;
 }
@@ -22,6 +23,7 @@ export function CharacterView({
   animation,
   animationSpeed,
   camera,
+  lighting,
   width,
   height,
 }: CharacterViewProps) {
@@ -36,6 +38,7 @@ export function CharacterView({
         {...(animation === undefined ? {} : { animation })}
         {...(animationSpeed === undefined ? {} : { animationSpeed })}
         {...(camera ? { camera } : {})}
+        {...(lighting === undefined ? {} : { lighting })}
         background={mode === 'viewer' ? '#4a4c50' : 'transparent'}
         style={{ width, height, background: '#3a3c40' }}
         onWarning={(warning) => setMessages((m) => [...m, `${warning.code}: ${warning.message}`])}

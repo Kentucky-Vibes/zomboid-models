@@ -57,3 +57,16 @@ for (const [name, document] of Object.entries(DOCUMENTS)) {
     await expect(page.locator('#viewer canvas')).toHaveScreenshot(`${name}.png`);
   });
 }
+
+for (const lighting of ['dusk', 'night', 'studio']) {
+  test(`${lighting} lighting renders the same frame as before`, async ({ page }) => {
+    await openDocument(
+      page,
+      '/visual-assets/',
+      DOCUMENTS['character'] as object,
+      undefined,
+      lighting,
+    );
+    await expect(page.locator('#viewer canvas')).toHaveScreenshot(`character-${lighting}.png`);
+  });
+}

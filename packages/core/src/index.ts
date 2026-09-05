@@ -25,7 +25,24 @@ export type { PlacedVehicleModel, VehicleLook } from './vehicle/VehicleBuilder.j
 export { vehicleShaderState } from './vehicle/VehicleState.js';
 export type { VehicleShaderState } from './vehicle/VehicleState.js';
 export { ZONE, ZONE_COLORS, zoneOfIndex1, zoneOfIndex2 } from './vehicle/zones.js';
-export { defaultVehicleLighting } from './vehicle/VehicleMaterial.js';
+export { defaultVehicleLighting, scaledVehicleLighting } from './vehicle/VehicleMaterial.js';
+export {
+  LIGHTING_PRESETS,
+  climateAt,
+  dayHours,
+  lightingLinear,
+  resolveLighting,
+  squareLight,
+} from './lighting/gameLight.js';
+export type {
+  Climate,
+  DayHours,
+  LightingOption,
+  LightingPreset,
+  LightingTime,
+  SceneLighting,
+  Season,
+} from './lighting/gameLight.js';
 export { GAME_MODEL_SCALE } from './character/scale.js';
 export { characterShadowParams } from './character/shadow.js';
 export type { ShadowParams } from './character/shadow.js';

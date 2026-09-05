@@ -16,6 +16,7 @@ import { VEHICLE_FORMAT } from '../format/vehicle.js';
 import { buildItem } from '../item/ItemBuilder.js';
 import type { TextureComposer } from '../texture/TextureComposer.js';
 import { buildVehicle } from '../vehicle/VehicleBuilder.js';
+import type { VehicleLighting } from '../vehicle/VehicleMaterial.js';
 
 /**
  * The game draws character, animal, and item models 1.5 times their file units in the world
@@ -33,6 +34,8 @@ export interface SceneBuildContext {
   composer?: TextureComposer;
   /** Draws the game's shadows under the subjects; on by default. */
   shadow?: boolean;
+  /** The light on the vehicles; the viewer's daylight by default. */
+  lighting?: VehicleLighting;
 }
 
 export interface BuiltScene {
@@ -69,7 +72,15 @@ async function buildOne(
   let vehicle: ManifestVehicle | undefined;
   if (document.format === VEHICLE_FORMAT) {
     const catalog = await cache.loadVehicleCatalog();
-    const built = await buildVehicle({ cache, catalog, shadow: context.shadow ?? true }, document);
+    const built = await buildVehicle(
+      {
+        cache,
+        catalog,
+        shadow: context.shadow ?? true,
+        ...(context.lighting ? { lighting: context.lighting } : {}),
+      },
+      document,
+    );
     rig = built.rig;
     facing = Math.PI;
     vehicle = catalog.vehicles[document.vehicle];

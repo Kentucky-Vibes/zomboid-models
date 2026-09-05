@@ -59,6 +59,14 @@ export interface VehicleScriptPassenger {
   inside: Vec3 | undefined;
 }
 
+/** One `anim` block of a part: a clip and how to play it; sound-only anims keep `anim` undefined. */
+export interface VehicleScriptAnim {
+  anim: string | undefined;
+  rate: number;
+  reverse: boolean;
+  animate: boolean;
+}
+
 export interface VehicleScriptPart {
   id: string;
   parent: string | undefined;
@@ -69,6 +77,7 @@ export interface VehicleScriptPart {
   door: boolean;
   window: boolean;
   hasLightsRear: boolean;
+  anims: Record<string, VehicleScriptAnim>;
 }
 
 export interface VehicleScript {
@@ -145,7 +154,9 @@ function copyModel(model: VehicleScriptModel): VehicleScriptModel {
 }
 
 function copyPart(part: VehicleScriptPart): VehicleScriptPart {
-  return { ...part, models: part.models.map(copyModel) };
+  const anims: Record<string, VehicleScriptAnim> = {};
+  for (const [name, anim] of Object.entries(part.anims)) anims[name] = { ...anim };
+  return { ...part, models: part.models.map(copyModel), anims };
 }
 
 /** `VehicleScript.globMatch`: `*` matches anything, the rest is literal, whole id only. */
@@ -363,6 +374,7 @@ function emptyPart(id: string): VehicleScriptPart {
     door: false,
     window: false,
     hasLightsRear: false,
+    anims: {},
   };
 }
 
@@ -443,6 +455,31 @@ function loadPart(script: VehicleScript, block: ScriptBlock): void {
     if (child.type === 'model') loadModel(child, part.models);
     else if (child.type === 'door') part.door = true;
     else if (child.type === 'window') part.window = true;
+    else if (child.type === 'anim') loadAnim(child, part.anims);
+  }
+}
+
+/** `VehicleScript.LoadAnim`: the clip, its rate, and whether it plays backwards or holds still. */
+function loadAnim(block: ScriptBlock, anims: Record<string, VehicleScriptAnim>): void {
+  const anim = anims[block.name] ?? { anim: undefined, rate: 1, reverse: false, animate: true };
+  anims[block.name] = anim;
+  for (const entry of block.entries) {
+    switch (entry.key) {
+      case 'anim':
+        anim.anim = nonEmpty(entry.value);
+        break;
+      case 'rate':
+        anim.rate = number(entry.value, anim.rate);
+        break;
+      case 'reverse':
+        anim.reverse = entry.value.trim().toLowerCase() === 'true';
+        break;
+      case 'animate':
+        anim.animate = entry.value.trim().toLowerCase() !== 'false';
+        break;
+      default:
+        break;
+    }
   }
 }
 

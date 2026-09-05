@@ -13,6 +13,9 @@ import {
   type SceneDescription,
   type VehicleDescription,
   type ViewerDocument,
+  type LightingOption,
+  type LightingPreset,
+  type Season,
 } from 'zomboid-models';
 
 import { AnimalEditor } from './AnimalEditor.js';
@@ -121,6 +124,10 @@ export function App() {
   const { manifest, animals, items, vehicles, index, error } = useManifest(assetBaseUrl);
   const languages = Object.keys(index?.names ?? {});
   const [language, setLanguage] = useState<string | undefined>(undefined);
+  const [lightingPreset, setLightingPreset] = useState<LightingPreset | 'hour'>('day');
+  const [hour, setHour] = useState(12);
+  const [season, setSeason] = useState<Season>('summer');
+  const lighting: LightingOption = lightingPreset === 'hour' ? { hour, season } : lightingPreset;
   const activeLanguage = language ?? languages[0];
   const names = useNames(assetBaseUrl, activeLanguage);
   const [subject, setSubject] = useState<Subject>('character');
@@ -278,6 +285,39 @@ export function App() {
               ))}
             </select>
           </label>{' '}
+          <label style={{ fontSize: 12 }}>
+            Light:{' '}
+            <select
+              value={lightingPreset}
+              onChange={(e) => setLightingPreset(e.target.value as LightingPreset | 'hour')}
+            >
+              {['day', 'dusk', 'night', 'studio', 'hour'].map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>{' '}
+          {lightingPreset === 'hour' && (
+            <label style={{ fontSize: 12 }}>
+              <input
+                type="range"
+                min={0}
+                max={24}
+                step={0.5}
+                value={hour}
+                onChange={(e) => setHour(Number(e.target.value))}
+              />{' '}
+              {hour.toFixed(1)}h{' '}
+              <select value={season} onChange={(e) => setSeason(e.target.value as Season)}>
+                {['summer', 'autumn', 'winter', 'spring'].map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}{' '}
           {languages.length > 0 && (
             <label style={{ fontSize: 12 }}>
               Names:{' '}
@@ -310,6 +350,7 @@ export function App() {
               animation={animation}
               animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
+              lighting={lighting}
               width={subject === 'vehicle' || subject === 'scene' ? 640 : 420}
               height={subject === 'vehicle' || subject === 'scene' ? 420 : 600}
             />
@@ -320,6 +361,7 @@ export function App() {
               animation={animation}
               animationSpeed={animationSpeed}
               camera={CAMERA_PRESETS[preset] ?? {}}
+              lighting={lighting}
               width={subject === 'vehicle' || subject === 'scene' ? 320 : 260}
               height={subject === 'vehicle' || subject === 'scene' ? 220 : 360}
             />

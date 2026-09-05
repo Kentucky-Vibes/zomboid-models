@@ -2,6 +2,7 @@ import {
   createViewer,
   validateDescription,
   type CameraOptions,
+  type LightingOption,
   type CharacterDescription,
   type RigWarning,
   type Viewer,
@@ -23,6 +24,7 @@ const OBSERVED = [
   'attribution',
   'pose-time',
   'camera',
+  'lighting',
 ] as const;
 
 /**
@@ -169,6 +171,18 @@ export class ZomboidViewElement extends HTMLElement {
       } catch {
         this.dispatchEvent(
           new CustomEvent('error', { detail: new Error('camera is not valid JSON') }),
+        );
+      }
+    }
+    const lighting = this.getAttribute('lighting');
+    if (lighting) {
+      try {
+        options.lighting = lighting.startsWith('{')
+          ? (JSON.parse(lighting) as LightingOption)
+          : (lighting as LightingOption);
+      } catch {
+        this.dispatchEvent(
+          new CustomEvent('error', { detail: new Error('lighting is not valid JSON') }),
         );
       }
     }

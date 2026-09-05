@@ -31,6 +31,7 @@ export function ZomboidView({ className, style, onReady, ...options }: ZomboidVi
 
   const { assetBaseUrl, mode, background, autoRotate, attribution, maxPixelRatio } = options;
   const cameraKey = JSON.stringify(options.camera ?? null);
+  const lightingKey = JSON.stringify(options.lighting ?? null);
 
   useEffect(() => {
     if (!host.current) return;
@@ -43,7 +44,17 @@ export function ZomboidView({ className, style, onReady, ...options }: ZomboidVi
     };
     // The viewer is rebuilt only for the options that cannot change in place; the rest is read
     // from `latest` at mount time and applied through the update effects below.
-  }, [assetBaseUrl, mode, background, autoRotate, attribution, maxPixelRatio, cameraKey, onReady]);
+  }, [
+    assetBaseUrl,
+    mode,
+    background,
+    autoRotate,
+    attribution,
+    maxPixelRatio,
+    cameraKey,
+    lightingKey,
+    onReady,
+  ]);
 
   const document = options.document ?? options.character;
   useEffect(() => {

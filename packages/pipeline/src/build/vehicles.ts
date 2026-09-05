@@ -1,6 +1,7 @@
 import type {
   ManifestVehicle,
   ManifestVehicleModel,
+  ManifestVehicleAnim,
   ManifestVehiclePart,
   ManifestVehicleSkin,
   VehicleCatalog,
@@ -147,6 +148,8 @@ export function planVehicleAssets(catalog: GameCatalog): VehiclePlan {
       if (part.window) entry.window = true;
       if (part.hasLightsRear) entry.hasLightsRear = true;
       if (part.category !== undefined) entry.category = part.category;
+      const anims = animEntries(part.anims);
+      if (anims) entry.anims = anims;
       parts[part.id] = entry;
     }
     const vehicle: ManifestVehicle = {
@@ -200,4 +203,28 @@ export function assembleVehicleCatalog(
     vehicles: plan.vehicles,
     ...(textures.has(VEHICLE_SHADOW_TEXTURE) ? { shadowTexture: VEHICLE_SHADOW_TEXTURE } : {}),
   };
+}
+
+/**
+ * The part's anims that name a clip, as the catalog stores them. Sound-only anims are dropped,
+ * and so are the `Actor*` ones, which are the character's own animations.
+ */
+function animEntries(
+  anims: Record<
+    string,
+    { anim: string | undefined; rate: number; reverse: boolean; animate: boolean }
+  >,
+): Record<string, ManifestVehicleAnim> | undefined {
+  const entries: Record<string, ManifestVehicleAnim> = {};
+  let any = false;
+  for (const [name, anim] of Object.entries(anims)) {
+    if (anim.anim === undefined || name.startsWith('Actor')) continue;
+    const entry: ManifestVehicleAnim = { anim: anim.anim };
+    if (anim.rate !== 1) entry.rate = anim.rate;
+    if (anim.reverse) entry.reverse = true;
+    if (!anim.animate) entry.animate = false;
+    entries[name] = entry;
+    any = true;
+  }
+  return any ? entries : undefined;
 }

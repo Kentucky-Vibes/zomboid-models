@@ -365,6 +365,8 @@ export class CharacterRig extends Group {
     const point = new Vector3();
     this.traverseVisible((object) => {
       if (!isMesh(object) || object.userData['excludeFromBounds'] === true) return;
+      // The renderer refreshes bone matrices when it draws; before the first frame they are stale.
+      if (isSkinnedMesh(object)) object.skeleton.update();
       const position = object.geometry.getAttribute('position');
       for (let i = 0; i < position.count; i++) {
         object.getVertexPosition(i, point);

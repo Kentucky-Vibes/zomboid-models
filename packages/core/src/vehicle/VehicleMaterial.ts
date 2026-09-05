@@ -61,7 +61,9 @@ uniform vec3 Light0Direction;
 uniform vec3 Light0Colour;
 `;
 
+/** The game's vertex stage, plus three.js skinning for the hinged parts that hang on bones. */
 const VEHICLE_VERTEX = `
+#include <skinning_pars_vertex>
 attribute vec2 uv1;
 varying vec3 vertNormal;
 varying vec2 texCoords;
@@ -70,8 +72,13 @@ varying vec3 positionEye;
 void main() {
   texCoords = uv;
   texCoords1 = uv1;
-  vertNormal = normalize(normalMatrix * normal);
-  vec4 eye = modelViewMatrix * vec4(position, 1.0);
+  vec3 objectNormal = vec3(normal);
+  vec3 transformed = vec3(position);
+  #include <skinbase_vertex>
+  #include <skinnormal_vertex>
+  #include <skinning_vertex>
+  vertNormal = normalize(normalMatrix * objectNormal);
+  vec4 eye = modelViewMatrix * vec4(transformed, 1.0);
   positionEye = eye.xyz;
   gl_Position = projectionMatrix * eye;
 }
@@ -243,6 +250,14 @@ export interface VehicleLighting {
   lightDirection: Vector3;
   lightColor: Vector3;
   tint: Vector3;
+}
+
+/** The daylight scaled per channel, for a time of day; see `resolveLighting`. */
+export function scaledVehicleLighting(factor: [number, number, number]): VehicleLighting {
+  const lighting = defaultVehicleLighting();
+  lighting.ambient.multiply(new Vector3(...factor));
+  lighting.lightColor.multiply(new Vector3(...factor));
+  return lighting;
 }
 
 /** Daylight as the game shows it: mostly ambient, with one soft light above the camera. */

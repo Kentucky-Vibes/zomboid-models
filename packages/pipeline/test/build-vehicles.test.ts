@@ -56,7 +56,13 @@ describe('runBuild with the vehicles subject', () => {
           extents = 0.89 0.65 2.6,
           model { file = Vehicles_CarNormal, scale = 1.82, offset = 0.0 0.2692 0.0, }
           wheel FrontLeft { front = true, offset = 0.36 -0.3 0.85, radius = 0.15, width = 0.2, }
-          part DoorFrontLeft { door { } }
+          part DoorFrontLeft {
+            door { }
+            anim Open { anim = DoorFrontLeft_closing, reverse = true, rate = 2.0, }
+            anim Opened { anim = DoorFrontLeft_closing, animate = false, }
+            anim ActorOpen { anim = Attack_Shove, rate = 0.3, }
+            anim Lock { sound = LockVehicleDoorStandard, }
+          }
         }
       }`,
     );
@@ -118,6 +124,10 @@ describe('runBuild with the vehicles subject', () => {
       },
     ]);
     expect(car?.parts['TireFrontLeft']?.models[0]?.model).toBe('vehicles_wheel');
+    expect(car?.parts['DoorFrontLeft']?.anims).toEqual({
+      Open: { anim: 'DoorFrontLeft_closing', reverse: true, rate: 2 },
+      Opened: { anim: 'DoorFrontLeft_closing', animate: false },
+    });
     expect(report.warnings).toContain(
       'texture "vehicles/veh_rust" has no file under media/textures',
     );

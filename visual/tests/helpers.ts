@@ -6,9 +6,12 @@ export async function openDocument(
   assets: string,
   document: object,
   camera?: object,
+  lighting?: string | object,
 ): Promise<string> {
   const params = new URLSearchParams({ assets, doc: JSON.stringify(document) });
   if (camera) params.set('camera', JSON.stringify(camera));
+  if (lighting)
+    params.set('lighting', typeof lighting === 'string' ? lighting : JSON.stringify(lighting));
   await page.goto(`/visual.html?${params.toString()}`);
   const status = page.locator('#status');
   await expect(status).toHaveAttribute('data-ready', 'true');

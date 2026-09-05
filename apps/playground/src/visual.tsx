@@ -1,10 +1,16 @@
 /**
  * One viewer, one document, one frame: the page the screenshot tests open. Query parameters:
  * `assets` (asset folder URL, `/dev-assets/` by default), `doc` (a document as JSON), and
- * `camera` (camera options as JSON). The `#status` element gets `data-ready` once the frame is
+ * `camera` (camera options as JSON), and `lighting` (a preset name or a JSON object). The
+ * `#status` element gets `data-ready` once the frame is
  * drawn and `data-error` when loading failed; its text lists the warnings.
  */
-import { createViewer, validateDescription, type CameraOptions } from 'zomboid-models';
+import {
+  createViewer,
+  validateDescription,
+  type CameraOptions,
+  type LightingOption,
+} from 'zomboid-models';
 
 const params = new URLSearchParams(window.location.search);
 const host = document.getElementById('viewer');
@@ -23,6 +29,12 @@ async function main(): Promise<void> {
   if (!result.ok) throw new Error(result.errors.join('; '));
   const cameraParam = params.get('camera');
   const camera = cameraParam ? (JSON.parse(cameraParam) as CameraOptions) : undefined;
+  const lightingParam = params.get('lighting');
+  const lighting: LightingOption | undefined = !lightingParam
+    ? undefined
+    : lightingParam.startsWith('{')
+      ? (JSON.parse(lightingParam) as LightingOption)
+      : (lightingParam as LightingOption);
   const warnings: string[] = [];
   let failure: string | undefined;
   const viewer = createViewer(host as HTMLElement, {
@@ -34,6 +46,7 @@ async function main(): Promise<void> {
     attribution: false,
     maxPixelRatio: 1,
     ...(camera ? { camera } : {}),
+    ...(lighting ? { lighting } : {}),
     onWarning: (warning) => warnings.push(`${warning.code}: ${warning.message}`),
     onError: (error) => {
       failure = error.message;
