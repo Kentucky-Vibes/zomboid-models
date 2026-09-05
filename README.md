@@ -22,7 +22,7 @@ createViewer(document.querySelector('#hero'), {
     format: 'zomboid-models/character',
     version: 1,
     body: { sex: 'female', hair: 'Bob' },
-    worn: [{ item: 'Base.Jacket_Padded' }, { item: 'Base.Trousers_Denim' }],
+    worn: [{ item: 'Base.Jacket_Varsity' }, { item: 'Base.Trousers_Denim' }],
     held: { primary: { item: 'Base.Axe' } },
     action: 'walk',
   },
