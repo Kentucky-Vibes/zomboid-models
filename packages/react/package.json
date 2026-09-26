@@ -27,9 +27,9 @@
     "zomboid-models": "1.0.0"
   },
   "devDependencies": {
-    "@types/react": "19.2.18",
+    "@types/react": "19.3.0",
     "@types/three": "0.185.4",
-    "react": "19.2.8",
+    "react": "19.3.0",
     "three": "0.185.1",
     "zomboid-models": "1.0.0"
   },
