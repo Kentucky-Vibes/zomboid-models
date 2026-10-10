@@ -28,7 +28,7 @@
     "node": ">=22.12"
   },
   "dependencies": {
-    "fast-xml-parser": "5.11.1",
+    "fast-xml-parser": "5.11.2",
     "fengari": "0.1.5",
     "three": "0.185.0",
     "zomboid-models": "1.0.0"

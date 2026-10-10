@@ -28,7 +28,7 @@
     "node": ">=22.12"
   },
   "dependencies": {
-    "playwright": "1.63.0",
+    "playwright": "1.64.0",
     "zomboid-models": "1.0.0"
   },
   "devDependencies": {
